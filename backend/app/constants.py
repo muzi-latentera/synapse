@@ -29,6 +29,7 @@ MAX_CHECKPOINTS_PER_SANDBOX: Final[int] = 20
 CHECKPOINT_BASE_DIR: Final[str] = "/home/user/.checkpoints"
 PTY_OUTPUT_QUEUE_SIZE: Final[int] = 512
 PTY_INPUT_QUEUE_SIZE: Final[int] = 1024
+PTY_SESSION_TTL_SECONDS: Final[int] = 300
 
 DOCKER_AVAILABLE_PORTS: Final[list[int]] = [
     3000,

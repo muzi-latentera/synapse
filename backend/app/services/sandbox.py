@@ -5,6 +5,7 @@ import json
 import logging
 import secrets
 import shlex
+import time
 import uuid
 import zipfile
 from pathlib import Path
@@ -17,6 +18,7 @@ from app.constants import (
     ANTHROPIC_BRIDGE_HOST,
     ANTHROPIC_BRIDGE_PORT,
     PTY_OUTPUT_QUEUE_SIZE,
+    PTY_SESSION_TTL_SECONDS,
     SANDBOX_CLAUDE_DIR,
     SANDBOX_CLAUDE_JSON_PATH,
     SANDBOX_GIT_ASKPASS_PATH,
@@ -65,6 +67,8 @@ OPENVSCODE_DEFAULT_SETTINGS: dict[str, object] = {
 
 
 class SandboxService:
+    _active_pty_sessions: dict[str, dict[str, Any]] = {}
+
     def __init__(
         self,
         provider: SandboxProvider,
@@ -72,7 +76,6 @@ class SandboxService:
     ) -> None:
         self.provider = provider
         self.session_factory = session_factory
-        self._active_pty_sessions: dict[str, dict[str, Any]] = {}
         self._ide_tokens: dict[str, str] = {}
 
     @staticmethod
@@ -280,6 +283,7 @@ class SandboxService:
             "pty_id": pty_session.id,
             "output_queue": output_queue,
             "size": {"rows": rows, "cols": cols},
+            "last_accessed": time.time(),
         }
 
         return {"id": pty_session.id, "rows": rows, "cols": cols}
@@ -287,10 +291,12 @@ class SandboxService:
     async def send_pty_input(
         self, sandbox_id: str, pty_session_id: str, data: str | bytes
     ) -> None:
+        self._cleanup_expired_sessions(sandbox_id)
         session = self._get_pty_session_data(sandbox_id, pty_session_id)
         if not session:
             return
 
+        session["last_accessed"] = time.time()
         data_bytes = data.encode() if isinstance(data, str) else data
 
         try:
@@ -302,10 +308,12 @@ class SandboxService:
     async def resize_pty_session(
         self, sandbox_id: str, pty_session_id: str, rows: int, cols: int
     ) -> None:
+        self._cleanup_expired_sessions(sandbox_id)
         session = self._get_pty_session_data(sandbox_id, pty_session_id)
         if not session:
             return
 
+        session["last_accessed"] = time.time()
         try:
             await self.provider.resize_pty(
                 sandbox_id, pty_session_id, PtySize(rows=rows, cols=cols)
@@ -363,6 +371,36 @@ class SandboxService:
                 e,
                 exc_info=True,
             )
+
+    def get_pty_session(
+        self, sandbox_id: str, session_id: str
+    ) -> dict[str, Any] | None:
+        self._cleanup_expired_sessions(sandbox_id)
+        session = self._get_pty_session_data(sandbox_id, session_id)
+        if session:
+            session["last_accessed"] = time.time()
+        return session
+
+    def _cleanup_expired_sessions(self, sandbox_id: str) -> None:
+        if sandbox_id not in self._active_pty_sessions:
+            return
+
+        now = time.time()
+        expired_ids = [
+            sid
+            for sid, data in self._active_pty_sessions[sandbox_id].items()
+            if now - data.get("last_accessed", now) > PTY_SESSION_TTL_SECONDS
+        ]
+
+        for session_id in expired_ids:
+            try:
+                del self._active_pty_sessions[sandbox_id][session_id]
+                asyncio.create_task(self.provider.kill_pty(sandbox_id, session_id))
+            except Exception as e:
+                logger.warning("Failed to cleanup expired PTY session %s: %s", session_id, e)
+
+        if sandbox_id in self._active_pty_sessions and not self._active_pty_sessions[sandbox_id]:
+            del self._active_pty_sessions[sandbox_id]
 
     async def get_files_metadata(self, sandbox_id: str) -> list[dict[str, Any]]:
         metadata = await self.provider.list_files(sandbox_id)

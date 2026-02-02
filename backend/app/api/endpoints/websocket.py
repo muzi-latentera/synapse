@@ -112,6 +112,37 @@ class TerminalSession:
             self.sandbox_id, rows, cols
         )
 
+        self._start_workers()
+        return self.pty_session
+
+    async def resume(
+        self, session_id: str, rows: int, cols: int
+    ) -> dict[str, Any]:
+        await self.detach()
+
+        session = self.sandbox_service.get_pty_session(self.sandbox_id, session_id)
+        if not session:
+            return await self.start(rows, cols)
+
+        self.pty_session = {
+            "id": session["pty_id"],
+            "rows": session["size"]["rows"],
+            "cols": session["size"]["cols"],
+        }
+
+        self._start_workers()
+
+        if rows != self.pty_session["rows"] or cols != self.pty_session["cols"]:
+            await self.resize(rows, cols)
+            self.pty_session["rows"] = rows
+            self.pty_session["cols"] = cols
+
+        return self.pty_session
+
+    def _start_workers(self) -> None:
+        if not self.pty_session:
+            return
+
         self.input_queue = asyncio.Queue(maxsize=PTY_INPUT_QUEUE_SIZE)
         self.input_task = asyncio.create_task(self.input_worker(self.pty_session["id"]))
         self.input_task.add_done_callback(self._handle_input_task_done)
@@ -121,8 +152,6 @@ class TerminalSession:
                 self.sandbox_id, self.pty_session["id"], self.websocket
             )
         )
-
-        return self.pty_session
 
     def enqueue_input(self, data: Any) -> None:
         # Queue overflow handling: drops oldest input when full to ensure newest keystrokes
@@ -147,7 +176,7 @@ class TerminalSession:
             cols,
         )
 
-    async def stop(self) -> None:
+    async def detach(self) -> None:
         if self.input_task:
             self.input_task.cancel()
             with suppress(asyncio.CancelledError):
@@ -162,11 +191,14 @@ class TerminalSession:
                 await self.output_task
             self.output_task = None
 
-        if self.pty_session:
-            await self.sandbox_service.cleanup_pty_session(
-                self.sandbox_id, self.pty_session["id"]
-            )
-            self.pty_session = None
+        self.pty_session = None
+
+    async def stop(self) -> None:
+        pty_id = self.pty_session["id"] if self.pty_session else None
+        await self.detach()
+
+        if pty_id:
+            await self.sandbox_service.cleanup_pty_session(self.sandbox_id, pty_id)
 
     async def close_websocket(self) -> None:
         try:
@@ -282,8 +314,12 @@ async def terminal_websocket(
             if data_type == WS_MSG_INIT:
                 rows = int(data.get("rows") or DEFAULT_PTY_ROWS)
                 cols = int(data.get("cols") or DEFAULT_PTY_COLS)
+                session_id = data.get("sessionId")
 
-                pty_session = await session.start(rows, cols)
+                if session_id:
+                    pty_session = await session.resume(session_id, rows, cols)
+                else:
+                    pty_session = await session.start(rows, cols)
 
                 await websocket.send_text(
                     json.dumps(
@@ -301,12 +337,12 @@ async def terminal_websocket(
                 cols = int(data.get("cols") or 0)
                 await session.resize(rows, cols)
             elif data_type == WS_MSG_CLOSE:
+                await session.stop()
                 break
     except WebSocketDisconnect:
         pass
     except Exception as e:
         logger.error("Error in terminal websocket: %s", e)
     finally:
-        await session.stop()
+        await session.detach()
         await session.close_websocket()
-        await sandbox_service.cleanup()

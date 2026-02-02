@@ -20,6 +20,8 @@ type SessionState = 'idle' | 'connecting' | 'ready' | 'error';
 
 const encoder = new TextEncoder();
 
+const getSessionStorageKey = (sandboxId: string) => `terminal_session_${sandboxId}`;
+
 export const TerminalTab: FC<TerminalTabProps> = ({ isVisible, sandboxId, terminalId }) => {
   const theme = useUIStore((state) => state.theme);
   const [sessionState, setSessionState] = useState<SessionState>('idle');
@@ -89,11 +91,17 @@ export const TerminalTab: FC<TerminalTabProps> = ({ isVisible, sandboxId, termin
           ? { rows: terminalRef.current.rows, cols: terminalRef.current.cols }
           : { rows: 24, cols: 80 });
 
-      const payload = {
+      const storedSessionId = localStorage.getItem(getSessionStorageKey(sandboxId));
+
+      const payload: Record<string, unknown> = {
         type: 'init',
         rows: size.rows,
         cols: size.cols,
       };
+
+      if (storedSessionId) {
+        payload.sessionId = storedSessionId;
+      }
 
       ws.send(JSON.stringify(payload));
       hasSentInitRef.current = true;
@@ -125,10 +133,14 @@ export const TerminalTab: FC<TerminalTabProps> = ({ isVisible, sandboxId, termin
           if (rows && cols) {
             lastSentSizeRef.current = { rows, cols };
           }
+          if (typeof message.id === 'string') {
+            localStorage.setItem(getSessionStorageKey(sandboxId), message.id);
+          }
           setSessionState('ready');
           return;
         }
         if (message.type === 'error') {
+          localStorage.removeItem(getSessionStorageKey(sandboxId));
           setSessionState('error');
         }
       } catch (error) {
@@ -137,6 +149,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({ isVisible, sandboxId, termin
     };
 
     const handleError = () => {
+      localStorage.removeItem(getSessionStorageKey(sandboxId));
       setSessionState('error');
     };
 
@@ -148,9 +161,6 @@ export const TerminalTab: FC<TerminalTabProps> = ({ isVisible, sandboxId, termin
     };
 
     const handleBeforeUnload = () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'close' }));
-      }
       ws.close();
     };
 
@@ -166,10 +176,6 @@ export const TerminalTab: FC<TerminalTabProps> = ({ isVisible, sandboxId, termin
       ws.removeEventListener('message', handleMessage);
       ws.removeEventListener('error', handleError);
       ws.removeEventListener('close', handleClose);
-
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'close' }));
-      }
 
       ws.close();
       wsRef.current = null;
