@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Button, Input, Label, Switch, Select } from '@/components/ui';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { SecretInput } from '../inputs/SecretInput';
-import { CodexAuthUpload } from '../inputs/CodexAuthUpload';
 import { CopilotAuthButton } from '../inputs/CopilotAuthButton';
+import { OpenAIAuthButton } from '../inputs/OpenAIAuthButton';
 import { ModelListEditor } from '../inputs/ModelListEditor';
 import type {
   CustomProvider,
@@ -137,12 +137,12 @@ const getAuthTokenConfig = (
       };
     case 'openai':
       return {
-        label: 'Auth (Optional)',
-        placeholder: 'Uses ~/.codex/auth.json from codex login',
+        label: 'ChatGPT Authentication',
+        placeholder: '',
         helperText: {
-          prefix: 'Run',
-          code: 'codex login',
-          suffix: 'in terminal to authenticate with ChatGPT',
+          prefix: 'Sign in with your ChatGPT account using the button below.',
+          code: '',
+          suffix: '',
         },
       };
     case 'copilot':
@@ -180,6 +180,7 @@ export const ProviderDialog: React.FC<ProviderDialogProps> = ({
   const [showToken, setShowToken] = useState(false);
   const [selectedProviderType, setSelectedProviderType] = useState<ProviderType>('anthropic');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [openAIAuthDone, setOpenAIAuthDone] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -192,6 +193,7 @@ export const ProviderDialog: React.FC<ProviderDialogProps> = ({
       }
       setLocalError(null);
       setShowToken(false);
+      setOpenAIAuthDone(false);
     }
   }, [isOpen, provider]);
 
@@ -206,7 +208,12 @@ export const ProviderDialog: React.FC<ProviderDialogProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const builtInTypes = ['anthropic', 'openrouter', 'openai', 'copilot'];
-    if (builtInTypes.includes(form.provider_type) && !form.auth_token) {
+    if (
+      builtInTypes.includes(form.provider_type) &&
+      form.provider_type !== 'openai' &&
+      form.provider_type !== 'copilot' &&
+      !form.auth_token
+    ) {
       setLocalError('Authentication is required for this provider type.');
       return;
     }
@@ -323,26 +330,28 @@ export const ProviderDialog: React.FC<ProviderDialogProps> = ({
           {form.provider_type === 'openai' ? (
             <div>
               <Label className="mb-1.5 text-sm text-text-primary dark:text-text-dark-primary">
-                Codex Authentication
+                ChatGPT Authentication
               </Label>
               <p className="mb-2 text-xs text-text-tertiary dark:text-text-dark-tertiary">
-                Upload your auth.json from{' '}
-                <code className="rounded bg-surface-tertiary px-1 dark:bg-surface-dark-tertiary">
-                  ~/.codex/auth.json
-                </code>{' '}
-                or run{' '}
-                <code className="rounded bg-surface-tertiary px-1 dark:bg-surface-dark-tertiary">
-                  codex login
-                </code>{' '}
-                in terminal. Required.
+                Sign in with your ChatGPT account to authenticate.
               </p>
-              <CodexAuthUpload
-                value={form.auth_token || null}
-                onChange={(content) => {
-                  setForm((prev) => ({ ...prev, auth_token: content || '' }));
-                  setLocalError(null);
-                }}
-              />
+              {isEditing ? (
+                <OpenAIAuthButton
+                  connected={openAIAuthDone || !!form.auth_token}
+                  onConnected={() => {
+                    setOpenAIAuthDone(true);
+                    setLocalError(null);
+                  }}
+                  onDisconnected={() => {
+                    setOpenAIAuthDone(false);
+                    setForm((prev) => ({ ...prev, auth_token: '' }));
+                  }}
+                />
+              ) : (
+                <p className="text-xs text-text-tertiary dark:text-text-dark-tertiary">
+                  Save the provider first, then authenticate with ChatGPT.
+                </p>
+              )}
             </div>
           ) : form.provider_type === 'copilot' ? (
             <div>

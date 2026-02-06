@@ -10,12 +10,15 @@ from app.core.deps import get_db, get_user_service
 from app.core.security import get_current_user
 from app.models.db_models import User
 from app.models.schemas.integrations import (
+    DeviceCodePollResponse,
+    DeviceCodeResponse,
     GmailStatusResponse,
     OAuthClientResponse,
     OAuthClientUploadRequest,
     OAuthUrlResponse,
+    OpenAIStatusResponse,
 )
-from app.services import gmail_oauth
+from app.services import gmail_oauth, openai_oauth
 from app.services.exceptions import UserException
 from app.services.user import UserService
 
@@ -225,6 +228,159 @@ async def disconnect_gmail(
     )
 
     return OAuthClientResponse(success=True, message="Gmail disconnected")
+
+
+@router.post("/openai/device-code", response_model=DeviceCodeResponse)
+async def request_openai_device_code(
+    current_user: User = Depends(get_current_user),
+) -> DeviceCodeResponse:
+    try:
+        data = await openai_oauth.request_device_code()
+    except Exception as e:
+        logger.error("OpenAI device code request failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to start OpenAI authentication flow.",
+        )
+
+    await openai_oauth.store_device_code(
+        str(current_user.id),
+        data["device_code"],
+        data.get("expires_in", 900),
+    )
+
+    return DeviceCodeResponse(
+        user_code=data["user_code"],
+        verification_uri=data["verification_uri"],
+        verification_uri_complete=data.get("verification_uri_complete"),
+        expires_in=data.get("expires_in", 900),
+        interval=data.get("interval", 5),
+    )
+
+
+@router.post("/openai/poll-token", response_model=DeviceCodePollResponse)
+async def poll_openai_token(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user_service: UserService = Depends(get_user_service),
+) -> DeviceCodePollResponse:
+    device_code = await openai_oauth.get_device_code(str(current_user.id))
+    if not device_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active device code flow. Start a new one.",
+        )
+
+    try:
+        result = await openai_oauth.poll_for_tokens(device_code)
+    except Exception as e:
+        logger.error("OpenAI token poll failed: %s", e)
+        return DeviceCodePollResponse(
+            status="error",
+            detail="Failed to complete OpenAI authentication flow.",
+        )
+
+    if result["status"] == "pending":
+        return DeviceCodePollResponse(status="pending")
+
+    if result["status"] == "slow_down":
+        return DeviceCodePollResponse(
+            status="pending",
+            retry_after_seconds=result.get("retry_after_seconds", 10),
+        )
+
+    if result["status"] == "expired":
+        await openai_oauth.clear_device_code(str(current_user.id))
+        return DeviceCodePollResponse(
+            status="error", detail="Device code expired. Please try again."
+        )
+
+    if result["status"] == "error":
+        await openai_oauth.clear_device_code(str(current_user.id))
+        return DeviceCodePollResponse(
+            status="error", detail=result.get("detail", "Unknown error")
+        )
+
+    await openai_oauth.clear_device_code(str(current_user.id))
+    auth_json = openai_oauth.build_auth_json(result["tokens"])
+
+    try:
+        user_settings = await user_service.get_user_settings(
+            current_user.id, db=db, for_update=True
+        )
+    except UserException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    providers = user_settings.custom_providers or []
+    updated = False
+    for provider in providers:
+        if provider.get("provider_type") == "openai" and provider.get("enabled", True):
+            provider["auth_token"] = auth_json
+            updated = True
+            break
+
+    if not updated:
+        return DeviceCodePollResponse(
+            status="error",
+            detail="No enabled OpenAI provider found. Add one first.",
+        )
+
+    user_settings.custom_providers = providers
+    flag_modified(user_settings, "custom_providers")
+    await user_service.commit_settings_and_invalidate_cache(
+        user_settings, db, current_user.id
+    )
+
+    return DeviceCodePollResponse(status="success")
+
+
+@router.get("/openai/status", response_model=OpenAIStatusResponse)
+async def get_openai_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user_service: UserService = Depends(get_user_service),
+) -> OpenAIStatusResponse:
+    try:
+        user_settings = await user_service.get_user_settings(current_user.id, db=db)
+    except UserException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    providers = user_settings.custom_providers or []
+    connected = any(
+        p.get("provider_type") == "openai"
+        and p.get("enabled", True)
+        and p.get("auth_token")
+        for p in providers
+    )
+
+    return OpenAIStatusResponse(connected=connected)
+
+
+@router.post("/openai/disconnect", response_model=OAuthClientResponse)
+async def disconnect_openai(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user_service: UserService = Depends(get_user_service),
+) -> OAuthClientResponse:
+    try:
+        user_settings = await user_service.get_user_settings(
+            current_user.id, db=db, for_update=True
+        )
+    except UserException as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    providers = user_settings.custom_providers or []
+    for provider in providers:
+        if provider.get("provider_type") == "openai":
+            provider["auth_token"] = None
+
+    user_settings.custom_providers = providers
+    flag_modified(user_settings, "custom_providers")
+    await user_service.commit_settings_and_invalidate_cache(
+        user_settings, db, current_user.id
+    )
+
+    return OAuthClientResponse(success=True, message="OpenAI disconnected")
 
 
 def _callback_html(error: str | None, email: str | None = None) -> str:

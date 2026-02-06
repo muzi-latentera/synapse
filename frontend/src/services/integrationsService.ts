@@ -57,10 +57,60 @@ async function disconnectGmail(): Promise<OAuthClientResponse> {
   });
 }
 
+export interface DeviceCodeResponse {
+  user_code: string;
+  verification_uri: string;
+  verification_uri_complete: string | null;
+  expires_in: number;
+  interval: number;
+}
+
+export interface DeviceCodePollResponse {
+  status: 'pending' | 'success' | 'error';
+  detail: string | null;
+  retry_after_seconds?: number | null;
+}
+
+export interface OpenAIStatus {
+  connected: boolean;
+}
+
+async function requestOpenAIDeviceCode(): Promise<DeviceCodeResponse> {
+  return withAuth(async () => {
+    const response = await apiClient.post<DeviceCodeResponse>('/integrations/openai/device-code');
+    return ensureResponse(response, 'Failed to request device code');
+  });
+}
+
+async function pollOpenAIToken(): Promise<DeviceCodePollResponse> {
+  return withAuth(async () => {
+    const response = await apiClient.post<DeviceCodePollResponse>('/integrations/openai/poll-token');
+    return ensureResponse(response, 'Failed to poll for token');
+  });
+}
+
+async function getOpenAIStatus(): Promise<OpenAIStatus> {
+  return withAuth(async () => {
+    const response = await apiClient.get<OpenAIStatus>('/integrations/openai/status');
+    return ensureResponse(response, 'Failed to get OpenAI status');
+  });
+}
+
+async function disconnectOpenAI(): Promise<OAuthClientResponse> {
+  return withAuth(async () => {
+    const response = await apiClient.post<OAuthClientResponse>('/integrations/openai/disconnect');
+    return ensureResponse(response, 'Failed to disconnect OpenAI');
+  });
+}
+
 export const integrationsService = {
   uploadGmailOAuthClient,
   deleteGmailOAuthClient,
   getGmailOAuthUrl,
   getGmailStatus,
   disconnectGmail,
+  requestOpenAIDeviceCode,
+  pollOpenAIToken,
+  getOpenAIStatus,
+  disconnectOpenAI,
 };
