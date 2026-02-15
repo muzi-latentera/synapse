@@ -24,6 +24,10 @@ PROMPT_SUGGESTIONS_PATTERN = re.compile(
     r"<prompt_suggestions>\s*(.*?)\s*</prompt_suggestions>",
     re.DOTALL,
 )
+LOCAL_COMMAND_STDOUT_PATTERN = re.compile(
+    r"<local-command-stdout>(.*?)</local-command-stdout>",
+    re.DOTALL,
+)
 
 
 class StreamProcessor:
@@ -59,12 +63,23 @@ class StreamProcessor:
             return
 
         if isinstance(message, UserMessage):
-            yield from self._emit_user_events(message.content)
+            text = self._extract_command_stdout(message.content)
+            if text is not None:
+                yield from self._emit_text_block(text, event_type="assistant_text")
+            else:
+                yield from self._emit_user_events(message.content)
             return
 
         if isinstance(message, ResultMessage):
             if message.total_cost_usd is not None:
                 self.total_cost_usd = message.total_cost_usd
+
+    @staticmethod
+    def _extract_command_stdout(content: str | list[Any]) -> str | None:
+        if not isinstance(content, str):
+            return None
+        match = LOCAL_COMMAND_STDOUT_PATTERN.search(content)
+        return match.group(1).strip() if match else None
 
     def _emit_assistant_events(
         self, message: AssistantMessage

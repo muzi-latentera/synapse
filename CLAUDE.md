@@ -37,6 +37,7 @@
 ## Code Style
 
 - Do not optimize for no regressions or long-term resilience unless explicitly requested — favor simple, direct changes over defensive scaffolding
+- Do not handle hypothetical input shapes — if you have evidence of the actual data format (logs, tests, type definitions), write code for that format only; do not add branches for types or structures you have not observed
 - Don't add comments or docstrings for self-explanatory code
 - Let the code speak for itself - use clear variable/function names instead of comments
 - Do not use decorative section comments (e.g., `# ── Section ──────`) — code structure should be self-evident from class/method organization
