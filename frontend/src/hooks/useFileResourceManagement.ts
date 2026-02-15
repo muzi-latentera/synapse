@@ -65,8 +65,10 @@ export function useFileResourceManagement<T extends { name: string; enabled?: bo
           ...prev,
           [settingsKey]: [...((prev[settingsKey] as T[] | null) || []), data],
         }));
-        queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.installed });
-        queryClient.invalidateQueries({ queryKey: [queryKeys.settings] });
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.installed }),
+          queryClient.invalidateQueries({ queryKey: [queryKeys.settings] }),
+        ]);
         toast.success(`${itemName} uploaded successfully`);
         setIsDialogOpen(false);
       } catch (error) {
@@ -75,7 +77,7 @@ export function useFileResourceManagement<T extends { name: string; enabled?: bo
         setIsUploading(false);
       }
     },
-    [getItems, maxItems, itemName, uploadFn, setLocalSettings, settingsKey],
+    [getItems, maxItems, itemName, uploadFn, setLocalSettings, settingsKey, queryClient],
   );
 
   const handleDelete = useCallback(
@@ -94,8 +96,10 @@ export function useFileResourceManagement<T extends { name: string; enabled?: bo
             [settingsKey]: arr.length > 0 ? arr : null,
           };
         });
-        queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.installed });
-        queryClient.invalidateQueries({ queryKey: [queryKeys.settings] });
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.installed }),
+          queryClient.invalidateQueries({ queryKey: [queryKeys.settings] }),
+        ]);
         toast.success(`Deleted ${item.name}`);
       } catch (error) {
         logger.error(`Failed to delete ${itemName}`, 'useFileResourceManagement', error);
@@ -154,8 +158,10 @@ export function useFileResourceManagement<T extends { name: string; enabled?: bo
           arr[editingIndex] = updated;
           return { ...prev, [settingsKey]: arr };
         });
-        queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.installed });
-        queryClient.invalidateQueries({ queryKey: [queryKeys.settings] });
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.installed }),
+          queryClient.invalidateQueries({ queryKey: [queryKeys.settings] }),
+        ]);
         toast.success(`${itemName} updated successfully`);
         setIsEditDialogOpen(false);
         setEditingIndex(null);
@@ -165,7 +171,7 @@ export function useFileResourceManagement<T extends { name: string; enabled?: bo
         setIsSavingEdit(false);
       }
     },
-    [updateFn, editingIndex, getItems, setLocalSettings, settingsKey, itemName],
+    [updateFn, editingIndex, getItems, setLocalSettings, settingsKey, itemName, queryClient],
   );
 
   const handleEditDialogClose = useCallback(() => {

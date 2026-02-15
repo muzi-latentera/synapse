@@ -1,7 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, type CSSProperties } from 'react';
 import { Search, Globe } from 'lucide-react';
 import type { ToolAggregate } from '@/types';
 import { ToolCard } from './common';
+
+const DELAY_0: CSSProperties = { animationDelay: '0ms' };
+const DELAY_150: CSSProperties = { animationDelay: '150ms' };
+const DELAY_300: CSSProperties = { animationDelay: '300ms' };
 
 interface WebSearchProps {
   tool: ToolAggregate;
@@ -143,15 +147,15 @@ export const WebSearch: React.FC<WebSearchProps> = ({ tool }) => {
           <div className="flex space-x-1">
             <div
               className="h-1 w-1 animate-bounce rounded-full bg-text-tertiary dark:bg-text-dark-tertiary"
-              style={{ animationDelay: '0ms' }}
+              style={DELAY_0}
             />
             <div
               className="h-1 w-1 animate-bounce rounded-full bg-text-tertiary dark:bg-text-dark-tertiary"
-              style={{ animationDelay: '150ms' }}
+              style={DELAY_150}
             />
             <div
               className="h-1 w-1 animate-bounce rounded-full bg-text-tertiary dark:bg-text-dark-tertiary"
-              style={{ animationDelay: '300ms' }}
+              style={DELAY_300}
             />
           </div>
           <p className="text-2xs text-text-tertiary dark:text-text-dark-tertiary">
@@ -166,7 +170,7 @@ export const WebSearch: React.FC<WebSearchProps> = ({ tool }) => {
         <div>
           <div className="flex flex-wrap gap-1">
             {sources.map((source, index) => (
-              <SourceChip key={index} source={source} index={index} />
+              <SourceChip key={`${index}-${source.url}`} source={source} index={index} />
             ))}
           </div>
         </div>

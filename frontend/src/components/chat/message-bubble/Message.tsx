@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { CheckCircle2, Copy, GitFork, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { MessageContent } from './MessageContent';
+import { UserMessageContent, AssistantMessageContent } from './MessageContent';
 import {
   useModelsQuery,
   useForkChatMutation,
@@ -14,19 +14,54 @@ import { formatRelativeTime, formatFullTimestamp } from '@/utils/date';
 import toast from 'react-hot-toast';
 import { useChatContext } from '@/hooks/useChatContext';
 
-export interface MessageProps {
-  id: string;
+interface SharedContentProps {
   contentText: string;
   contentRender?: {
     events?: AssistantStreamEvent[];
   };
-  isBot: boolean;
   attachments?: MessageAttachment[];
+  isStreaming: boolean;
+}
+
+export interface UserMessageProps extends SharedContentProps {
   uploadingAttachmentIds?: string[];
+}
+
+export const UserMessage = memo(function UserMessage({
+  contentText,
+  contentRender,
+  attachments,
+  uploadingAttachmentIds,
+  isStreaming,
+}: UserMessageProps) {
+  const { chatId } = useChatContext();
+
+  return (
+    <div className="group px-4 py-1.5 sm:px-6 sm:py-2">
+      <div className="flex items-start">
+        <div className="min-w-0 flex-1">
+          <div className="inline-block max-w-full rounded-xl bg-surface-hover/60 px-3 py-1.5 dark:bg-surface-dark-tertiary/80">
+            <div className="max-w-none break-words text-sm text-text-primary dark:text-text-dark-primary">
+              <UserMessageContent
+                contentText={contentText}
+                contentRender={contentRender}
+                attachments={attachments}
+                uploadingAttachmentIds={uploadingAttachmentIds}
+                isStreaming={isStreaming}
+                chatId={chatId}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+export interface AssistantMessageProps extends SharedContentProps {
+  id: string;
   copiedMessageId: string | null;
   onCopy: (content: string, id: string) => void;
-  error?: string | null;
-  isThisMessageStreaming: boolean;
   isGloballyStreaming: boolean;
   createdAt?: string;
   modelId?: string;
@@ -36,15 +71,14 @@ export interface MessageProps {
   onSuggestionSelect?: (suggestion: string) => void;
 }
 
-export const Message = memo(function Message({
+export const AssistantMessage = memo(function AssistantMessage({
   id,
   contentText,
   contentRender,
-  isBot,
   attachments,
   copiedMessageId,
   onCopy,
-  isThisMessageStreaming,
+  isStreaming,
   isGloballyStreaming,
   createdAt,
   modelId,
@@ -52,8 +86,7 @@ export const Message = memo(function Message({
   onRestoreSuccess,
   isLastBotMessage,
   onSuggestionSelect,
-  uploadingAttachmentIds,
-}: MessageProps) {
+}: AssistantMessageProps) {
   const { chatId, sandboxId } = useChatContext();
   const { data: models = [] } = useModelsQuery();
   const { data: settings } = useSettingsQuery();
@@ -122,36 +155,19 @@ export const Message = memo(function Message({
     <div className="group px-4 py-1.5 sm:px-6 sm:py-2">
       <div className="flex items-start">
         <div className="min-w-0 flex-1">
-          {isBot ? (
-            <div className="max-w-none break-words text-sm text-text-primary dark:text-text-dark-primary">
-              <MessageContent
-                contentText={contentText}
-                contentRender={contentRender}
-                isBot={isBot}
-                attachments={attachments}
-                isStreaming={isThisMessageStreaming}
-                chatId={chatId}
-                isLastBotMessage={isLastBotMessage}
-                onSuggestionSelect={onSuggestionSelect}
-              />
-            </div>
-          ) : (
-            <div className="inline-block max-w-full rounded-xl bg-surface-hover/60 px-3 py-1.5 dark:bg-surface-dark-tertiary/80">
-              <div className="max-w-none break-words text-sm text-text-primary dark:text-text-dark-primary">
-                <MessageContent
-                  contentText={contentText}
-                  contentRender={contentRender}
-                  isBot={isBot}
-                  attachments={attachments}
-                  uploadingAttachmentIds={uploadingAttachmentIds}
-                  isStreaming={isThisMessageStreaming}
-                  chatId={chatId}
-                />
-              </div>
-            </div>
-          )}
+          <div className="max-w-none break-words text-sm text-text-primary dark:text-text-dark-primary">
+            <AssistantMessageContent
+              contentText={contentText}
+              contentRender={contentRender}
+              attachments={attachments}
+              isStreaming={isStreaming}
+              chatId={chatId}
+              isLastBotMessage={isLastBotMessage}
+              onSuggestionSelect={onSuggestionSelect}
+            />
+          </div>
 
-          {isBot && contentText.trim() && !isThisMessageStreaming && (
+          {contentText.trim() && !isStreaming && (
             <div className="mt-2 flex items-center justify-between opacity-0 transition-opacity duration-200 group-hover:opacity-100">
               <div className="flex items-center gap-0.5">
                 <Tooltip content={copiedMessageId === id ? 'Copied!' : 'Copy'} position="bottom">

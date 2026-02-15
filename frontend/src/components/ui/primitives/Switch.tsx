@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type MouseEvent } from 'react';
+import { type ButtonHTMLAttributes, type MouseEvent, type Ref } from 'react';
 import { cn } from '@/utils/cn';
 
 type SwitchSize = 'sm' | 'md';
@@ -7,6 +7,7 @@ export interface SwitchProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   'onChange' | 'role'
 > {
+  ref?: Ref<HTMLButtonElement>;
   checked: boolean;
   onCheckedChange?: (checked: boolean) => void;
   size?: SwitchSize;
@@ -26,10 +27,17 @@ const knobSize: Record<SwitchSize, string> = {
   sm: 'h-3 w-3',
 };
 
-export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch(
-  { checked, onCheckedChange, size = 'md', className, disabled, onClick, name, ...props },
+export function Switch({
   ref,
-) {
+  checked,
+  onCheckedChange,
+  size = 'md',
+  className,
+  disabled,
+  onClick,
+  name,
+  ...props
+}: SwitchProps) {
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (disabled) {
       event.preventDefault();
@@ -81,6 +89,4 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
       </span>
     </button>
   );
-});
-
-Switch.displayName = 'Switch';
+}

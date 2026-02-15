@@ -19,6 +19,7 @@ import { useSandboxFiles } from '@/hooks/useSandboxFiles';
 import { useContextUsageState } from '@/hooks/useContextUsageState';
 import { useSettingsQuery, useModelSelection } from '@/hooks/queries';
 import { mergeAgents } from '@/utils/settings';
+import { ChatProvider } from '@/contexts/ChatContext';
 
 const Editor = lazy(() =>
   import('@/components/editor/editor-core/Editor').then((m) => ({ default: m.Editor })),
@@ -296,17 +297,11 @@ export function ChatPage() {
               onModelChange={selectModel}
               attachedFiles={streamingState.inputFiles}
               contextUsage={contextUsage}
-              sandboxId={currentChat?.sandbox_id}
-              chatId={chatId}
               onDismissError={streamingState.handleDismissError}
               fetchNextPage={messagesQuery.fetchNextPage}
               hasNextPage={messagesQuery.hasNextPage}
               isFetchingNextPage={messagesQuery.isFetchingNextPage}
               onRestoreSuccess={handleRestoreSuccess}
-              fileStructure={fileStructure}
-              customAgents={allAgents}
-              customSlashCommands={enabledSlashCommands}
-              customPrompts={customPrompts}
               pendingPermissionRequest={pendingRequest}
               onPermissionApprove={handleApprove}
               onPermissionReject={handleReject}
@@ -378,9 +373,6 @@ export function ChatPage() {
       chatId,
       handleRestoreSuccess,
       fileStructure,
-      allAgents,
-      enabledSlashCommands,
-      customPrompts,
       selectedFile,
       handleFileSelect,
       isFileMetadataLoading,
@@ -416,11 +408,20 @@ export function ChatPage() {
   if (!chatId) return <Navigate to="/" />;
 
   return (
-    <div className="relative flex h-full">
-      <ViewSwitcher />
-      <div className="flex h-full flex-1 overflow-hidden bg-surface pl-12 text-text-primary dark:bg-surface-dark dark:text-text-dark-primary">
-        <SplitViewContainer renderView={renderView} />
+    <ChatProvider
+      chatId={chatId}
+      sandboxId={currentChat?.sandbox_id}
+      fileStructure={fileStructure}
+      customAgents={allAgents}
+      customSlashCommands={enabledSlashCommands}
+      customPrompts={customPrompts}
+    >
+      <div className="relative flex h-full">
+        <ViewSwitcher />
+        <div className="flex h-full flex-1 overflow-hidden bg-surface pl-12 text-text-primary dark:bg-surface-dark dark:text-text-dark-primary">
+          <SplitViewContainer renderView={renderView} />
+        </div>
       </div>
-    </div>
+    </ChatProvider>
   );
 }

@@ -45,8 +45,8 @@ const GlobToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
     >
       {hasFiles && (
         <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed text-text-tertiary dark:text-text-dark-quaternary">
-          {files.map((file, idx) => (
-            <div key={idx} className="truncate">
+          {files.map((file) => (
+            <div key={file} className="truncate">
               {file}
             </div>
           ))}

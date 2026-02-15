@@ -23,7 +23,7 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
     { id: defaultTerminalId, label: 'Terminal 1' },
   ]);
   const [activeTerminalId, setActiveTerminalId] = useState<string>(defaultTerminalId);
-  const [closingTerminalIds, setClosingTerminalIds] = useState<Set<string>>(new Set());
+  const [closingTerminalIds, setClosingTerminalIds] = useState<Set<string>>(() => new Set());
   const readyToSave = useRef(false);
 
   useEffect(() => {

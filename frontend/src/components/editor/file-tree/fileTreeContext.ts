@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, use } from 'react';
 import type { FileStructure } from '@/types';
 
 export type FileTreeHandlers = {
@@ -14,7 +14,7 @@ export interface FileTreeContextValue extends FileTreeHandlers {
 export const FileTreeContext = createContext<FileTreeContextValue | null>(null);
 
 export function useFileTreeContext(component: string) {
-  const context = useContext(FileTreeContext);
+  const context = use(FileTreeContext);
 
   if (!context) {
     throw new Error(`${component} must be used within a FileTreeProvider`);

@@ -11,7 +11,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useInView } from 'react-intersection-observer';
 import { findLastBotMessageIndex } from '@/utils/message';
 import { isBrowserObjectUrl } from '@/utils/attachmentUrl';
-import { Message } from '@/components/chat/message-bubble/Message';
+import { UserMessage, AssistantMessage } from '@/components/chat/message-bubble/Message';
 import { PendingMessage } from '@/components/chat/message-bubble/PendingMessage';
 import { Input } from '@/components/chat/message-input/Input';
 import { ChatSkeleton } from './ChatSkeleton';
@@ -19,23 +19,12 @@ import { LoadingIndicator } from './LoadingIndicator';
 import { ScrollButton } from './ScrollButton';
 import { ErrorMessage } from './ErrorMessage';
 import { Spinner } from '@/components/ui';
-import type {
-  Message as MessageType,
-  FileStructure,
-  CustomAgent,
-  CustomCommand,
-  CustomPrompt,
-  PermissionRequest,
-} from '@/types';
+import type { Message as MessageType, PermissionRequest } from '@/types';
 import { useStreamStore, useMessageQueueStore, EMPTY_QUEUE } from '@/store';
 import { ToolPermissionInline } from '@/components/chat/tools/ToolPermissionInline';
-import { ChatProvider } from '@/contexts/ChatContext';
+import { useChatContext } from '@/hooks/useChatContext';
 
 const SCROLL_THRESHOLD_PERCENT = 20;
-const EMPTY_FILES: FileStructure[] = [];
-const EMPTY_AGENTS: CustomAgent[] = [];
-const EMPTY_COMMANDS: CustomCommand[] = [];
-const EMPTY_PROMPTS: CustomPrompt[] = [];
 
 export interface ChatProps {
   messages: MessageType[];
@@ -58,17 +47,11 @@ export interface ChatProps {
     tokensUsed: number;
     contextWindow: number;
   };
-  sandboxId?: string;
-  chatId?: string;
   onDismissError?: () => void;
   fetchNextPage?: () => void;
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   onRestoreSuccess?: () => void;
-  fileStructure?: FileStructure[];
-  customAgents?: CustomAgent[];
-  customSlashCommands?: CustomCommand[];
-  customPrompts?: CustomPrompt[];
   pendingPermissionRequest?: PermissionRequest | null;
   onPermissionApprove?: () => void;
   onPermissionReject?: (alternativeInstruction?: string) => void;
@@ -94,23 +77,18 @@ export const Chat = memo(function Chat({
   selectedModelId,
   onModelChange,
   contextUsage,
-  sandboxId,
-  chatId,
   onDismissError,
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
   onRestoreSuccess,
-  fileStructure = EMPTY_FILES,
-  customAgents = EMPTY_AGENTS,
-  customSlashCommands = EMPTY_COMMANDS,
-  customPrompts = EMPTY_PROMPTS,
   pendingPermissionRequest,
   onPermissionApprove,
   onPermissionReject,
   isPermissionLoading = false,
   permissionError,
 }: ChatProps) {
+  const { chatId } = useChatContext();
   const streamingMessageIds = useStreamStore(
     useShallow((state) => {
       const ids: string[] = [];
@@ -346,64 +324,56 @@ export const Chat = memo(function Chat({
   );
 
   return (
-    <ChatProvider
-      chatId={chatId}
-      sandboxId={sandboxId}
-      fileStructure={fileStructure}
-      customAgents={customAgents}
-      customSlashCommands={customSlashCommands}
-      customPrompts={customPrompts}
-    >
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        <div
-          ref={chatWindowRef}
-          className="scrollbar-thin scrollbar-thumb-border-secondary dark:scrollbar-thumb-border-dark hover:scrollbar-thumb-text-quaternary dark:hover:scrollbar-thumb-border-dark-hover scrollbar-track-transparent flex-1 overflow-y-auto overflow-x-hidden"
-        >
-          {isInitialLoading && messages.length === 0 ? (
-            <ChatSkeleton messageCount={3} className="py-4" />
-          ) : (
-            <div ref={messagesContainerRef} className="w-full lg:mx-auto lg:max-w-3xl">
-              {hasNextPage && (
-                <div ref={loadMoreRef} className="flex h-4 items-center justify-center p-4">
-                  {isFetchingNextPage && (
-                    <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-text-dark-secondary">
-                      <Spinner size="xs" />
-                      Loading older messages...
-                    </div>
-                  )}
-                </div>
-              )}
-              {messages.map((msg, index) => {
-                const messageIsStreaming = streamingMessageIds.includes(msg.id);
-                const isBotMessage = msg.is_bot ?? msg.role === 'assistant';
-                const isLastBotMessage = isBotMessage && index === lastBotMessageIndex;
-                const showPermissionAfterThis =
-                  isLastBotMessage && !messageIsStreaming && canShowPermissionInline;
-                const localAttachmentIds =
-                  msg.attachments
-                    ?.filter((attachment) => isBrowserObjectUrl(attachment.file_url))
-                    .map((attachment) => attachment.id) ?? [];
-                const isLatestUserMessage = !isBotMessage && msg.id === latestUserMessageId;
-                const shouldShowUploadingOverlay =
-                  localAttachmentIds.length > 0 &&
-                  (pendingUserMessageId === msg.id ||
-                    (isLatestUserMessage && (pendingUserMessageId !== null || isLoading)));
-                const uploadingAttachmentIds = shouldShowUploadingOverlay
-                  ? localAttachmentIds
-                  : undefined;
+    <div className="relative flex min-w-0 flex-1 flex-col">
+      <div
+        ref={chatWindowRef}
+        className="scrollbar-thin scrollbar-thumb-border-secondary dark:scrollbar-thumb-border-dark hover:scrollbar-thumb-text-quaternary dark:hover:scrollbar-thumb-border-dark-hover scrollbar-track-transparent flex-1 overflow-y-auto overflow-x-hidden"
+      >
+        {isInitialLoading && messages.length === 0 ? (
+          <ChatSkeleton messageCount={3} className="py-4" />
+        ) : (
+          <div ref={messagesContainerRef} className="w-full lg:mx-auto lg:max-w-3xl">
+            {hasNextPage && (
+              <div ref={loadMoreRef} className="flex h-4 items-center justify-center p-4">
+                {isFetchingNextPage && (
+                  <div className="flex items-center gap-2 text-sm text-text-secondary dark:text-text-dark-secondary">
+                    <Spinner size="xs" />
+                    Loading older messages...
+                  </div>
+                )}
+              </div>
+            )}
+            {messages.map((msg, index) => {
+              const messageIsStreaming = streamingMessageIds.includes(msg.id);
+              const isBotMessage = msg.is_bot ?? msg.role === 'assistant';
+              const isLastBotMessage = isBotMessage && index === lastBotMessageIndex;
+              const showPermissionAfterThis =
+                isLastBotMessage && !messageIsStreaming && canShowPermissionInline;
+              const localAttachmentIds =
+                msg.attachments
+                  ?.filter((attachment) => isBrowserObjectUrl(attachment.file_url))
+                  .map((attachment) => attachment.id) ?? [];
+              const isLatestUserMessage = !isBotMessage && msg.id === latestUserMessageId;
+              const shouldShowUploadingOverlay =
+                localAttachmentIds.length > 0 &&
+                (pendingUserMessageId === msg.id ||
+                  (isLatestUserMessage && (pendingUserMessageId !== null || isLoading)));
+              const uploadingAttachmentIds = shouldShowUploadingOverlay
+                ? localAttachmentIds
+                : undefined;
 
-                return (
-                  <React.Fragment key={msg.id}>
-                    <div className="message-item">
-                      <Message
+              return (
+                <React.Fragment key={msg.id}>
+                  <div className="message-item">
+                    {isBotMessage ? (
+                      <AssistantMessage
                         id={msg.id}
                         contentText={msg.content_text}
                         contentRender={msg.content_render}
-                        isBot={isBotMessage}
                         attachments={msg.attachments}
                         copiedMessageId={copiedMessageId}
                         onCopy={onCopy}
-                        isThisMessageStreaming={messageIsStreaming}
+                        isStreaming={messageIsStreaming}
                         isGloballyStreaming={isStreaming}
                         createdAt={msg.created_at}
                         modelId={msg.model_id}
@@ -411,91 +381,98 @@ export const Chat = memo(function Chat({
                         onRestoreSuccess={onRestoreSuccess}
                         isLastBotMessage={isLastBotMessage && !messageIsStreaming}
                         onSuggestionSelect={isLastBotMessage ? handleSuggestionSelect : undefined}
-                        uploadingAttachmentIds={uploadingAttachmentIds}
                       />
-                    </div>
-                    {showPermissionAfterThis && (
-                      <div className="px-4 sm:px-6">
-                        <div className="flex items-start gap-3 sm:gap-4">
-                          <div className="h-8 w-8 flex-shrink-0" />
-                          <div className="mb-3 mt-1 min-w-0 flex-1">
-                            <ToolPermissionInline
-                              request={pendingPermissionRequest}
-                              onApprove={onPermissionApprove}
-                              onReject={onPermissionReject}
-                              isLoading={isPermissionLoading}
-                              error={permissionError}
-                            />
-                          </div>
+                    ) : (
+                      <UserMessage
+                        contentText={msg.content_text}
+                        contentRender={msg.content_render}
+                        attachments={msg.attachments}
+                        uploadingAttachmentIds={uploadingAttachmentIds}
+                        isStreaming={messageIsStreaming}
+                      />
+                    )}
+                  </div>
+                  {showPermissionAfterThis && (
+                    <div className="px-4 sm:px-6">
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        <div className="h-8 w-8 flex-shrink-0" />
+                        <div className="mb-3 mt-1 min-w-0 flex-1">
+                          <ToolPermissionInline
+                            request={pendingPermissionRequest}
+                            onApprove={onPermissionApprove}
+                            onReject={onPermissionReject}
+                            isLoading={isPermissionLoading}
+                            error={permissionError}
+                          />
                         </div>
                       </div>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-              {showPermissionAtEnd &&
-                pendingPermissionRequest &&
-                onPermissionApprove &&
-                onPermissionReject && (
-                  <div className="px-4 sm:px-6">
-                    <div className="flex items-start gap-3 sm:gap-4">
-                      <div className="h-8 w-8 flex-shrink-0" />
-                      <div className="mb-3 mt-1 min-w-0 flex-1">
-                        <ToolPermissionInline
-                          request={pendingPermissionRequest}
-                          onApprove={onPermissionApprove}
-                          onReject={onPermissionReject}
-                          isLoading={isPermissionLoading}
-                          error={permissionError}
-                        />
-                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            {showPermissionAtEnd &&
+              pendingPermissionRequest &&
+              onPermissionApprove &&
+              onPermissionReject && (
+                <div className="px-4 sm:px-6">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="h-8 w-8 flex-shrink-0" />
+                    <div className="mb-3 mt-1 min-w-0 flex-1">
+                      <ToolPermissionInline
+                        request={pendingPermissionRequest}
+                        onApprove={onPermissionApprove}
+                        onReject={onPermissionReject}
+                        isLoading={isPermissionLoading}
+                        error={permissionError}
+                      />
                     </div>
                   </div>
-                )}
-              {pendingMessages.map((pending) => (
-                <PendingMessage
-                  key={pending.id}
-                  message={pending}
-                  onCancel={handleCancelPending}
-                  onEdit={handleEditPending}
-                />
-              ))}
-              {error && <ErrorMessage error={error} onDismiss={onDismissError} />}
-            </div>
-          )}
-        </div>
-        <div className="relative">
-          {isStreaming && (
-            <div className="sticky bottom-full z-10 w-full">
-              <LoadingIndicator />
-            </div>
-          )}
-
-          {showScrollButton && <ScrollButton onClick={scrollToBottom} />}
-
-          <div className="relative bg-surface pb-safe dark:bg-surface-dark">
-            <div className="w-full py-2 lg:mx-auto lg:max-w-3xl">
-              <Input
-                message={inputMessage}
-                setMessage={setInputMessage}
-                onSubmit={onMessageSend}
-                onAttach={onAttach}
-                attachedFiles={attachedFiles}
-                isLoading={isLoading}
-                isStreaming={isStreaming}
-                onStopStream={onStopStream}
-                selectedModelId={selectedModelId}
-                onModelChange={onModelChange}
-                dropdownPosition="top"
-                showAttachedFilesPreview={true}
-                contextUsage={contextUsage}
-                showTip={false}
-                chatId={chatId}
+                </div>
+              )}
+            {pendingMessages.map((pending) => (
+              <PendingMessage
+                key={pending.id}
+                message={pending}
+                onCancel={handleCancelPending}
+                onEdit={handleEditPending}
               />
-            </div>
+            ))}
+            {error && <ErrorMessage error={error} onDismiss={onDismissError} />}
+          </div>
+        )}
+      </div>
+      <div className="relative">
+        {isStreaming && (
+          <div className="sticky bottom-full z-10 w-full">
+            <LoadingIndicator />
+          </div>
+        )}
+
+        {showScrollButton && <ScrollButton onClick={scrollToBottom} />}
+
+        <div className="relative bg-surface pb-safe dark:bg-surface-dark">
+          <div className="w-full py-2 lg:mx-auto lg:max-w-3xl">
+            <Input
+              message={inputMessage}
+              setMessage={setInputMessage}
+              onSubmit={onMessageSend}
+              onAttach={onAttach}
+              attachedFiles={attachedFiles}
+              isLoading={isLoading}
+              isStreaming={isStreaming}
+              onStopStream={onStopStream}
+              selectedModelId={selectedModelId}
+              onModelChange={onModelChange}
+              dropdownPosition="top"
+              showAttachedFilesPreview={true}
+              contextUsage={contextUsage}
+              showTip={false}
+              chatId={chatId}
+            />
           </div>
         </div>
       </div>
-    </ChatProvider>
+    </div>
   );
 });

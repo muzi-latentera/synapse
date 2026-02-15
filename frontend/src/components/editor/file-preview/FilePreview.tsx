@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useCallback, useMemo } from 'react';
+import { memo, useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
 import { createPortal } from 'react-dom';
 import type { FileStructure } from '@/types';
@@ -11,13 +11,6 @@ import {
   isPowerPointFile,
   isPdfFile,
 } from '@/utils/fileTypes';
-import { MarkdownPreview } from './MarkdownPreview';
-import { CsvPreview } from './CsvPreview';
-import { XlsxPreview } from './XlsxPreview';
-import { ImagePreview } from './ImagePreview';
-import { HtmlPreview } from './HtmlPreview';
-import { PowerPointPreview } from './PowerPointPreview';
-import { PDFPreview } from './PDFPreview';
 
 type PreviewComponentProps = {
   file: FileStructure;
@@ -27,19 +20,37 @@ type PreviewComponentProps = {
 
 type PreviewComponent = ComponentType<PreviewComponentProps>;
 
+const LazyMarkdownPreview = lazy(() =>
+  import('./MarkdownPreview').then((m) => ({ default: m.MarkdownPreview })),
+);
+const LazyCsvPreview = lazy(() => import('./CsvPreview').then((m) => ({ default: m.CsvPreview })));
+const LazyXlsxPreview = lazy(() =>
+  import('./XlsxPreview').then((m) => ({ default: m.XlsxPreview })),
+);
+const LazyImagePreview = lazy(() =>
+  import('./ImagePreview').then((m) => ({ default: m.ImagePreview })),
+);
+const LazyHtmlPreview = lazy(() =>
+  import('./HtmlPreview').then((m) => ({ default: m.HtmlPreview })),
+);
+const LazyPowerPointPreview = lazy(() =>
+  import('./PowerPointPreview').then((m) => ({ default: m.PowerPointPreview })),
+);
+const LazyPDFPreview = lazy(() => import('./PDFPreview').then((m) => ({ default: m.PDFPreview })));
+
 interface PreviewRenderer {
   match: (file: FileStructure) => boolean;
   Component: PreviewComponent;
 }
 
 const previewRenderers: PreviewRenderer[] = [
-  { match: isMarkdownFile, Component: MarkdownPreview },
-  { match: isCsvFile, Component: CsvPreview },
-  { match: isXlsxFile, Component: XlsxPreview },
-  { match: isImageFile, Component: ImagePreview },
-  { match: isHtmlFile, Component: HtmlPreview },
-  { match: isPowerPointFile, Component: PowerPointPreview },
-  { match: isPdfFile, Component: PDFPreview },
+  { match: isMarkdownFile, Component: LazyMarkdownPreview },
+  { match: isCsvFile, Component: LazyCsvPreview },
+  { match: isXlsxFile, Component: LazyXlsxPreview },
+  { match: isImageFile, Component: LazyImagePreview },
+  { match: isHtmlFile, Component: LazyHtmlPreview },
+  { match: isPowerPointFile, Component: LazyPowerPointPreview },
+  { match: isPdfFile, Component: LazyPDFPreview },
 ];
 
 export interface FilePreviewProps {
@@ -90,11 +101,13 @@ export const FilePreview = memo(function FilePreview({ file, showPreview }: File
   }
 
   const previewContent = (
-    <PreviewComponent
-      file={file}
-      isFullscreen={isFullscreen}
-      onToggleFullscreen={handleToggleFullscreen}
-    />
+    <Suspense fallback={null}>
+      <PreviewComponent
+        file={file}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={handleToggleFullscreen}
+      />
+    </Suspense>
   );
 
   if (isFullscreen) {

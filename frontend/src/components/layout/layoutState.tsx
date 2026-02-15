@@ -1,4 +1,4 @@
-import { ReactNode, createContext, useContext, useEffect } from 'react';
+import { type ReactNode, createContext, use, useEffect } from 'react';
 
 export interface LayoutContextValue {
   sidebar: ReactNode | null;
@@ -8,7 +8,7 @@ export interface LayoutContextValue {
 export const LayoutContext = createContext<LayoutContextValue | undefined>(undefined);
 
 export function useLayoutContext() {
-  const context = useContext(LayoutContext);
+  const context = use(LayoutContext);
   if (!context) {
     throw new Error('useLayoutContext must be used within a Layout component');
   }

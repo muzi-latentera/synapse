@@ -15,7 +15,7 @@ const createEmptyModel = (): CustomProviderModel => ({
 });
 
 export const ModelListEditor: React.FC<ModelListEditorProps> = ({ models, onChange }) => {
-  const [newModel, setNewModel] = useState<CustomProviderModel>(createEmptyModel());
+  const [newModel, setNewModel] = useState<CustomProviderModel>(() => createEmptyModel());
   const [error, setError] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
 

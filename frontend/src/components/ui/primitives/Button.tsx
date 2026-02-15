@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { type ButtonHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { cn } from '@/utils/cn';
 import { Spinner } from './Spinner';
 
@@ -15,6 +15,7 @@ type ButtonVariant =
 type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  ref?: Ref<HTMLButtonElement>;
   variant?: ButtonVariant;
   size?: ButtonSize;
   isLoading?: boolean;
@@ -44,20 +45,18 @@ const sizeClasses: Record<ButtonSize, string> = {
   icon: 'h-9 w-9 rounded-md p-0',
 };
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  {
-    variant = 'primary',
-    size = 'md',
-    isLoading = false,
-    loadingText,
-    loadingIcon,
-    className,
-    disabled,
-    children,
-    ...props
-  },
+export function Button({
   ref,
-) {
+  variant = 'primary',
+  size = 'md',
+  isLoading = false,
+  loadingText,
+  loadingIcon,
+  className,
+  disabled,
+  children,
+  ...props
+}: ButtonProps) {
   const spinnerSize = size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'md';
   const spinner = loadingIcon ?? <Spinner size={spinnerSize} />;
 
@@ -95,6 +94,4 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {content}
     </button>
   );
-});
-
-Button.displayName = 'Button';
+}

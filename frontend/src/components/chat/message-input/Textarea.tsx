@@ -1,7 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, forwardRef, useCallback } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+  type CSSProperties,
+  type Ref,
+} from 'react';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
+const THIN_SCROLLBAR_STYLE: CSSProperties = { scrollbarWidth: 'thin' };
+
 export interface TextareaProps {
+  ref?: Ref<HTMLTextAreaElement>;
   message: string;
   setMessage: (value: string) => void;
   placeholder: string;
@@ -13,10 +23,16 @@ export interface TextareaProps {
 
 const CURSOR_DEBOUNCE_MS = 150;
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-  { message, setMessage, placeholder, isLoading, onKeyDown, onCursorPositionChange, compact },
+export function Textarea({
   ref,
-) {
+  message,
+  setMessage,
+  placeholder,
+  isLoading,
+  onKeyDown,
+  onCursorPositionChange,
+  compact,
+}: TextareaProps) {
   const internalRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = (ref as React.RefObject<HTMLTextAreaElement>) || internalRef;
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -29,13 +45,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
       textarea.style.height = 'auto';
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
-  }, [message]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [message, textareaRef]);
 
   useEffect(() => {
     if (!isLoading && textareaRef.current && !isMobile) {
       textareaRef.current.focus();
     }
-  }, [isLoading, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoading, isMobile, textareaRef]);
 
   useEffect(() => {
     return () => {
@@ -66,7 +82,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
     if (textareaRef.current) {
       debouncedCursorChange(textareaRef.current.selectionStart);
     }
-  }, [debouncedCursorChange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedCursorChange, textareaRef]);
 
   const scrollIntoViewOnMobile = useCallback(() => {
     if (isMobile && textareaRef.current) {
@@ -77,7 +93,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         });
       }, 150);
     }
-  }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMobile, textareaRef]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -101,8 +117,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
       disabled={isLoading}
       rows={1}
       className={`max-h-[180px] w-full resize-none overflow-y-auto bg-transparent py-1.5 pr-14 text-sm leading-normal text-text-primary outline-none transition-all duration-200 placeholder:text-text-quaternary focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50 dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary ${isMobile && compact ? 'min-h-[28px]' : 'min-h-[80px]'}`}
-      style={{ scrollbarWidth: 'thin' }}
+      style={THIN_SCROLLBAR_STYLE}
       aria-label="Message input"
     />
   );
-});
+}

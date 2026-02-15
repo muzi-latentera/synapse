@@ -1,6 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, type CSSProperties } from 'react';
 import { logger } from '@/utils/logger';
 import type { FileStructure } from '@/types';
+
+const IMAGE_STYLE: CSSProperties = { imageRendering: 'auto' };
 import { PreviewContainer } from './PreviewContainer';
 import { previewBackgroundClass } from './previewConstants';
 import { getDisplayFileName, isValidBase64 } from './previewUtils';
@@ -73,7 +75,7 @@ export const ImagePreview = memo(function ImagePreview({
         src={imageUrl}
         alt={fileName}
         className="max-h-full max-w-full object-contain"
-        style={{ imageRendering: 'auto' }}
+        style={IMAGE_STYLE}
       />
     </PreviewContainer>
   );

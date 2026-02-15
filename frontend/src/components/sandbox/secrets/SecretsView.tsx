@@ -17,13 +17,24 @@ export interface SecretsViewProps {
   sandboxId?: string;
 }
 
+function enrichSecrets(data: Secret[]): Secret[] {
+  return data.map((secret) => ({
+    ...secret,
+    originalKey: secret.key,
+    originalValue: secret.value,
+    isNew: false,
+    isModified: false,
+    isDeleted: false,
+  }));
+}
+
 export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewProps) {
   const [secrets, setSecrets] = useState<Secret[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
 
   const {
-    data: secretsData = [],
+    data: secretsData,
     isLoading,
     refetch: refetchSecrets,
   } = useSecretsQuery(sandboxId || '');
@@ -31,23 +42,17 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
   const updateSecretMutation = useUpdateSecretMutation();
   const deleteSecretMutation = useDeleteSecretMutation();
 
+  useEffect(() => {
+    if (secretsData) {
+      setSecrets(enrichSecrets(secretsData));
+    }
+  }, [secretsData]);
+
   const hasChanges = secrets.some(
     (secret) => secret.isNew || secret.isModified || secret.isDeleted,
   );
 
   const hasEmptyKeys = secrets.some((secret) => !secret.isDeleted && secret.key.trim() === '');
-
-  useEffect(() => {
-    const secretsWithOriginals = secretsData.map((secret) => ({
-      ...secret,
-      originalKey: secret.key,
-      originalValue: secret.value,
-      isNew: false,
-      isModified: false,
-      isDeleted: false,
-    }));
-    setSecrets(secretsWithOriginals);
-  }, [secretsData]);
 
   const loadEnvironmentVariables = useCallback(() => {
     refetchSecrets();
@@ -238,7 +243,7 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
                 (secret, index) =>
                   !secret.isDeleted && (
                     <div
-                      key={index}
+                      key={secret.originalKey ?? `new-${index}`}
                       className={cn(
                         'flex items-center gap-1.5 rounded-lg border p-2 transition-colors duration-200',
                         secret.isNew

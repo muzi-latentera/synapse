@@ -1,10 +1,10 @@
-import { useContext } from 'react';
+import { use } from 'react';
 import { ChatContext } from '@/contexts/ChatContextDefinition';
 
 const EMPTY: never[] = [];
 
 export function useChatContext() {
-  const context = useContext(ChatContext);
+  const context = use(ChatContext);
   return (
     context ?? {
       chatId: undefined,

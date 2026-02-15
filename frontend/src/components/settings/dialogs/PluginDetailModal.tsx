@@ -26,13 +26,158 @@ const COMPONENT_ICONS = {
   mcp: Plug,
 } as const;
 
+type ComponentType = keyof typeof COMPONENT_ICONS;
+
+interface ComponentEntry {
+  type: ComponentType;
+  name: string;
+}
+
+function InstalledComponentRow({
+  comp,
+  componentId,
+  isSelectedForUninstall,
+  onToggle,
+}: {
+  comp: ComponentEntry;
+  componentId: string;
+  isSelectedForUninstall: boolean;
+  onToggle: (id: string) => void;
+}) {
+  const Icon = COMPONENT_ICONS[comp.type];
+
+  return (
+    <label
+      className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${
+        isSelectedForUninstall
+          ? 'border-error-500 bg-error-50 dark:border-error-400 dark:bg-error-900/20'
+          : 'border-success-200 bg-success-50 dark:border-success-800 dark:bg-success-900/20'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Icon
+          className={`h-4 w-4 ${
+            isSelectedForUninstall
+              ? 'text-error-600 dark:text-error-400'
+              : 'text-success-600 dark:text-success-400'
+          }`}
+        />
+        <div>
+          <span className="text-sm font-medium text-text-primary dark:text-text-dark-primary">
+            {comp.name}
+          </span>
+          <span className="ml-2 text-xs capitalize text-text-tertiary dark:text-text-dark-tertiary">
+            {comp.type}
+          </span>
+        </div>
+      </div>
+      <input
+        type="checkbox"
+        checked={isSelectedForUninstall}
+        onChange={() => onToggle(componentId)}
+        className="h-4 w-4 rounded border-border text-error-600 focus:ring-error-500 dark:border-border-dark"
+      />
+    </label>
+  );
+}
+
+function AvailableComponentRow({
+  comp,
+  componentId,
+  isSelected,
+  onToggle,
+}: {
+  comp: ComponentEntry;
+  componentId: string;
+  isSelected: boolean;
+  onToggle: (id: string) => void;
+}) {
+  const Icon = COMPONENT_ICONS[comp.type];
+
+  return (
+    <label
+      className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${
+        isSelected
+          ? 'border-border-hover bg-surface-active dark:border-border-dark-hover dark:bg-surface-dark-active'
+          : 'border-border hover:border-border-hover dark:border-border-dark dark:hover:border-border-dark-hover'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <Icon className="h-4 w-4 text-text-tertiary dark:text-text-dark-tertiary" />
+        <div>
+          <span className="text-sm font-medium text-text-primary dark:text-text-dark-primary">
+            {comp.name}
+          </span>
+          <span className="ml-2 text-xs capitalize text-text-tertiary dark:text-text-dark-tertiary">
+            {comp.type}
+          </span>
+        </div>
+      </div>
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={() => onToggle(componentId)}
+        className="h-4 w-4 rounded border-border text-text-primary accent-text-primary focus:ring-text-quaternary/30 dark:border-border-dark"
+      />
+    </label>
+  );
+}
+
+function PluginModalHeader({
+  plugin,
+  onClose,
+}: {
+  plugin: MarketplacePlugin;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-border bg-surface-tertiary p-4 dark:border-border-dark dark:bg-surface-dark-tertiary">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h2 className="truncate text-lg font-semibold text-text-primary dark:text-text-dark-primary">
+            {plugin.name}
+          </h2>
+          {plugin.version && (
+            <span className="rounded bg-surface-tertiary px-2 py-0.5 text-xs dark:bg-surface-dark-tertiary">
+              v{plugin.version}
+            </span>
+          )}
+        </div>
+        {plugin.author?.name && (
+          <p className="mt-0.5 text-sm text-text-secondary dark:text-text-dark-secondary">
+            by {plugin.author.name}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {plugin.homepage && (
+          <a
+            href={plugin.homepage}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
+        <button
+          onClick={onClose}
+          className="rounded p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export const PluginDetailModal: React.FC<PluginDetailModalProps> = ({
   plugin,
   isOpen,
   onClose,
 }) => {
-  const [selectedComponents, setSelectedComponents] = useState<Set<string>>(new Set());
-  const [selectedForUninstall, setSelectedForUninstall] = useState<Set<string>>(new Set());
+  const [selectedComponents, setSelectedComponents] = useState<Set<string>>(() => new Set());
+  const [selectedForUninstall, setSelectedForUninstall] = useState<Set<string>>(() => new Set());
 
   const {
     data: details,
@@ -56,24 +201,12 @@ export const PluginDetailModal: React.FC<PluginDetailModalProps> = ({
 
   if (!plugin) return null;
 
-  const allComponents = details
+  const allComponents: ComponentEntry[] = details
     ? [
-        ...details.components.agents.map((name) => ({
-          type: 'agent' as const,
-          name,
-        })),
-        ...details.components.commands.map((name) => ({
-          type: 'command' as const,
-          name,
-        })),
-        ...details.components.skills.map((name) => ({
-          type: 'skill' as const,
-          name,
-        })),
-        ...details.components.mcp_servers.map((name) => ({
-          type: 'mcp' as const,
-          name,
-        })),
+        ...details.components.agents.map((name) => ({ type: 'agent' as const, name })),
+        ...details.components.commands.map((name) => ({ type: 'command' as const, name })),
+        ...details.components.skills.map((name) => ({ type: 'skill' as const, name })),
+        ...details.components.mcp_servers.map((name) => ({ type: 'mcp' as const, name })),
       ]
     : [];
 
@@ -179,43 +312,7 @@ export const PluginDetailModal: React.FC<PluginDetailModalProps> = ({
   return (
     <BaseModal isOpen={isOpen} onClose={onClose} size="xl">
       <div className="flex max-h-[80vh] flex-col">
-        <div className="flex items-center justify-between border-b border-border bg-surface-tertiary p-4 dark:border-border-dark dark:bg-surface-dark-tertiary">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-lg font-semibold text-text-primary dark:text-text-dark-primary">
-                {plugin.name}
-              </h2>
-              {plugin.version && (
-                <span className="rounded bg-surface-tertiary px-2 py-0.5 text-xs dark:bg-surface-dark-tertiary">
-                  v{plugin.version}
-                </span>
-              )}
-            </div>
-            {plugin.author?.name && (
-              <p className="mt-0.5 text-sm text-text-secondary dark:text-text-dark-secondary">
-                by {plugin.author.name}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {plugin.homepage && (
-              <a
-                href={plugin.homepage}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            )}
-            <button
-              onClick={onClose}
-              className="rounded p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+        <PluginModalHeader plugin={plugin} onClose={onClose} />
 
         <div className="flex-1 overflow-y-auto p-4">
           <p className="mb-4 text-sm text-text-secondary dark:text-text-dark-secondary">
@@ -265,59 +362,24 @@ export const PluginDetailModal: React.FC<PluginDetailModalProps> = ({
               <div className="mb-4 space-y-2">
                 {allComponents.map((comp) => {
                   const componentId = `${comp.type}:${comp.name}`;
-                  const Icon = COMPONENT_ICONS[comp.type];
                   const isInstalled = installedComponents.has(componentId);
-                  const isSelected = selectedComponents.has(componentId);
-                  const isSelectedForUninstall = selectedForUninstall.has(componentId);
 
-                  return (
-                    <label
+                  return isInstalled ? (
+                    <InstalledComponentRow
                       key={componentId}
-                      className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${
-                        isSelectedForUninstall
-                          ? 'border-error-500 bg-error-50 dark:border-error-400 dark:bg-error-900/20'
-                          : isInstalled
-                            ? 'border-success-200 bg-success-50 dark:border-success-800 dark:bg-success-900/20'
-                            : isSelected
-                              ? 'border-border-hover bg-surface-active dark:border-border-dark-hover dark:bg-surface-dark-active'
-                              : 'border-border hover:border-border-hover dark:border-border-dark dark:hover:border-border-dark-hover'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon
-                          className={`h-4 w-4 ${
-                            isSelectedForUninstall
-                              ? 'text-error-600 dark:text-error-400'
-                              : isInstalled
-                                ? 'text-success-600 dark:text-success-400'
-                                : 'text-text-tertiary dark:text-text-dark-tertiary'
-                          }`}
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-text-primary dark:text-text-dark-primary">
-                            {comp.name}
-                          </span>
-                          <span className="ml-2 text-xs capitalize text-text-tertiary dark:text-text-dark-tertiary">
-                            {comp.type}
-                          </span>
-                        </div>
-                      </div>
-                      {isInstalled ? (
-                        <input
-                          type="checkbox"
-                          checked={isSelectedForUninstall}
-                          onChange={() => toggleUninstall(componentId)}
-                          className="h-4 w-4 rounded border-border text-error-600 focus:ring-error-500 dark:border-border-dark"
-                        />
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleComponent(componentId)}
-                          className="h-4 w-4 rounded border-border text-text-primary accent-text-primary focus:ring-text-quaternary/30 dark:border-border-dark"
-                        />
-                      )}
-                    </label>
+                      comp={comp}
+                      componentId={componentId}
+                      isSelectedForUninstall={selectedForUninstall.has(componentId)}
+                      onToggle={toggleUninstall}
+                    />
+                  ) : (
+                    <AvailableComponentRow
+                      key={componentId}
+                      comp={comp}
+                      componentId={componentId}
+                      isSelected={selectedComponents.has(componentId)}
+                      onToggle={toggleComponent}
+                    />
                   );
                 })}
               </div>

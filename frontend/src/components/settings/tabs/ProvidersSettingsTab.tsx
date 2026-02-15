@@ -29,7 +29,7 @@ export const ProvidersSettingsTab: React.FC<ProvidersSettingsTabProps> = ({
   onDeleteProvider,
   onToggleProvider,
 }) => {
-  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set());
+  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(() => new Set());
   const [providerPendingDelete, setProviderPendingDelete] = useState<CustomProvider | null>(null);
 
   const toggleExpanded = (providerId: string) => {

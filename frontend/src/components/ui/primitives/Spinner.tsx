@@ -1,9 +1,10 @@
-import { forwardRef, type HTMLAttributes } from 'react';
+import { type HTMLAttributes, type Ref } from 'react';
 import { cn } from '@/utils/cn';
 
 type SpinnerSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface SpinnerProps extends HTMLAttributes<HTMLSpanElement> {
+  ref?: Ref<HTMLSpanElement>;
   size?: SpinnerSize;
 }
 
@@ -14,10 +15,7 @@ const sizeClasses: Record<SpinnerSize, string> = {
   lg: 'h-5 w-5',
 };
 
-export const Spinner = forwardRef<HTMLSpanElement, SpinnerProps>(function Spinner(
-  { size = 'md', className, ...props },
-  ref,
-) {
+export function Spinner({ ref, size = 'md', className, ...props }: SpinnerProps) {
   return (
     <span
       ref={ref}
@@ -30,6 +28,4 @@ export const Spinner = forwardRef<HTMLSpanElement, SpinnerProps>(function Spinne
       {...props}
     />
   );
-});
-
-Spinner.displayName = 'Spinner';
+}

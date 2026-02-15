@@ -176,7 +176,7 @@ export const ProviderDialog: React.FC<ProviderDialogProps> = ({
   onClose,
   onSave,
 }) => {
-  const [form, setForm] = useState<CustomProvider>(createEmptyProvider());
+  const [form, setForm] = useState<CustomProvider>(() => createEmptyProvider());
   const [showToken, setShowToken] = useState(false);
   const [selectedProviderType, setSelectedProviderType] = useState<ProviderType>('anthropic');
   const [localError, setLocalError] = useState<string | null>(null);

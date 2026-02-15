@@ -1,5 +1,9 @@
-import React, { useState, useMemo, memo } from 'react';
+import React, { useState, useMemo, memo, type CSSProperties } from 'react';
 import { ChevronRight, Brain } from 'lucide-react';
+
+const DELAY_0: CSSProperties = { animationDelay: '0ms' };
+const DELAY_150: CSSProperties = { animationDelay: '150ms' };
+const DELAY_300: CSSProperties = { animationDelay: '300ms' };
 
 interface ThinkingBlockProps {
   content: string;
@@ -37,15 +41,15 @@ const ThinkingBlockInner: React.FC<ThinkingBlockProps> = ({ content, isActiveThi
           <div className="flex gap-0.5">
             <div
               className="h-0.5 w-0.5 animate-bounce rounded-full bg-text-quaternary dark:bg-text-dark-quaternary"
-              style={{ animationDelay: '0ms' }}
+              style={DELAY_0}
             />
             <div
               className="h-0.5 w-0.5 animate-bounce rounded-full bg-text-quaternary dark:bg-text-dark-quaternary"
-              style={{ animationDelay: '150ms' }}
+              style={DELAY_150}
             />
             <div
               className="h-0.5 w-0.5 animate-bounce rounded-full bg-text-quaternary dark:bg-text-dark-quaternary"
-              style={{ animationDelay: '300ms' }}
+              style={DELAY_300}
             />
           </div>
         )}

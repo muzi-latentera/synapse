@@ -1,16 +1,22 @@
-import { forwardRef, type InputHTMLAttributes } from 'react';
+import { type InputHTMLAttributes, type Ref } from 'react';
 import { cn } from '@/utils/cn';
 import { baseInputClasses, inputErrorClasses } from './inputStyles';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  ref?: Ref<HTMLInputElement>;
   hasError?: boolean;
   variant?: 'default' | 'unstyled';
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { className, type = 'text', hasError = false, disabled, variant = 'default', ...props },
+export function Input({
   ref,
-) {
+  className,
+  type = 'text',
+  hasError = false,
+  disabled,
+  variant = 'default',
+  ...props
+}: InputProps) {
   if (variant === 'unstyled') {
     return <input ref={ref} type={type} className={className} disabled={disabled} {...props} />;
   }
@@ -24,6 +30,4 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       {...props}
     />
   );
-});
-
-Input.displayName = 'Input';
+}

@@ -82,12 +82,14 @@ export const useUpdateFileMutation = (
       sandboxService.updateFile(sandboxId, filePath, content),
     onSuccess: async (data, variables, context, mutation) => {
       const { sandboxId, filePath } = variables;
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.sandbox.fileContent(sandboxId, filePath),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.fileContent(sandboxId, filePath),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
+        }),
+      ]);
       if (onSuccess) {
         await onSuccess(data, variables, context, mutation);
       }
@@ -182,12 +184,14 @@ export const useStartBrowserMutation = (
   return useMutation({
     mutationFn: ({ sandboxId, url }) => sandboxService.startBrowser(sandboxId, url),
     onSuccess: async (data, variables, context, mutation) => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.sandbox.vncUrl(variables.sandboxId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.vncUrl(variables.sandboxId),
+        }),
+      ]);
       if (onSuccess) {
         await onSuccess(data, variables, context, mutation);
       }

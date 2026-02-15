@@ -1,5 +1,7 @@
-import { memo, useRef, useCallback } from 'react';
+import { memo, useRef, useCallback, type CSSProperties } from 'react';
 import { VncScreen, VncScreenHandle } from 'react-vnc';
+
+const FULL_SIZE_STYLE: CSSProperties = { width: '100%', height: '100%' };
 
 interface VNCClientProps {
   wsUrl: string | null;
@@ -46,7 +48,7 @@ export const VNCClient = memo(function VNCClient({
         clipViewport
         resizeSession
         className="vnc-screen h-full w-full"
-        style={{ width: '100%', height: '100%' }}
+        style={FULL_SIZE_STYLE}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
         onSecurityFailure={handleSecurityFailure}

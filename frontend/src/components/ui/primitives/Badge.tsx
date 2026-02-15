@@ -1,9 +1,10 @@
-import { forwardRef, type HTMLAttributes } from 'react';
+import { type HTMLAttributes, type Ref } from 'react';
 import { cn } from '@/utils/cn';
 
 type BadgeVariant = 'default' | 'info' | 'success' | 'warning' | 'error';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
+  ref?: Ref<HTMLSpanElement>;
   variant?: BadgeVariant;
 }
 
@@ -19,10 +20,7 @@ const variantClasses: Record<BadgeVariant, string> = {
     'bg-error-100 dark:bg-error-900/20 text-error-700 dark:text-error-300 border-error-300 dark:border-error-700',
 };
 
-export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
-  { variant = 'default', className, children, ...props },
-  ref,
-) {
+export function Badge({ ref, variant = 'default', className, children, ...props }: BadgeProps) {
   return (
     <span
       ref={ref}
@@ -36,6 +34,4 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
       {children}
     </span>
   );
-});
-
-Badge.displayName = 'Badge';
+}

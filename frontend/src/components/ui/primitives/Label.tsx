@@ -1,14 +1,18 @@
-import { forwardRef, type LabelHTMLAttributes } from 'react';
+import { type LabelHTMLAttributes, type Ref } from 'react';
 import { cn } from '@/utils/cn';
 
 export interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
+  ref?: Ref<HTMLLabelElement>;
   requiredIndicator?: boolean;
 }
 
-export const Label = forwardRef<HTMLLabelElement, LabelProps>(function Label(
-  { className, children, requiredIndicator = false, ...props },
+export function Label({
   ref,
-) {
+  className,
+  children,
+  requiredIndicator = false,
+  ...props
+}: LabelProps) {
   return (
     <label
       ref={ref}
@@ -22,6 +26,4 @@ export const Label = forwardRef<HTMLLabelElement, LabelProps>(function Label(
       {requiredIndicator ? <span className="text-error-500">*</span> : null}
     </label>
   );
-});
-
-Label.displayName = 'Label';
+}

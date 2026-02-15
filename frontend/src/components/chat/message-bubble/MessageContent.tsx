@@ -3,62 +3,70 @@ import { MessageRenderer } from './MessageRenderer';
 import type { AssistantStreamEvent, MessageAttachment } from '@/types';
 import { MessageAttachments } from './MessageAttachments';
 
-interface MessageContentProps {
+interface SharedContentProps {
   contentText: string;
   contentRender?: {
     events?: AssistantStreamEvent[];
   };
-  isBot: boolean;
   attachments?: MessageAttachment[];
-  uploadingAttachmentIds?: string[];
   isStreaming: boolean;
   chatId?: string;
+}
+
+interface UserMessageContentProps extends SharedContentProps {
+  uploadingAttachmentIds?: string[];
+}
+
+export const UserMessageContent = memo(function UserMessageContent({
+  contentText,
+  contentRender,
+  attachments,
+  uploadingAttachmentIds,
+  isStreaming,
+  chatId,
+}: UserMessageContentProps) {
+  return (
+    <div className="space-y-1">
+      <MessageAttachments
+        attachments={attachments}
+        uploadingAttachmentIds={uploadingAttachmentIds}
+      />
+      <MessageRenderer
+        contentText={contentText}
+        events={contentRender?.events}
+        isStreaming={isStreaming}
+        chatId={chatId}
+      />
+    </div>
+  );
+});
+
+interface AssistantMessageContentProps extends SharedContentProps {
   isLastBotMessage?: boolean;
   onSuggestionSelect?: (suggestion: string) => void;
 }
 
-export const MessageContent = memo(
-  ({
-    contentText,
-    contentRender,
-    isBot,
-    attachments,
-    uploadingAttachmentIds,
-    isStreaming,
-    chatId,
-    isLastBotMessage,
-    onSuggestionSelect,
-  }: MessageContentProps) => {
-    if (!isBot) {
-      return (
-        <div className="space-y-1">
-          <MessageAttachments
-            attachments={attachments}
-            uploadingAttachmentIds={uploadingAttachmentIds}
-          />
-          <MessageRenderer
-            contentText={contentText}
-            events={contentRender?.events}
-            isStreaming={isStreaming}
-            chatId={chatId}
-          />
-        </div>
-      );
-    }
+export const AssistantMessageContent = memo(function AssistantMessageContent({
+  contentText,
+  contentRender,
+  attachments,
+  isStreaming,
+  chatId,
+  isLastBotMessage,
+  onSuggestionSelect,
+}: AssistantMessageContentProps) {
+  return (
+    <div className="space-y-4">
+      <MessageRenderer
+        contentText={contentText}
+        events={contentRender?.events}
+        isStreaming={isStreaming}
+        chatId={chatId}
+        isLastBotMessage={isLastBotMessage}
+        onSuggestionSelect={onSuggestionSelect}
+      />
 
-    return (
-      <div className="space-y-4">
-        <MessageRenderer
-          contentText={contentText}
-          events={contentRender?.events}
-          isStreaming={isStreaming}
-          chatId={chatId}
-          isLastBotMessage={isLastBotMessage}
-          onSuggestionSelect={onSuggestionSelect}
-        />
-
-        <MessageAttachments attachments={attachments} className="mt-3" />
-      </div>
-    );
-  },
-);
+      <MessageAttachments attachments={attachments} className="mt-3" />
+    </div>
+  );
+});

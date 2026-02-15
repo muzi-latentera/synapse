@@ -1,14 +1,19 @@
-import { forwardRef, type SelectHTMLAttributes } from 'react';
+import { type SelectHTMLAttributes, type Ref } from 'react';
 import { cn } from '@/utils/cn';
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  ref?: Ref<HTMLSelectElement>;
   hasError?: boolean;
 }
 
-export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { className, hasError = false, disabled, children, ...props },
+export function Select({
   ref,
-) {
+  className,
+  hasError = false,
+  disabled,
+  children,
+  ...props
+}: SelectProps) {
   return (
     <div className="relative inline-flex w-full">
       <select
@@ -38,6 +43,4 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       </span>
     </div>
   );
-});
-
-Select.displayName = 'Select';
+}
