@@ -1,25 +1,20 @@
 import logging
 import uuid
-from typing import Any, Callable
+from typing import Any
 
 from e2b import AsyncSandbox
 from e2b.sandbox.commands.command_handle import PtySize as E2BPtySize
-from tenacity import (
-    AsyncRetrying,
-    before_sleep_log,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from app.constants import (
     EXCLUDED_PREVIEW_PORTS,
+    OPENVSCODE_PORT,
     SANDBOX_AUTO_PAUSE_TIMEOUT,
     SANDBOX_DEFAULT_COMMAND_TIMEOUT,
     SANDBOX_DEFAULT_TIMEOUT,
     SANDBOX_HOME_DIR,
     SANDBOX_SYSTEM_VARIABLES,
     TERMINAL_TYPE,
+    VNC_WEBSOCKET_PORT,
 )
 from app.core.config import get_settings
 from app.services.exceptions import ErrorCode, SandboxException
@@ -37,32 +32,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 1.0
-
 E2B_SYSTEM_VARIABLES = SANDBOX_SYSTEM_VARIABLES + ["E2B_SANDBOX"]
-
-
-def is_retryable_error(exception: BaseException) -> bool:
-    error_message = str(exception)
-    return not ("401" in error_message or "403" in error_message)
-
-
-RETRY_CONFIG: dict[str, Any] = {
-    "stop": stop_after_attempt(MAX_RETRIES),
-    "wait": wait_exponential(multiplier=RETRY_BASE_DELAY, min=RETRY_BASE_DELAY, max=10),
-    "retry": retry_if_exception(is_retryable_error),
-    "before_sleep": before_sleep_log(logger, logging.WARNING),
-    "reraise": True,
-}
-
-
-def normalize_e2b_pty_data(data: Any) -> bytes:
-    if hasattr(data, "data"):
-        return bytes(data.data)
-    if isinstance(data, bytes):
-        return data
-    return str(data).encode("utf-8")
 
 
 class E2BSandboxProvider(SandboxProvider):
@@ -70,6 +40,14 @@ class E2BSandboxProvider(SandboxProvider):
         self.api_key = api_key
         self._active_sandboxes: dict[str, AsyncSandbox] = {}
         self._pty_sessions: dict[str, dict[str, Any]] = {}
+
+    @staticmethod
+    def _normalize_pty_data(data: Any) -> bytes:
+        if hasattr(data, "data"):
+            return bytes(data.data)
+        if isinstance(data, bytes):
+            return data
+        return str(data).encode("utf-8")
 
     def _get_system_variables(self) -> list[str]:
         return E2B_SYSTEM_VARIABLES
@@ -237,7 +215,7 @@ class E2BSandboxProvider(SandboxProvider):
             sandbox.pty.create,
             size=E2BPtySize(rows=rows, cols=cols),
             on_data=lambda data: (
-                on_data(normalize_e2b_pty_data(data)) if on_data else None
+                on_data(self._normalize_pty_data(data)) if on_data else None
             ),
             cwd=SANDBOX_HOME_DIR,
             envs={"TERM": TERMINAL_TYPE},
@@ -350,14 +328,12 @@ class E2BSandboxProvider(SandboxProvider):
         )
 
     async def get_ide_url(self, sandbox_id: str) -> str | None:
-        openvscode_port = 8765
         return (
-            f"https://{openvscode_port}-{sandbox_id}.e2b.dev/?folder={SANDBOX_HOME_DIR}"
+            f"https://{OPENVSCODE_PORT}-{sandbox_id}.e2b.dev/?folder={SANDBOX_HOME_DIR}"
         )
 
     async def get_vnc_url(self, sandbox_id: str) -> str | None:
-        vnc_websocket_port = 6080
-        return f"wss://{vnc_websocket_port}-{sandbox_id}.e2b.dev"
+        return f"wss://{VNC_WEBSOCKET_PORT}-{sandbox_id}.e2b.dev"
 
     async def _get_sandbox(self, sandbox_id: str) -> AsyncSandbox:
         if sandbox_id in self._active_sandboxes:
@@ -375,10 +351,3 @@ class E2BSandboxProvider(SandboxProvider):
         )
         self._active_sandboxes[sandbox_id] = sandbox
         return sandbox
-
-    async def _retry_operation(
-        self, operation: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> Any:
-        async for attempt in AsyncRetrying(**RETRY_CONFIG):
-            with attempt:
-                return await operation(*args, **kwargs)

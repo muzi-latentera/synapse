@@ -31,6 +31,16 @@ class E2BSandboxTransport(BaseSandboxTransport):
     def _get_logger(self) -> Any:
         return logger
 
+    async def _on_stdout(self, data: str) -> None:
+        await self._stdout_queue.put(data)
+
+    async def _on_stderr(self, data: str) -> None:
+        if self._options.stderr:
+            try:
+                self._options.stderr(data)
+            except Exception:
+                pass
+
     async def connect(self) -> None:
         if self._ready:
             return
@@ -50,16 +60,6 @@ class E2BSandboxTransport(BaseSandboxTransport):
         command_line = self._build_command()
         envs, cwd, user = self._prepare_environment()
 
-        async def on_stdout(data: str) -> None:
-            await self._stdout_queue.put(data)
-
-        async def on_stderr(data: str) -> None:
-            if self._options.stderr:
-                try:
-                    self._options.stderr(data)
-                except Exception:
-                    pass
-
         try:
             assert self._sandbox is not None
             self._command = await self._sandbox.commands.run(
@@ -69,8 +69,8 @@ class E2BSandboxTransport(BaseSandboxTransport):
                 cwd=cwd,
                 user=user,
                 timeout=0,
-                on_stdout=on_stdout,
-                on_stderr=on_stderr,
+                on_stdout=self._on_stdout,
+                on_stderr=self._on_stderr,
             )
         except Exception as exc:
             raise CLIConnectionError(f"Failed to start Claude CLI: {exc}") from exc

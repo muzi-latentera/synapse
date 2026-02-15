@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import docker
+
 from app.constants import (
     DOCKER_AVAILABLE_PORTS,
     DOCKER_STATUS_RUNNING,
@@ -48,8 +50,6 @@ class LocalDockerProvider(SandboxProvider):
     def _get_docker_client(self) -> Any:
         if self._docker_client is None:
             try:
-                import docker
-
                 if self.config.host:
                     self._docker_client = docker.DockerClient(
                         base_url=self.config.host,
@@ -59,32 +59,14 @@ class LocalDockerProvider(SandboxProvider):
                     self._docker_client = docker.from_env(
                         timeout=SANDBOX_DEFAULT_TIMEOUT
                     )
-            except ImportError:
-                raise SandboxException(
-                    "Docker SDK not installed. Run: pip install docker"
-                )
             except Exception as e:
                 raise SandboxException(f"Failed to connect to Docker: {e}")
         return self._docker_client
 
     def _build_traefik_labels(self, sandbox_id: str) -> dict[str, str]:
-        """
-        Generate Traefik labels so sandbox containers can be accessed on one host via path routing.
-
-        Problem: Main app uses HTTPS, but sandbox containers run on random HTTP ports.
-        Browsers block HTTP iframes inside HTTPS pages (mixed content).
-
-        Solution: Use Traefik to route path prefixes to container ports over HTTPS.
-        Example: https://app.example.com/sandbox/abc123/8765 -> container port 8765
-
-        Setup required:
-        - DNS: app.example.com -> your server IP
-        - SSL: Certificate for app.example.com
-        - Env: DOCKER_PREVIEW_BASE_URL=https://app.example.com
-        - Env: DOCKER_TRAEFIK_NETWORK=coolify (your Traefik network name)
-
-        If not configured, returns empty dict and falls back to direct host port URLs.
-        """
+        # Traefik path-based routing: /sandbox/{id}/{port} -> container port.
+        # Solves mixed-content blocking when main app is HTTPS but containers are HTTP.
+        # Requires DOCKER_TRAEFIK_NETWORK and DOCKER_PREVIEW_BASE_URL to be configured.
         parsed_base = urlparse(self.config.preview_base_url)
         preview_host = parsed_base.hostname
         if not preview_host or not self.config.traefik_network:
@@ -122,13 +104,13 @@ class LocalDockerProvider(SandboxProvider):
 
         return labels
 
-    def _create_container(self, sandbox_id: str) -> Any:
+    def _create_container(self, sandbox_id: str, image: Any | None = None) -> Any:
         client = self._get_docker_client()
         labels = self._build_traefik_labels(sandbox_id)
         network = self.config.traefik_network or self.config.network
 
         container = client.containers.run(
-            self.config.image,
+            image or self.config.image,
             command="/bin/bash",
             name=f"{DOCKER_SANDBOX_CONTAINER_PREFIX}{sandbox_id}",
             hostname="sandbox",
@@ -192,26 +174,6 @@ class LocalDockerProvider(SandboxProvider):
         container.reload()
         return bool(container.status == DOCKER_STATUS_RUNNING)
 
-    async def list_sandboxes(self) -> list[tuple[str, Any]]:
-        client = self._get_docker_client()
-        loop = asyncio.get_running_loop()
-
-        containers = await loop.run_in_executor(
-            self._executor,
-            lambda: client.containers.list(
-                all=True,
-                filters={"name": DOCKER_SANDBOX_CONTAINER_PREFIX},
-            ),
-        )
-
-        sandboxes: list[tuple[str, Any]] = []
-        for container in containers:
-            name = getattr(container, "name", "")
-            if name.startswith(DOCKER_SANDBOX_CONTAINER_PREFIX):
-                sandbox_id = name[len(DOCKER_SANDBOX_CONTAINER_PREFIX) :]
-                sandboxes.append((sandbox_id, container))
-        return sandboxes
-
     def _get_container_by_id(self, sandbox_id: str) -> Any | None:
         client = self._get_docker_client()
         try:
@@ -258,7 +220,6 @@ class LocalDockerProvider(SandboxProvider):
                 return
 
         await self._destroy_container(container)
-        await self._cleanup_docker_resources()
 
         if sandbox_id in self._containers:
             del self._containers[sandbox_id]
@@ -470,6 +431,13 @@ class LocalDockerProvider(SandboxProvider):
             cols=cols,
         )
 
+    @staticmethod
+    def _recv_pty_socket(sock: Any) -> bytes | None:
+        try:
+            return bytes(sock._sock.recv(4096))
+        except Exception:
+            return None
+
     async def _pty_reader(
         self,
         sandbox_id: str,
@@ -479,15 +447,11 @@ class LocalDockerProvider(SandboxProvider):
     ) -> None:
         loop = asyncio.get_running_loop()
 
-        def read_socket() -> bytes | None:
-            try:
-                return bytes(socket._sock.recv(4096))
-            except Exception:
-                return None
-
         try:
             while True:
-                data = await loop.run_in_executor(self._executor, read_socket)
+                data = await loop.run_in_executor(
+                    self._executor, self._recv_pty_socket, socket
+                )
                 if data is None or len(data) == 0:
                     break
                 await on_data(data)
@@ -621,26 +585,6 @@ class LocalDockerProvider(SandboxProvider):
         except Exception:
             pass
 
-    async def _cleanup_docker_resources(self) -> None:
-        loop = asyncio.get_running_loop()
-        client = self._get_docker_client()
-
-        try:
-            await loop.run_in_executor(
-                self._executor,
-                lambda: client.images.prune(filters={"dangling": True}),
-            )
-        except Exception:
-            pass
-
-        try:
-            await loop.run_in_executor(
-                self._executor,
-                lambda: client.volumes.prune(),
-            )
-        except Exception:
-            pass
-
     @staticmethod
     def _ensure_running(container: Any) -> None:
         container.reload()
@@ -700,36 +644,6 @@ class LocalDockerProvider(SandboxProvider):
         )
         return f"{base_url}:{host_port}"
 
-    def _create_container_from_image(self, sandbox_id: str, image: Any) -> Any:
-        client = self._get_docker_client()
-        labels = self._build_traefik_labels(sandbox_id)
-        network = self.config.traefik_network or self.config.network
-
-        container = client.containers.run(
-            image,
-            command="/bin/bash",
-            name=f"{DOCKER_SANDBOX_CONTAINER_PREFIX}{sandbox_id}",
-            hostname="sandbox",
-            user="user",
-            working_dir=self.config.user_home,
-            stdin_open=True,
-            tty=True,
-            detach=True,
-            remove=False,
-            privileged=True,
-            security_opt=["no-new-privileges=false"],
-            network=network,
-            labels=labels,
-            ports={f"{port}/tcp": None for port in DOCKER_AVAILABLE_PORTS},
-            environment={
-                "TERM": TERMINAL_TYPE,
-                "HOME": self.config.user_home,
-                "USER": "user",
-                "OPENVSCODE_PORT": str(self.config.openvscode_port),
-            },
-        )
-        return container
-
     async def clone_sandbox(
         self, source_sandbox_id: str, checkpoint_id: str | None = None
     ) -> str:
@@ -744,7 +658,7 @@ class LocalDockerProvider(SandboxProvider):
         try:
             new_container = await loop.run_in_executor(
                 self._executor,
-                lambda: self._create_container_from_image(new_sandbox_id, temp_image),
+                lambda: self._create_container(new_sandbox_id, image=temp_image),
             )
             self._containers[new_sandbox_id] = new_container
 

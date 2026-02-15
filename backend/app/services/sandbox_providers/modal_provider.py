@@ -2,16 +2,9 @@ import asyncio
 import logging
 import os
 import uuid
-from typing import Any, Callable
+from typing import Any
 
 import modal
-from tenacity import (
-    AsyncRetrying,
-    before_sleep_log,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from app.constants import (
     DOCKER_AVAILABLE_PORTS,
@@ -40,29 +33,18 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 1.0
 MODAL_APP_NAME = "claudex-sandbox"
 
 MODAL_SYSTEM_VARIABLES = SANDBOX_SYSTEM_VARIABLES + ["MODAL_SANDBOX"]
 
 
-def is_retryable_error(exception: BaseException) -> bool:
-    error_message = str(exception)
-    return not (
-        "401" in error_message
-        or "403" in error_message
-        or "authentication" in error_message.lower()
-    )
-
-
-RETRY_CONFIG: dict[str, Any] = {
-    "stop": stop_after_attempt(MAX_RETRIES),
-    "wait": wait_exponential(multiplier=RETRY_BASE_DELAY, min=RETRY_BASE_DELAY, max=10),
-    "retry": retry_if_exception(is_retryable_error),
-    "before_sleep": before_sleep_log(logger, logging.WARNING),
-    "reraise": True,
-}
+def setup_modal_auth(api_key: str) -> None:
+    if ":" in api_key:
+        token_id, token_secret = api_key.split(":", 1)
+        os.environ["MODAL_TOKEN_ID"] = token_id
+        os.environ["MODAL_TOKEN_SECRET"] = token_secret
+    else:
+        os.environ["MODAL_TOKEN_ID"] = api_key
 
 
 class ModalSandboxProvider(SandboxProvider):
@@ -71,15 +53,7 @@ class ModalSandboxProvider(SandboxProvider):
         self._active_sandboxes: dict[str, modal.Sandbox] = {}
         self._pty_sessions: dict[str, dict[str, Any]] = {}
         self._app: modal.App | None = None
-        self._setup_auth()
-
-    def _setup_auth(self) -> None:
-        if ":" in self.api_key:
-            token_id, token_secret = self.api_key.split(":", 1)
-            os.environ["MODAL_TOKEN_ID"] = token_id
-            os.environ["MODAL_TOKEN_SECRET"] = token_secret
-        else:
-            os.environ["MODAL_TOKEN_ID"] = self.api_key
+        setup_modal_auth(api_key)
 
     def _get_system_variables(self) -> list[str]:
         return MODAL_SYSTEM_VARIABLES
@@ -297,22 +271,12 @@ class ModalSandboxProvider(SandboxProvider):
                 "process": process,
                 "sandbox": sandbox,
                 "on_data": on_data,
+                "tmux_session": tmux_session,
             },
         )
 
         if on_data:
-
-            async def read_output() -> None:
-                try:
-                    async for data in process.stdout:
-                        data_bytes = (
-                            data.encode("utf-8") if isinstance(data, str) else data
-                        )
-                        await on_data(data_bytes)
-                except Exception as e:
-                    logger.error("Error reading PTY output: %s", e)
-
-            asyncio.create_task(read_output())
+            asyncio.create_task(self._pty_reader(process, on_data))
 
         return PtySession(
             id=session_id,
@@ -340,13 +304,49 @@ class ModalSandboxProvider(SandboxProvider):
             logger.error("Failed to send PTY input: %s", e)
             await self.kill_pty(sandbox_id, pty_id)
 
+    async def _pty_reader(
+        self,
+        process: Any,
+        on_data: PtyDataCallbackType,
+    ) -> None:
+        try:
+            async for data in process.stdout:
+                data_bytes = data.encode("utf-8") if isinstance(data, str) else data
+                await on_data(data_bytes)
+        except Exception as e:
+            logger.error("Error reading PTY output: %s", e)
+
     async def resize_pty(
         self,
         sandbox_id: str,
         pty_id: str,
         size: PtySize,
     ) -> None:
-        pass
+        session = self._get_pty_session(sandbox_id, pty_id)
+        if not session:
+            return
+
+        tmux_session = session.get("tmux_session")
+        if not tmux_session:
+            return
+
+        rows = max(size.rows, 1)
+        cols = max(size.cols, 1)
+        try:
+            sandbox = await self._get_sandbox(sandbox_id)
+            resize_proc = await sandbox.exec.aio(
+                "tmux",
+                "resize-window",
+                "-t",
+                tmux_session,
+                "-x",
+                str(cols),
+                "-y",
+                str(rows),
+            )
+            await resize_proc.wait.aio()
+        except Exception:
+            pass
 
     async def kill_pty(
         self,
@@ -434,10 +434,3 @@ class ModalSandboxProvider(SandboxProvider):
         )
         self._active_sandboxes[sandbox_id] = sandbox
         return sandbox
-
-    async def _retry_operation(
-        self, operation: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> Any:
-        async for attempt in AsyncRetrying(**RETRY_CONFIG):
-            with attempt:
-                return await operation(*args, **kwargs)

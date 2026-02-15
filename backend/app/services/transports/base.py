@@ -161,9 +161,7 @@ class BaseSandboxTransport(Transport, ABC):
         cli_binary = str(self._options.cli_path) if self._options.cli_path else "claude"
         cmd = [cli_binary, "--output-format", "stream-json", "--verbose"]
 
-        if self._options.system_prompt is None:
-            pass
-        elif isinstance(self._options.system_prompt, str):
+        if isinstance(self._options.system_prompt, str):
             cmd.extend(["--system-prompt", self._options.system_prompt])
         else:
             if (

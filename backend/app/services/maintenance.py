@@ -13,7 +13,6 @@ from app.services.claude_session_registry import (
     session_registry,
 )
 from app.services.refresh_token import RefreshTokenService
-from app.services.sandbox import SandboxService
 from app.services.scheduler import SchedulerService
 
 settings = get_settings()
@@ -38,7 +37,6 @@ class MaintenanceService:
         self._tasks = [
             asyncio.create_task(self._run_job_loop(self._scheduled_tasks_job())),
             asyncio.create_task(self._run_job_loop(self._refresh_tokens_job())),
-            asyncio.create_task(self._run_job_loop(self._orphaned_sandboxes_job())),
             asyncio.create_task(self._run_job_loop(self._session_reaper_job())),
         ]
 
@@ -64,13 +62,6 @@ class MaintenanceService:
             name="refresh_token_cleanup",
             interval_seconds=86400.0,
             run=RefreshTokenService.cleanup_expired_tokens_job,
-        )
-
-    def _orphaned_sandboxes_job(self) -> MaintenanceJob:
-        return MaintenanceJob(
-            name="orphaned_sandbox_cleanup",
-            interval_seconds=3600.0,
-            run=SandboxService.cleanup_orphaned_sandboxes,
         )
 
     def _session_reaper_job(self) -> MaintenanceJob:

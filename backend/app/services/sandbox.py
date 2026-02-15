@@ -13,8 +13,6 @@ from pathlib import Path
 from typing import Any, Callable, Coroutine
 
 from fastapi import WebSocket
-from sqlalchemy import select
-
 from app.constants import (
     ANTHROPIC_BRIDGE_HOST,
     ANTHROPIC_BRIDGE_PORT,
@@ -27,8 +25,6 @@ from app.constants import (
     SANDBOX_IDE_SETTINGS_PATH,
     SANDBOX_IDE_TOKEN_PATH,
 )
-from app.db.session import SessionLocal
-from app.models.db_models import Chat
 from app.models.types import (
     CustomAgentDict,
     CustomEnvVarDict,
@@ -41,13 +37,11 @@ from app.services.agent import AgentService
 from app.services.command import CommandService
 from app.services.db import SessionFactoryType
 from app.services.exceptions import SandboxException, UserException
-from app.services.sandbox_providers import create_docker_config
 from app.services.sandbox_providers import (
     PtySize,
     SandboxProvider,
     create_sandbox_provider,
 )
-from app.services.sandbox_providers.docker_provider import LocalDockerProvider
 from app.services.sandbox_providers.types import CommandResult
 from app.services.sandbox_providers.types import SandboxProviderType
 from app.services.skill import SkillService
@@ -130,60 +124,6 @@ class SandboxService:
                 api_key=api_key,
             )
         return cls(provider=provider, session_factory=session_factory)
-
-    @classmethod
-    async def cleanup_orphaned_sandboxes(cls) -> dict[str, Any]:
-        async with SessionLocal() as db:
-            result = await db.execute(
-                select(Chat.sandbox_id).where(
-                    Chat.sandbox_id.isnot(None),
-                    Chat.deleted_at.is_(None),
-                    Chat.sandbox_provider == SandboxProviderType.DOCKER.value,
-                )
-            )
-            active_sandbox_ids = {row[0] for row in result.fetchall() if row[0]}
-
-        provider = LocalDockerProvider(create_docker_config())
-        orphaned_ids: list[str] = []
-        deleted_ids: list[str] = []
-        failed_ids: list[dict[str, str]] = []
-        containers: list[tuple[str, Any]] = []
-
-        try:
-            containers = await provider.list_sandboxes()
-            orphaned_ids = [
-                sandbox_id
-                for sandbox_id, _ in containers
-                if sandbox_id not in active_sandbox_ids
-            ]
-
-            for sandbox_id in orphaned_ids:
-                try:
-                    await provider.delete_sandbox(sandbox_id)
-                    deleted_ids.append(sandbox_id)
-                except Exception as exc:
-                    failed_ids.append({"sandbox_id": sandbox_id, "error": str(exc)})
-        except Exception as exc:
-            logger.error("Error cleaning up orphaned sandboxes: %s", exc, exc_info=True)
-            return {"error": str(exc)}
-        finally:
-            await provider.cleanup()
-
-        if deleted_ids or failed_ids:
-            logger.info(
-                "Orphaned sandbox cleanup deleted=%s failed=%s total=%s",
-                len(deleted_ids),
-                len(failed_ids),
-                len(orphaned_ids),
-            )
-
-        return {
-            "deleted_count": len(deleted_ids),
-            "failed_count": len(failed_ids),
-            "orphaned_count": len(orphaned_ids),
-            "active_count": len(active_sandbox_ids),
-            "container_count": len(containers),
-        }
 
     async def create_sandbox(self) -> str:
         return await self.provider.create_sandbox()

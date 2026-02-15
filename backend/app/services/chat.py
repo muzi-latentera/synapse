@@ -270,7 +270,7 @@ class ChatService(BaseDbService[Chat]):
 
             await db.commit()
 
-            await session_registry.terminate(str(chat_id))
+            asyncio.create_task(session_registry.terminate(str(chat_id)))
 
             if chat.sandbox_id:
                 asyncio.create_task(
@@ -335,10 +335,8 @@ class ChatService(BaseDbService[Chat]):
 
             await db.commit()
 
-            await asyncio.gather(
-                *(session_registry.terminate(cid) for cid in chat_ids),
-                return_exceptions=True,
-            )
+            for cid in chat_ids:
+                asyncio.create_task(session_registry.terminate(cid))
 
             for sandbox_id in sandbox_ids:
                 asyncio.create_task(self.sandbox_service.delete_sandbox(sandbox_id))

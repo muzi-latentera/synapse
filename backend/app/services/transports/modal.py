@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from contextlib import suppress
 from typing import Any
 
@@ -8,6 +7,7 @@ import modal
 from claude_agent_sdk._errors import CLIConnectionError, ProcessError
 from claude_agent_sdk.types import ClaudeAgentOptions
 
+from app.services.sandbox_providers.modal_provider import setup_modal_auth
 from app.services.transports.base import BaseSandboxTransport
 
 logger = logging.getLogger(__name__)
@@ -27,15 +27,7 @@ class ModalSandboxTransport(BaseSandboxTransport):
         self._process: Any | None = None
         self._stdout_reader_task: asyncio.Task[None] | None = None
         self._monitor_task: asyncio.Task[None] | None = None
-        self._setup_auth()
-
-    def _setup_auth(self) -> None:
-        if ":" in self._api_key:
-            token_id, token_secret = self._api_key.split(":", 1)
-            os.environ["MODAL_TOKEN_ID"] = token_id
-            os.environ["MODAL_TOKEN_SECRET"] = token_secret
-        else:
-            os.environ["MODAL_TOKEN_ID"] = self._api_key
+        setup_modal_auth(api_key)
 
     def _get_logger(self) -> Any:
         return logger
@@ -78,7 +70,7 @@ class ModalSandboxTransport(BaseSandboxTransport):
         return self._process is not None and self._sandbox is not None
 
     async def _cleanup_resources(self) -> None:
-        if hasattr(self, "_stdout_reader_task") and self._stdout_reader_task:
+        if self._stdout_reader_task:
             self._stdout_reader_task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._stdout_reader_task

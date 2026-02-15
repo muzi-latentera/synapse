@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from typing import Any
 
+import docker as docker_sdk
 from claude_agent_sdk._errors import CLIConnectionError, ProcessError
 from claude_agent_sdk.types import ClaudeAgentOptions
 
@@ -30,7 +31,7 @@ class DockerSandboxTransport(BaseSandboxTransport):
         self._docker_client: Any = None
         self._container: Any = None
         self._exec_id: str | None = None
-        self._socket: Any = None
+        self._raw_socket: Any = None
         self._reader_task: asyncio.Task[None] | None = None
 
     def _get_logger(self) -> Any:
@@ -39,18 +40,12 @@ class DockerSandboxTransport(BaseSandboxTransport):
     def _get_docker_client(self) -> Any:
         if self._docker_client is None:
             try:
-                import docker
-
                 if self._docker_config.host:
-                    self._docker_client = docker.DockerClient(
+                    self._docker_client = docker_sdk.DockerClient(
                         base_url=self._docker_config.host
                     )
                 else:
-                    self._docker_client = docker.from_env()
-            except ImportError:
-                raise CLIConnectionError(
-                    "Docker SDK not installed. Run: pip install docker"
-                )
+                    self._docker_client = docker_sdk.from_env()
             except Exception as e:
                 raise CLIConnectionError(f"Failed to connect to Docker: {e}")
         return self._docker_client
@@ -92,6 +87,12 @@ class DockerSandboxTransport(BaseSandboxTransport):
         )
         return exec_id, socket
 
+    @staticmethod
+    def _extract_raw_socket(sock: Any) -> Any:
+        if hasattr(sock, "_sock"):
+            return sock._sock
+        return sock
+
     async def connect(self) -> None:
         if self._ready:
             return
@@ -113,10 +114,12 @@ class DockerSandboxTransport(BaseSandboxTransport):
         envs["TERM"] = TERMINAL_TYPE
 
         try:
-            self._exec_id, self._socket = await loop.run_in_executor(
+            exec_id, sock = await loop.run_in_executor(
                 self._executor,
                 lambda: self._create_exec(command_line, envs, cwd, user),
             )
+            self._exec_id = exec_id
+            self._raw_socket = self._extract_raw_socket(sock)
         except Exception as exc:
             raise CLIConnectionError(f"Failed to start Claude CLI: {exc}") from exc
 
@@ -125,16 +128,7 @@ class DockerSandboxTransport(BaseSandboxTransport):
         self._ready = True
 
     def _is_connection_ready(self) -> bool:
-        return self._socket is not None
-
-    def _send_signal_to_pid(self, pid: int, signal: str) -> None:
-        try:
-            self._container.exec_run(
-                ["/bin/kill", f"-{signal}", f"-{pid}"], user="root"
-            )
-            self._container.exec_run(["/bin/kill", f"-{signal}", str(pid)], user="root")
-        except Exception:
-            pass
+        return self._raw_socket is not None
 
     async def _kill_exec_process(self) -> None:
         exec_id = self._exec_id
@@ -150,14 +144,11 @@ class DockerSandboxTransport(BaseSandboxTransport):
             if not pid:
                 return
             await loop.run_in_executor(
-                self._executor, self._send_signal_to_pid, pid, "TERM"
+                self._executor,
+                lambda: container.exec_run(
+                    ["/bin/kill", "-KILL", f"-{pid}"], user="root"
+                ),
             )
-            await asyncio.sleep(0.5)
-            info = await loop.run_in_executor(self._executor, self._get_exec_info)
-            if info and info.get("Running", False):
-                await loop.run_in_executor(
-                    self._executor, self._send_signal_to_pid, pid, "KILL"
-                )
         except Exception as e:
             logger.debug("Failed to kill exec process: %s", e)
 
@@ -167,10 +158,10 @@ class DockerSandboxTransport(BaseSandboxTransport):
 
         await self._kill_exec_process()
 
-        if self._socket:
+        if self._raw_socket:
             with suppress(Exception):
-                self._socket.close()
-            self._socket = None
+                self._raw_socket.close()
+            self._raw_socket = None
 
         self._exec_id = None
 
@@ -184,7 +175,7 @@ class DockerSandboxTransport(BaseSandboxTransport):
     async def _send_data(self, data: str) -> None:
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(
-            self._executor, lambda: self._socket_send(data.encode("utf-8"))
+            self._executor, lambda: self._raw_socket.sendall(data.encode("utf-8"))
         )
 
     async def _send_eof(self) -> None:
@@ -192,46 +183,22 @@ class DockerSandboxTransport(BaseSandboxTransport):
         await loop.run_in_executor(self._executor, self._shutdown_socket_write)
 
     def _shutdown_socket_write(self) -> None:
-        if not self._socket:
+        if not self._raw_socket:
             return
-        if hasattr(self._socket, "shutdown"):
-            try:
-                self._socket.shutdown(socket.SHUT_WR)
-                return
-            except Exception:
-                pass
-        if hasattr(self._socket, "_sock"):
-            try:
-                self._socket._sock.shutdown(socket.SHUT_WR)
-                return
-            except Exception:
-                pass
-        self._socket_send(b"\x04")
-
-    def _get_socket_fd(self) -> int | None:
-        if not self._socket:
-            return None
-        if hasattr(self._socket, "fileno"):
-            try:
-                return int(self._socket.fileno())
-            except Exception:
-                pass
-        if hasattr(self._socket, "_sock"):
-            try:
-                return int(self._socket._sock.fileno())
-            except Exception:
-                pass
-        return None
+        try:
+            self._raw_socket.shutdown(socket.SHUT_WR)
+        except Exception:
+            self._raw_socket.sendall(b"\x04")
 
     def _recv_with_select(self, timeout: float) -> bytes | None:
-        fd = self._get_socket_fd()
-        if fd is None:
+        if not self._raw_socket:
             return None
         try:
+            fd = self._raw_socket.fileno()
             readable, _, _ = select.select([fd], [], [], timeout)
             if not readable:
                 return b""
-            return self._socket_recv(4096)
+            return bytes(self._raw_socket.recv(4096))
         except Exception:
             return None
 
@@ -288,31 +255,6 @@ class DockerSandboxTransport(BaseSandboxTransport):
             logger.error("Socket reader error: %s", e)
         finally:
             await self._put_sentinel()
-
-    def _socket_recv(self, size: int) -> bytes:
-        if not self._socket:
-            return b""
-        if hasattr(self._socket, "recv"):
-            return bytes(self._socket.recv(size))
-        if hasattr(self._socket, "read"):
-            return bytes(self._socket.read(size))
-        if hasattr(self._socket, "_sock"):
-            return bytes(self._socket._sock.recv(size))
-        raise CLIConnectionError("Socket does not support recv/read")
-
-    def _socket_send(self, payload: bytes) -> None:
-        if not self._socket:
-            return
-        if hasattr(self._socket, "sendall"):
-            self._socket.sendall(payload)
-            return
-        if hasattr(self._socket, "send"):
-            self._socket.send(payload)
-            return
-        if hasattr(self._socket, "_sock"):
-            self._socket._sock.sendall(payload)
-            return
-        raise CLIConnectionError("Socket does not support send")
 
     def _get_exec_info(self) -> dict[str, Any] | None:
         try:

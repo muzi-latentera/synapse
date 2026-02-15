@@ -8,6 +8,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Awaitable, Callable, TypeVar
 
 import posixpath
+from tenacity import (
+    AsyncRetrying,
+    before_sleep_log,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.constants import (
     CHECKPOINT_BASE_DIR,
@@ -36,6 +43,27 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 LISTENING_PORTS_COMMAND = "ss -tuln | grep LISTEN | awk '{print $5}' | sed 's/.*://g' | grep -E '^[0-9]+$' | sort -u"
+
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0
+
+
+def is_retryable_error(exception: BaseException) -> bool:
+    error_message = str(exception)
+    return not (
+        "401" in error_message
+        or "403" in error_message
+        or "authentication" in error_message.lower()
+    )
+
+
+RETRY_CONFIG: dict[str, Any] = {
+    "stop": stop_after_attempt(MAX_RETRIES),
+    "wait": wait_exponential(multiplier=RETRY_BASE_DELAY, min=RETRY_BASE_DELAY, max=10),
+    "retry": retry_if_exception(is_retryable_error),
+    "before_sleep": before_sleep_log(logger, logging.WARNING),
+    "reraise": True,
+}
 
 
 class SandboxProvider(ABC):
@@ -145,6 +173,13 @@ class SandboxProvider(ABC):
                 del self._pty_sessions[sandbox_id]
         except Exception as e:
             logger.error("Error cleaning up PTY session %s: %s", session_id, e)
+
+    async def _retry_operation(
+        self, operation: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        async for attempt in AsyncRetrying(**RETRY_CONFIG):
+            with attempt:
+                return await operation(*args, **kwargs)
 
     @abstractmethod
     async def create_sandbox(self) -> str:
