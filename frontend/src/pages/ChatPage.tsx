@@ -5,8 +5,9 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { useLayoutSidebar } from '@/components/layout/layoutState';
 import { useUIStore } from '@/store/uiStore';
 import { useChatStore } from '@/store/chatStore';
-import { ViewSwitcher } from '@/components/ui/ViewSwitcher';
 import { SplitViewContainer } from '@/components/ui/SplitViewContainer';
+import { CommandMenu } from '@/components/ui/CommandMenu';
+import { useCommandMenu } from '@/hooks/useCommandMenu';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 import type { ViewType } from '@/types/ui.types';
 import { Chat as ChatComponent } from '@/components/chat/chat-window/Chat';
@@ -54,6 +55,7 @@ export function ChatPage() {
   const setCurrentChat = useChatStore((state) => state.setCurrentChat);
 
   const { selectedModelId } = useModelSelection();
+  useCommandMenu();
 
   const { currentView, secondaryView, setCurrentView } = useUIStore(
     useShallow((state) => ({
@@ -146,7 +148,6 @@ export function ChatPage() {
         hasNextPage={chatsQueryMeta.hasNextPage}
         fetchNextPage={chatsQueryMeta.fetchNextPage}
         isFetchingNextPage={chatsQueryMeta.isFetchingNextPage}
-        hasActivityBar={true}
       />
     );
   }, [
@@ -268,10 +269,10 @@ export function ChatPage() {
         selectedModelId={selectedModelId}
       >
         <div className="relative flex h-full">
-          <ViewSwitcher />
-          <div className="flex h-full flex-1 overflow-hidden bg-surface pl-12 text-text-primary dark:bg-surface-dark dark:text-text-dark-primary">
+          <div className="flex h-full flex-1 overflow-hidden bg-surface text-text-primary dark:bg-surface-dark dark:text-text-dark-primary">
             <SplitViewContainer renderView={renderView} />
           </div>
+          <CommandMenu />
         </div>
       </ChatSessionOrchestrator>
     </ChatProvider>

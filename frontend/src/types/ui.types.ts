@@ -44,10 +44,13 @@ export type ViewType =
   | 'webPreview'
   | 'mobilePreview';
 
+export type SplitDirection = 'horizontal' | 'vertical';
+
 export interface SplitViewState {
   isSplitMode: boolean;
   currentView: ViewType;
   secondaryView: ViewType | null;
+  splitDirection: SplitDirection;
 }
 
 export interface SplitViewActions {
@@ -55,6 +58,7 @@ export interface SplitViewActions {
   setSecondaryView: (view: ViewType | null) => void;
   exitSplitMode: () => void;
   handleViewClick: (view: ViewType, isShiftClick: boolean) => void;
+  setSplitDirection: (direction: SplitDirection) => void;
 }
 
 export interface UIState {

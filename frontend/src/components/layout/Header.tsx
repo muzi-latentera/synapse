@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, LogOut, Moon, Settings, Sun } from 'lucide-react';
+import { AlertTriangle, Command, LogOut, Moon, Settings, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
@@ -305,12 +305,28 @@ export function Header({ onLogout, userName = 'User', isAuthPage = false }: Head
       <div className="relative flex h-10 items-center justify-between">
         <div className="flex items-center gap-1">
           {isAuthenticated && !isAuthPage && (
-            <ToggleButton
-              isOpen={sidebarOpen}
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              position="left"
-              className="mr-1"
-            />
+            <>
+              <ToggleButton
+                isOpen={sidebarOpen}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                position="left"
+                className="mr-1"
+              />
+              <Button
+                onClick={() => useUIStore.getState().setCommandMenuOpen(true)}
+                variant="unstyled"
+                className={cn(
+                  'rounded-full p-1.5 md:hidden',
+                  'text-text-tertiary hover:text-text-primary',
+                  'dark:text-text-dark-quaternary dark:hover:text-text-dark-primary',
+                  'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                  'transition-colors duration-200',
+                )}
+                aria-label="Open command menu"
+              >
+                <Command className="h-3.5 w-3.5" />
+              </Button>
+            </>
           )}
         </div>
 

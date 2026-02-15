@@ -15,18 +15,18 @@ export const SplitViewContainer = memo(function SplitViewContainer({
   const currentView = useUIStore((state) => state.currentView);
   const secondaryView = useUIStore((state) => state.secondaryView);
   const isSplitMode = useUIStore((state) => state.isSplitMode);
-  const exitSplitMode = useUIStore((state) => state.exitSplitMode);
+  const splitDirection = useUIStore((state) => state.splitDirection);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && useUIStore.getState().isSplitMode) {
-        exitSplitMode();
+        useUIStore.getState().exitSplitMode();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [exitSplitMode]);
+  }, []);
 
   if (isMobile || !isSplitMode || !secondaryView) {
     return (
@@ -35,7 +35,11 @@ export const SplitViewContainer = memo(function SplitViewContainer({
   }
 
   return (
-    <PanelGroup direction="horizontal" autoSaveId="split-view-layout" className="flex-1">
+    <PanelGroup
+      direction={splitDirection}
+      autoSaveId={`split-view-${splitDirection}`}
+      className="flex-1"
+    >
       <Panel defaultSize={50} minSize={20}>
         <div className="flex h-full w-full flex-1 overflow-hidden">
           {renderView(currentView, 'primary')}
@@ -44,13 +48,21 @@ export const SplitViewContainer = memo(function SplitViewContainer({
 
       <PanelResizeHandle
         className={cn(
-          'group relative w-px',
+          'group relative',
+          splitDirection === 'horizontal' ? 'w-px' : 'h-px',
           'bg-border dark:bg-border-dark',
           'hover:bg-text-primary dark:hover:bg-text-dark-primary',
           'transition-colors duration-150',
         )}
       >
-        <div className={cn('absolute inset-y-0 -left-2 -right-2', 'cursor-col-resize')} />
+        <div
+          className={cn(
+            'absolute',
+            splitDirection === 'horizontal'
+              ? 'inset-y-0 -left-2 -right-2 cursor-col-resize'
+              : 'inset-x-0 -bottom-2 -top-2 cursor-row-resize',
+          )}
+        />
       </PanelResizeHandle>
 
       <Panel minSize={20}>

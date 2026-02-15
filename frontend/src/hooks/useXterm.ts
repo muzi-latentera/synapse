@@ -33,11 +33,10 @@ export const useXterm = ({
   const fitAddonRef = useRef<FitAddonType | null>(null);
   const inputHandlerRef = useRef<ReturnType<XTerm['onData']> | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [initAttempt, setInitAttempt] = useState(0);
 
   const initialModeRef = useRef(mode);
-  // Prevents re-initialization after cleanup; terminal should only init once per mount
   const hasInitializedRef = useRef(false);
-  // Lazy initialization: only create terminal when visible OR already initialized
   const shouldInitialize = hasInitializedRef.current || isVisible;
 
   // Fits terminal to container size. Accesses internal xterm.js APIs to check
@@ -103,7 +102,15 @@ export const useXterm = ({
 
     const rect = container.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) {
-      return undefined;
+      const observer = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          observer.disconnect();
+          setInitAttempt((c) => c + 1);
+        }
+      });
+      observer.observe(container);
+      return () => observer.disconnect();
     }
 
     let cancelled = false;
@@ -166,7 +173,7 @@ export const useXterm = ({
       setIsReady(false);
       hasInitializedRef.current = false;
     };
-  }, [disableStdin, shouldInitialize]);
+  }, [disableStdin, shouldInitialize, initAttempt]);
 
   useEffect(() => {
     const terminal = terminalRef.current;

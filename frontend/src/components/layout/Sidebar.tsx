@@ -97,7 +97,6 @@ export interface SidebarProps {
   hasNextPage?: boolean;
   fetchNextPage?: (options?: FetchNextPageOptions) => unknown;
   isFetchingNextPage?: boolean;
-  hasActivityBar?: boolean;
 }
 
 export function Sidebar({
@@ -108,7 +107,6 @@ export function Sidebar({
   hasNextPage,
   fetchNextPage,
   isFetchingNextPage,
-  hasActivityBar = false,
 }: SidebarProps) {
   const navigate = useNavigate();
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
@@ -304,7 +302,7 @@ export function Sidebar({
           'absolute top-0 h-full w-64',
           'border-r border-border bg-surface-secondary dark:border-border-dark dark:bg-surface-dark-secondary',
           'z-40 flex flex-col transition-[left] duration-500 ease-in-out',
-          sidebarOpen ? (hasActivityBar ? 'left-12' : 'left-0') : '-left-64',
+          sidebarOpen ? 'left-0' : '-left-64',
         )}
       >
         <div className="border-b border-border px-3 py-3 dark:border-border-dark">
