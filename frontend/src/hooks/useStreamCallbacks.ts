@@ -343,13 +343,6 @@ export function useStreamCallbacks({
         } else if (tool?.name === 'ExitPlanMode') {
           useUIStore.getState().setPermissionMode('auto');
         }
-      } else if (envelope.kind === 'tool_failed') {
-        const tool = (envelope.payload as { tool?: ToolEventPayload })?.tool;
-        if (tool?.name === 'ExitPlanMode') {
-          useUIStore.getState().setPermissionMode('plan');
-        } else if (tool?.name === 'EnterPlanMode') {
-          useUIStore.getState().setPermissionMode('auto');
-        }
       }
 
       const renderEvent = envelopeToRenderEvent(envelope);

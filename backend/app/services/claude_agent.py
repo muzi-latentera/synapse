@@ -251,12 +251,6 @@ class ClaudeAgentService:
                                 await client.set_permission_mode("auto")
                             elif tool_name == "EnterPlanMode":
                                 await client.set_permission_mode("plan")
-                        elif event_type == "tool_failed":
-                            tool_name = event.get("tool", {}).get("name")
-                            if tool_name == "ExitPlanMode":
-                                await client.set_permission_mode("plan")
-                            elif tool_name == "EnterPlanMode":
-                                await client.set_permission_mode("auto")
                 if processor.usage is not prev_usage:
                     self._usage = processor.usage
 
