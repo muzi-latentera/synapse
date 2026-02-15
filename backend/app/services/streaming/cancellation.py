@@ -26,7 +26,7 @@ class CancellationHandler:
     def register(cls, chat_id: str) -> asyncio.Event:
         existing = cls._entries.get(chat_id)
         if existing is not None and existing.event.is_set():
-            if existing.expires_at is None or existing.expires_at >= time.monotonic():
+            if existing.expires_at is not None and existing.expires_at >= time.monotonic():
                 existing.expires_at = None
                 return existing.event
             cls._entries.pop(chat_id, None)
