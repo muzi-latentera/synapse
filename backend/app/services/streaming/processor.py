@@ -57,7 +57,8 @@ class StreamProcessor:
             return
 
         if isinstance(message, AssistantMessage):
-            if message.usage is not None:
+            is_subagent = getattr(message, "parent_tool_use_id", None) is not None
+            if message.usage is not None and not is_subagent:
                 self.usage = message.usage
             yield from self._emit_assistant_events(message)
             return
