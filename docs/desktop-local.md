@@ -2,35 +2,28 @@
 
 ## How it works
 
-The desktop app uses [Tauri](https://tauri.app/) to wrap the web frontend in a native macOS window. The backend (API, Celery workers, Postgres, Redis) runs locally via Docker Compose on port `8081`.
+The desktop app uses [Tauri](https://tauri.app/) to wrap the web frontend in a native macOS window. A local Python backend sidecar is bundled and launched by the desktop app on port `8081`.
 
-When running in desktop mode, Vite loads `frontend/.env.desktop` which points the frontend at `localhost:8081`. The Tauri shell connects to this local backend — there is no embedded server in the app itself.
+When running in desktop mode, Vite loads `frontend/.env.desktop` which points the frontend at `localhost:8081`. The Tauri shell connects to this local backend sidecar process.
 
 ```
 ┌─────────────────────┐       ┌──────────────────────────────┐
-│   Tauri (native)    │       │   Docker Compose             │
+│   Tauri (native)    │       │  Bundled backend sidecar     │
 │                     │       │                              │
 │   React frontend    │──────▶│   API         (port 8081)    │
-│   (.env.desktop)    │       │   Celery worker              │
-│                     │       │   Celery beat                │
-└─────────────────────┘       │   Postgres    (port 5433)    │
-                              │   Redis       (port 6380)    │
-                              └──────────────────────────────┘
+│   (.env.desktop)    │       │   SQLite DB (local file)     │
+│                     │       │   In-memory cache/pubsub      │
+└─────────────────────┘       └──────────────────────────────┘
 ```
 
 ## Requirements
 
-- Docker Desktop (running)
 - Node.js
 - Rust
 
 ## Dev workflow
 
-1. Start Docker services:
-   ```sh
-   docker compose -p claudex-desktop -f docker-compose.desktop.yml up -d --remove-orphans
-   ```
-2. In `frontend/`:
+1. In `frontend/`:
    ```sh
    npm install
    npm run desktop:dev
@@ -46,6 +39,6 @@ The app bundle will be at `frontend/src-tauri/target/release/bundle/macos/Claude
 
 ## Troubleshooting
 
-- **Backend unavailable**: Ensure Docker Desktop is running and the compose stack is up.
-- **Database connection errors**: Confirm Postgres is listening on `localhost:5433`.
-- **Port conflict**: Desktop defaults to ports `8081` (API), `5433` (Postgres), and `6380` (Redis) to avoid conflicts with web mode.
+- **Backend unavailable**: Wait for the desktop sidecar to finish starting.
+- **Database errors**: Desktop uses a local SQLite database file in your app data directory.
+- **Port conflict**: Desktop uses port `8081`; stop other local services using that port.

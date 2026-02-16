@@ -1,12 +1,9 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-#[cfg(unix)]
 use libc;
 use rand::Rng;
 use std::net::TcpListener;
@@ -44,11 +41,7 @@ fn ensure_secret_key() -> String {
 }
 
 fn launcher_name() -> &'static str {
-    if cfg!(windows) {
-        "claudex-backend.cmd"
-    } else {
-        "claudex-backend"
-    }
+    "claudex-backend"
 }
 
 fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> std::path::PathBuf {
@@ -91,22 +84,13 @@ const BACKEND_PORT: u16 = 8081;
 
 fn show_error_and_exit(message: &str) -> ! {
     eprintln!("{}", message);
-    #[cfg(target_os = "macos")]
-    {
-        let _ = Command::new("osascript")
-            .arg("-e")
-            .arg(format!(
-                "display dialog \"{}\" with title \"Claudex\" buttons {{\"OK\"}} default button \"OK\" with icon stop",
-                message
-            ))
-            .output();
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let _ = Command::new("cmd")
-            .args(["/C", "msg", "*", message])
-            .output();
-    }
+    let _ = Command::new("osascript")
+        .arg("-e")
+        .arg(format!(
+            "display dialog \"{}\" with title \"Claudex\" buttons {{\"OK\"}} default button \"OK\" with icon stop",
+            message
+        ))
+        .output();
     std::process::exit(1);
 }
 
@@ -202,30 +186,22 @@ fn main() {
             if let tauri::RunEvent::Exit = event {
                 if let Ok(mut guard) = backend_for_exit.lock() {
                     if let Some(ref mut child) = *guard {
-                        #[cfg(unix)]
-                        {
-                            unsafe {
-                                libc::kill(child.id() as libc::pid_t, libc::SIGTERM);
-                            }
-                            let deadline = std::time::Instant::now() + Duration::from_secs(5);
-                            loop {
-                                match child.try_wait() {
-                                    Ok(Some(_)) => break,
-                                    Ok(None) if std::time::Instant::now() < deadline => {
-                                        std::thread::sleep(Duration::from_millis(100));
-                                    }
-                                    _ => {
-                                        let _ = child.kill();
-                                        let _ = child.wait();
-                                        break;
-                                    }
+                        unsafe {
+                            libc::kill(child.id() as libc::pid_t, libc::SIGTERM);
+                        }
+                        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+                        loop {
+                            match child.try_wait() {
+                                Ok(Some(_)) => break,
+                                Ok(None) if std::time::Instant::now() < deadline => {
+                                    std::thread::sleep(Duration::from_millis(100));
+                                }
+                                _ => {
+                                    let _ = child.kill();
+                                    let _ = child.wait();
+                                    break;
                                 }
                             }
-                        }
-                        #[cfg(not(unix))]
-                        {
-                            let _ = child.kill();
-                            let _ = child.wait();
                         }
                     }
                 }

@@ -24,8 +24,6 @@ const archMap = {
 
 const platformMap = {
   darwin: 'apple-darwin',
-  linux: 'unknown-linux-gnu',
-  win32: 'pc-windows-msvc',
 };
 
 function pythonUrl() {
@@ -39,9 +37,6 @@ function pythonUrl() {
 }
 
 function pythonBin() {
-  if (platform === 'win32') {
-    return join(sidecarDir, 'python', 'python.exe');
-  }
   return join(sidecarDir, 'python', 'bin', 'python3');
 }
 
@@ -163,18 +158,6 @@ function copySource() {
 }
 
 function writeLauncher() {
-  if (platform === 'win32') {
-    const launcher = join(sidecarDir, 'claudex-backend.cmd');
-    writeFileSync(
-      launcher,
-      '@echo off\r\n' +
-        'set "SCRIPT_DIR=%~dp0"\r\n' +
-        'set "PYTHONPATH=%SCRIPT_DIR%"\r\n' +
-        '"%SCRIPT_DIR%python\\python.exe" "%SCRIPT_DIR%entry.py" %*\r\n'
-    );
-    return;
-  }
-
   const launcher = join(sidecarDir, 'claudex-backend');
   writeFileSync(
     launcher,
@@ -187,6 +170,9 @@ function writeLauncher() {
 }
 
 async function run() {
+  if (platform !== 'darwin') {
+    throw new Error(`Desktop build currently supports macOS only (received: ${platform})`);
+  }
   resetSidecarDir();
   await downloadPython();
   await installDeps();
