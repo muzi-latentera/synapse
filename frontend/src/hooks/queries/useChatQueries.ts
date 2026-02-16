@@ -153,6 +153,8 @@ export const usePinChatMutation = (
           }));
 
           const allChats = updatedPages.flatMap((page) => page.items);
+          // TODO(perf): Replace [...arr].sort() with arr.toSorted() once tsconfig lib
+          // is upgraded from ES2020 to ES2023+. Build target is esnext so runtime supports it.
           const sortedChats = [...allChats].sort((a, b) => {
             if (a.pinned_at && b.pinned_at) {
               return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime();

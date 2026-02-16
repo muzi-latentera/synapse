@@ -7,6 +7,8 @@ import { MAX_MESSAGE_SIZE_BYTES } from '@/config/constants';
 import type { ChatRequest, Message } from '@/types/chat.types';
 import type { StreamState } from '@/types/stream.types';
 
+const textEncoder = new TextEncoder();
+
 interface UseMessageActionsParams {
   chatId: string | undefined;
   selectedModelId: string | null | undefined;
@@ -152,8 +154,7 @@ export function useMessageActions({
 
       const prompt = inputMessage;
 
-      const encoder = new TextEncoder();
-      const byteSize = encoder.encode(prompt).length;
+      const byteSize = textEncoder.encode(prompt).length;
 
       if (byteSize > MAX_MESSAGE_SIZE_BYTES) {
         toast.error(`Message too large (${Math.round(byteSize / 1024)}KB).`);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChatSessionProvider } from '@/contexts/ChatSessionContext';
@@ -114,6 +114,21 @@ export function ChatSessionOrchestrator({
     setInitialPrompt,
   });
 
+  const initialPromptActionsRef = useRef({
+    sendMessage,
+    chatId,
+    attachedFiles,
+    setInitialPromptSent,
+    setAttachedFiles,
+  });
+  initialPromptActionsRef.current = {
+    sendMessage,
+    chatId,
+    attachedFiles,
+    setInitialPromptSent,
+    setAttachedFiles,
+  };
+
   useEffect(() => {
     if (
       initialPrompt &&
@@ -125,26 +140,27 @@ export function ChatSessionOrchestrator({
       !messagesQuery.isLoading &&
       !hasFetchedMessages
     ) {
+      const {
+        sendMessage: send,
+        chatId: cid,
+        attachedFiles: files,
+        setInitialPromptSent: setSent,
+        setAttachedFiles: setFiles,
+      } = initialPromptActionsRef.current;
       const userMessage = messages[0];
-      sendMessage(initialPrompt, chatId, userMessage, attachedFiles);
-      setInitialPromptSent(true);
-      setAttachedFiles([]);
+      send(initialPrompt, cid, userMessage, files);
+      setSent(true);
+      setFiles([]);
     }
   }, [
     initialPrompt,
     messages,
-    messages.length,
     isLoading,
     isStreaming,
-    sendMessage,
-    chatId,
     initialPromptSent,
     error,
-    setAttachedFiles,
     messagesQuery.isLoading,
     hasFetchedMessages,
-    attachedFiles,
-    setInitialPromptSent,
   ]);
 
   useEffect(() => {

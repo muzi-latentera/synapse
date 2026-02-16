@@ -176,17 +176,22 @@ export function Sidebar({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const dropdownStateRef = useRef(dropdown);
+  dropdownStateRef.current = dropdown;
+
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
     const handleScroll = () => {
-      if (dropdown) {
+      if (dropdownStateRef.current) {
         setDropdown(null);
       }
     };
 
-    scrollContainer?.addEventListener('scroll', handleScroll, { passive: true });
-    return () => scrollContainer?.removeEventListener('scroll', handleScroll);
-  }, [dropdown]);
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleChatSelect = useCallback(
     (chatId: string) => {

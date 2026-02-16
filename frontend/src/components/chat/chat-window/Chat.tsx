@@ -7,7 +7,6 @@ import React, {
   memo,
   useMemo,
 } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { useInView } from 'react-intersection-observer';
 import { findLastBotMessageIndex } from '@/utils/message';
 import { isBrowserObjectUrl } from '@/utils/attachmentUrl';
@@ -27,6 +26,14 @@ import { useChatSessionContext } from '@/hooks/useChatSessionContext';
 import { useChatInputMessageContext } from '@/hooks/useChatInputMessageContext';
 
 const SCROLL_THRESHOLD_PERCENT = 20;
+
+function setsAreEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const id of a) {
+    if (!b.has(id)) return false;
+  }
+  return true;
+}
 
 export const Chat = memo(function Chat() {
   const { chatId } = useChatContext();
@@ -62,18 +69,23 @@ export const Chat = memo(function Chat() {
 
   const { inputMessage, setInputMessage } = useChatInputMessageContext();
 
-  const streamingMessageIds = useStreamStore(
-    useShallow((s) => {
-      const ids: string[] = [];
-      s.activeStreams.forEach((stream) => {
-        if (stream.chatId === chatId && stream.isActive) {
-          ids.push(stream.messageId);
-        }
-      });
-      return ids;
-    }),
+  const streamingMessageIdSet = useStreamStore(
+    useCallback(
+      (s: {
+        activeStreams: Map<string, { chatId: string; isActive: boolean; messageId: string }>;
+      }) => {
+        const ids = new Set<string>();
+        s.activeStreams.forEach((stream) => {
+          if (stream.chatId === chatId && stream.isActive) {
+            ids.add(stream.messageId);
+          }
+        });
+        return ids;
+      },
+      [chatId],
+    ),
+    setsAreEqual,
   );
-  const streamingMessageIdSet = useMemo(() => new Set(streamingMessageIds), [streamingMessageIds]);
 
   const pendingMessages = useMessageQueueStore((s) =>
     chatId ? (s.queues.get(chatId) ?? EMPTY_QUEUE) : EMPTY_QUEUE,
@@ -294,6 +306,10 @@ export const Chat = memo(function Chat() {
         {isInitialLoading && messages.length === 0 ? (
           <ChatSkeleton messageCount={3} className="py-4" />
         ) : (
+          // TODO(perf): For very long conversations, consider virtualizing this list with
+          // @tanstack/react-virtual or react-virtuoso. Currently relies on infinite pagination
+          // to cap loaded messages and CSS content-visibility:auto for paint savings, but React
+          // still reconciles every message component on each render.
           <div ref={messagesContainerRef} className="w-full lg:mx-auto lg:max-w-3xl">
             {hasNextPage && (
               <div ref={loadMoreRef} className="flex h-4 items-center justify-center p-4">

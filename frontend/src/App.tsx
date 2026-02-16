@@ -41,6 +41,12 @@ function AppContent() {
     retry: false,
   });
 
+  // NOTE: This effect intentionally syncs auth state via useEffect rather than deriving during
+  // render (rerender-derived-state-no-effect). The persisted Zustand store provides an optimistic
+  // cached isAuthenticated on first load to prevent flash of unauthenticated content, then this
+  // effect corrects it after the user query resolves. Moving to render-time derivation would
+  // require calling an external store setter during render, which re-triggers subscribers
+  // synchronously and risks cascading updates.
   useEffect(() => {
     if (hasToken && user) {
       useAuthStore.getState().setAuthenticated(true);
