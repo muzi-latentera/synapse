@@ -110,15 +110,7 @@ export const Chat = memo(function Chat() {
   const allowTopPaginationRef = useRef(false);
   const lastScrollTopRef = useRef<number | null>(null);
   const lastPaginatedMessageIdRef = useRef<string | null>(null);
-  const previousMessagesMetaRef = useRef<{
-    chatId: string | undefined;
-    firstMessageId: string | null;
-    length: number;
-  }>({
-    chatId: undefined,
-    firstMessageId: null,
-    length: 0,
-  });
+  const previousMessagesRef = useRef(messages);
 
   const [firstItemIndex, setFirstItemIndex] = useState(INITIAL_FIRST_ITEM_INDEX);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -132,11 +124,7 @@ export const Chat = memo(function Chat() {
     lastPaginatedMessageIdRef.current = null;
     setShowScrollButton(false);
     setFirstItemIndex(INITIAL_FIRST_ITEM_INDEX);
-    previousMessagesMetaRef.current = {
-      chatId,
-      firstMessageId: null,
-      length: 0,
-    };
+    previousMessagesRef.current = [];
   }, [chatId]);
 
   useEffect(() => {
@@ -144,30 +132,39 @@ export const Chat = memo(function Chat() {
       return;
     }
 
-    const firstMessageId = messages[0]?.id ?? null;
-    const previousMeta = previousMessagesMetaRef.current;
+    const currentMessages = messages;
+    const previousMessages = previousMessagesRef.current;
 
-    if (firstMessageId !== previousMeta.firstMessageId) {
+    if (previousMessages.length === 0) {
+      previousMessagesRef.current = currentMessages;
+      return;
+    }
+
+    const firstMessageId = currentMessages[0]?.id;
+    const previousFirstMessageId = previousMessages[0]?.id;
+
+    if (firstMessageId !== previousFirstMessageId) {
+      const previousFirstIndexInCurrent =
+        previousFirstMessageId !== undefined
+          ? currentMessages.findIndex((message) => message.id === previousFirstMessageId)
+          : -1;
+
+      if (previousFirstIndexInCurrent > 0) {
+        setFirstItemIndex((currentIndex) => currentIndex - previousFirstIndexInCurrent);
+      } else {
+        const currentFirstIndexInPrevious =
+          firstMessageId !== undefined
+            ? previousMessages.findIndex((message) => message.id === firstMessageId)
+            : -1;
+        if (currentFirstIndexInPrevious > 0) {
+          setFirstItemIndex((currentIndex) => currentIndex + currentFirstIndexInPrevious);
+        }
+      }
+
       lastPaginatedMessageIdRef.current = null;
     }
 
-    if (
-      previousMeta.chatId === chatId &&
-      previousMeta.length > 0 &&
-      previousMeta.firstMessageId !== null &&
-      firstMessageId !== null &&
-      firstMessageId !== previousMeta.firstMessageId &&
-      messages.length > previousMeta.length
-    ) {
-      const prependedCount = messages.length - previousMeta.length;
-      setFirstItemIndex((currentIndex) => currentIndex - prependedCount);
-    }
-
-    previousMessagesMetaRef.current = {
-      chatId,
-      firstMessageId,
-      length: messages.length,
-    };
+    previousMessagesRef.current = currentMessages;
   }, [chatId, messages]);
 
   const setVirtualScrollerRef = useCallback((ref: HTMLElement | null | Window) => {
