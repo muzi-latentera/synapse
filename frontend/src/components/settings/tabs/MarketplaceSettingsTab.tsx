@@ -64,6 +64,7 @@ export const MarketplaceSettingsTab: React.FC = () => {
           <button
             onClick={() => refreshMutation.mutate()}
             disabled={refreshMutation.isPending}
+            aria-label="Refresh marketplace"
             className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover hover:text-text-primary disabled:opacity-50 dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
           >
             <RefreshCw

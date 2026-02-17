@@ -38,7 +38,7 @@ export const MentionSuggestionsPanel = memo(function MentionSuggestionsPanel({
   return (
     <div className="absolute bottom-full left-0 right-0 z-20 mb-2">
       <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-surface shadow-sm dark:border-border-dark dark:bg-surface-dark">
-        <div className="py-1">
+        <div className="py-1" role="listbox">
           {hasFiles && (
             <>
               <div className="px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-text-tertiary dark:text-text-dark-tertiary">
@@ -54,6 +54,7 @@ export const MentionSuggestionsPanel = memo(function MentionSuggestionsPanel({
                     }}
                     type="button"
                     variant="unstyled"
+                    role="option"
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left ${
                       isActive
                         ? 'bg-surface-active dark:bg-surface-dark-active'
@@ -100,6 +101,7 @@ export const MentionSuggestionsPanel = memo(function MentionSuggestionsPanel({
                     }}
                     type="button"
                     variant="unstyled"
+                    role="option"
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left ${
                       isActive
                         ? 'bg-surface-active dark:bg-surface-dark-active'
@@ -148,6 +150,7 @@ export const MentionSuggestionsPanel = memo(function MentionSuggestionsPanel({
                     }}
                     type="button"
                     variant="unstyled"
+                    role="option"
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left ${
                       isActive
                         ? 'bg-surface-active dark:bg-surface-dark-active'

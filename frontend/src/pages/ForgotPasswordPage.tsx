@@ -194,10 +194,14 @@ export function ForgotPasswordPage() {
 
         <div className="space-y-3.5">
           <div className="space-y-1.5">
-            <Label className="text-xs text-text-secondary dark:text-text-dark-secondary">
+            <Label
+              htmlFor="email"
+              className="text-xs text-text-secondary dark:text-text-dark-secondary"
+            >
               Email address
             </Label>
             <Input
+              id="email"
               type="email"
               value={values.email}
               onChange={(e) => handleChange('email', e.target.value)}

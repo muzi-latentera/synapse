@@ -171,6 +171,7 @@ export const GmailIntegrationCard: React.FC<GmailIntegrationCardProps> = ({
                 size="sm"
                 onClick={() => setIsDeleteDialogOpen(true)}
                 disabled={isDeleting}
+                aria-label="Delete OAuth client"
               >
                 {isDeleting ? <Spinner size="sm" /> : <Trash2 className="h-3.5 w-3.5" />}
               </Button>

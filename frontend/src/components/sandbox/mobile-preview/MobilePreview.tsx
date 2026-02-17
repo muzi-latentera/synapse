@@ -102,6 +102,7 @@ export const MobilePreview = ({ sandboxId }: MobilePreviewProps) => {
               variant="unstyled"
               className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:hover:text-text-dark-secondary"
               title="Refresh"
+              aria-label="Refresh preview"
             >
               <RefreshCw className={cn('h-3 w-3', loadingPorts && 'animate-spin')} />
             </Button>

@@ -136,7 +136,7 @@ const VerificationStatus = memo(function VerificationStatus({
 
             {status === 'pending' && (
               <div className="space-y-0.5 text-center text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-                <p>Can't find the email? Check your spam folder.</p>
+                <p>Can{'\u2019'}t find the email? Check your spam folder.</p>
                 <p>The verification link will expire in 24 hours.</p>
               </div>
             )}

@@ -440,6 +440,7 @@ const SettingsPage: React.FC = () => {
             onClick={() => navigate('/')}
             variant="unstyled"
             className="p-1 text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
+            aria-label="Go back"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -447,6 +448,8 @@ const SettingsPage: React.FC = () => {
             onClick={() => setMobileNavOpen(!mobileNavOpen)}
             variant="unstyled"
             className="flex items-center gap-2 text-xs font-medium text-text-primary dark:text-text-dark-primary"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
           >
             {TAB_LABELS[activeTab]}
             <svg

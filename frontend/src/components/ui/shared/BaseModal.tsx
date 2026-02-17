@@ -10,6 +10,7 @@ export interface BaseModalProps {
   size?: keyof typeof modalSizes;
   zIndex?: keyof typeof Z_INDEX;
   className?: string;
+  ariaLabel?: string;
 }
 
 export function BaseModal({
@@ -19,6 +20,7 @@ export function BaseModal({
   size = 'md',
   zIndex = 'modal',
   className,
+  ariaLabel,
 }: BaseModalProps) {
   if (!isOpen) return null;
 
@@ -26,10 +28,23 @@ export function BaseModal({
     zIndex === 'modalHighest' ? 'z-[200]' : zIndex === 'modalHigh' ? 'z-[100]' : 'z-50';
 
   return createPortal(
-    <div className={cn(modalBackdropClass, zIndexClass)} onClick={onClose}>
+    <div
+      className={cn(modalBackdropClass, zIndexClass)}
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+      role="presentation"
+    >
       <div
         className={cn(modalContainerClass, modalSizes[size], className)}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose();
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
       >
         {children}
       </div>

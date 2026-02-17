@@ -232,6 +232,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({
                   <button
                     type="button"
                     onClick={() => removeEnvVar(entry.id)}
+                    aria-label="Remove environment variable"
                     className="flex h-8 w-8 shrink-0 items-center justify-center text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
                   >
                     <X className="h-3 w-3" />
@@ -274,6 +275,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({
                   <button
                     type="button"
                     onClick={() => removeArg(index)}
+                    aria-label="Remove argument"
                     className="flex h-8 w-8 shrink-0 items-center justify-center text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
                   >
                     <X className="h-3 w-3" />

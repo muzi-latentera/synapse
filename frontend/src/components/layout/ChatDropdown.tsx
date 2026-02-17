@@ -1,4 +1,4 @@
-import { memo, type Ref } from 'react';
+import { memo, useCallback, useEffect, type Ref } from 'react';
 import { Edit2, Trash2, Pin, PinOff } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { cn } from '@/utils/cn';
@@ -11,6 +11,7 @@ interface ChatDropdownProps {
   onRename: (chat: Chat) => void;
   onDelete: (chatId: string) => void;
   onTogglePin: (chat: Chat) => void;
+  onClose?: () => void;
 }
 
 export const ChatDropdown = memo(function ChatDropdown({
@@ -20,12 +21,31 @@ export const ChatDropdown = memo(function ChatDropdown({
   onRename,
   onDelete,
   onTogglePin,
+  onClose,
 }: ChatDropdownProps) {
   const isPinned = !!chat.pinned_at;
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose?.();
+      }
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    const el = ref && typeof ref === 'object' && 'current' in ref ? ref.current : null;
+    el?.focus();
+  }, [ref]);
 
   return (
     <div
       ref={ref}
+      role="menu"
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
       className={cn(
         'fixed w-32',
         'bg-surface dark:bg-surface-dark',
@@ -39,6 +59,7 @@ export const ChatDropdown = memo(function ChatDropdown({
     >
       <Button
         onClick={() => onTogglePin(chat)}
+        role="menuitem"
         variant="unstyled"
         className={cn(
           'w-full px-3 py-2 text-left text-xs',
@@ -61,6 +82,7 @@ export const ChatDropdown = memo(function ChatDropdown({
       </Button>
       <Button
         onClick={() => onRename(chat)}
+        role="menuitem"
         variant="unstyled"
         className={cn(
           'w-full px-3 py-2 text-left text-xs',
@@ -74,6 +96,7 @@ export const ChatDropdown = memo(function ChatDropdown({
       </Button>
       <Button
         onClick={() => onDelete(chat.id)}
+        role="menuitem"
         variant="unstyled"
         className={cn(
           'w-full px-3 py-2 text-left text-xs',

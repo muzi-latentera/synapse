@@ -59,6 +59,10 @@ export const CodeView = memo(function CodeView({
             <div
               className="absolute inset-0 z-20 bg-black/50"
               onClick={() => setShowMobileTree(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setShowMobileTree(false);
+              }}
+              role="presentation"
             />
             <div
               className={cn(

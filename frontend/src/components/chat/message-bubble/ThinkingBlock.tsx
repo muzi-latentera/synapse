@@ -18,10 +18,10 @@ const ThinkingBlockInner: React.FC<ThinkingBlockProps> = ({ content, isActiveThi
     const lines = content.split('\n');
     const firstLine = lines[0];
     if (firstLine.length > 60) {
-      return firstLine.substring(0, 60) + '...';
+      return firstLine.substring(0, 60) + '\u2026';
     }
     if (lines.length > 1) {
-      return firstLine + '...';
+      return firstLine + '\u2026';
     }
     return firstLine;
   }, [content]);
@@ -64,7 +64,7 @@ const ThinkingBlockInner: React.FC<ThinkingBlockProps> = ({ content, isActiveThi
       </button>
 
       <div
-        className={`overflow-hidden transition-all duration-200 ease-in-out ${
+        className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out ${
           isExpanded ? 'mt-1.5 max-h-96 opacity-100' : 'max-h-0 opacity-0'
         }`}
       >

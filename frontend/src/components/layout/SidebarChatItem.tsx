@@ -54,10 +54,11 @@ export const SidebarChatItem = memo(function SidebarChatItem({
     >
       <Button
         onClick={() => onSelect(chat.id)}
+        aria-current={isSelected ? 'page' : undefined}
         variant="unstyled"
         className={cn(
           'flex-1 px-2.5 py-1.5 text-left text-xs',
-          'rounded-lg transition-all duration-200',
+          'rounded-lg transition-colors duration-200',
           'flex min-w-0 items-center gap-2',
           isSelected
             ? 'bg-surface-hover text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'

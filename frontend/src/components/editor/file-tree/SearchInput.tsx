@@ -79,6 +79,7 @@ export function SearchInput({
           'border border-border/50 dark:border-border-dark/50',
           'rounded-md',
           'focus:border-border-hover focus:outline-none dark:focus:border-border-dark-hover',
+          'focus-visible:ring-1 focus-visible:ring-text-quaternary/30',
           'transition-colors duration-150',
         )}
       />

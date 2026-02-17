@@ -38,6 +38,7 @@ export function Header({
               variant="unstyled"
               className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary disabled:cursor-wait disabled:opacity-50 dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
               title="Refresh"
+              aria-label="Refresh files"
             >
               {isRefreshing ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -54,6 +55,7 @@ export function Header({
               variant="unstyled"
               className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary disabled:cursor-wait disabled:opacity-50 dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
               title="Download"
+              aria-label="Download files"
             >
               {isDownloading ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -69,6 +71,7 @@ export function Header({
               variant="unstyled"
               className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
               title="Close"
+              aria-label="Close file tree"
             >
               <X className="h-3 w-3" />
             </Button>

@@ -120,6 +120,7 @@ export const ModelListEditor: React.FC<ModelListEditorProps> = ({ models, onChan
             <button
               type="button"
               onClick={() => handleRemoveModel(model.model_id)}
+              aria-label="Remove model"
               className="h-5 w-5 shrink-0 text-text-quaternary transition-colors hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
             >
               <X className="h-3 w-3" />
@@ -137,6 +138,7 @@ export const ModelListEditor: React.FC<ModelListEditorProps> = ({ models, onChan
                 value={newModel.model_id}
                 onChange={(e) => setNewModel((prev) => ({ ...prev, model_id: e.target.value }))}
                 placeholder="model-id"
+                aria-label="Model ID"
                 className="font-mono text-2xs"
                 autoFocus
               />
@@ -144,6 +146,7 @@ export const ModelListEditor: React.FC<ModelListEditorProps> = ({ models, onChan
                 value={newModel.name}
                 onChange={(e) => setNewModel((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Display Name"
+                aria-label="Model name"
                 className="text-2xs"
               />
             </div>

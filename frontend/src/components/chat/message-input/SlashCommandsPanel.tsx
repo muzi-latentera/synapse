@@ -18,7 +18,7 @@ export const SlashCommandsPanel = memo(function SlashCommandsPanel({
   return (
     <div className="absolute bottom-full left-0 right-0 z-20 mb-2">
       <div className="rounded-lg border border-border bg-surface shadow-sm dark:border-border-dark dark:bg-surface-dark">
-        <div className="py-1">
+        <div className="py-1" role="listbox">
           {suggestions.map((command, index) => {
             const isActive = index === highlightedIndex;
             return (
@@ -26,6 +26,7 @@ export const SlashCommandsPanel = memo(function SlashCommandsPanel({
                 key={command.value}
                 type="button"
                 variant="unstyled"
+                role="option"
                 className={`flex w-full items-center gap-6 px-3 py-1 text-left ${
                   isActive
                     ? 'bg-surface-active dark:bg-surface-dark-active'

@@ -23,7 +23,7 @@ export function SendButton({
   showLoadingSpinner = false,
 }: SendButtonProps) {
   const baseClasses =
-    'p-1.5 rounded-full transition-all duration-200 transform disabled:opacity-50 disabled:cursor-not-allowed active:scale-95';
+    'p-1.5 rounded-full transition-colors duration-200 transform disabled:opacity-50 disabled:cursor-not-allowed active:scale-95';
 
   const scaleClass = hasMessage && !disabled ? 'scale-100' : 'scale-90';
 

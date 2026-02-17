@@ -55,7 +55,7 @@ function InputLayout() {
     <form ref={meta.formRef} onSubmit={actions.handleSubmit} className="relative px-4 sm:px-6">
       <div
         {...meta.dragHandlers}
-        className={`relative rounded-2xl border bg-surface-secondary shadow-soft transition-all duration-300 dark:bg-surface-dark-secondary ${
+        className={`relative rounded-2xl border bg-surface-secondary shadow-soft transition-[border-color,box-shadow] duration-300 dark:bg-surface-dark-secondary ${
           state.isDragging
             ? 'scale-[1.01] border-border-hover dark:border-border-dark-hover'
             : 'border-border dark:border-border-dark'

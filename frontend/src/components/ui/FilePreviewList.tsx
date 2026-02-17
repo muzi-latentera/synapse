@@ -78,6 +78,7 @@ const FilePreviewItem = memo(function FilePreviewItem({
             src={previewUrl}
             alt={`Preview of ${file.name}`}
             className={`${previewSize} block rounded-lg object-cover`}
+            loading="lazy"
           />
           <FileActionButtons
             onEdit={onEdit}

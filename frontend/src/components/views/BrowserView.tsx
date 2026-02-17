@@ -113,6 +113,7 @@ export const BrowserView = memo(function BrowserView({
             variant="unstyled"
             className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
             title="Reconnect"
+            aria-label="Reconnect"
           >
             <RotateCcw className={cn('h-3 w-3', isFetchingUrl && 'animate-spin')} />
           </Button>
@@ -130,6 +131,7 @@ export const BrowserView = memo(function BrowserView({
               disabled={stopBrowserMutation.isPending}
               className="flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-hover hover:text-error-600 disabled:opacity-50 dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-error-400"
               title="Stop browser"
+              aria-label="Stop browser"
             >
               <Square className="h-2.5 w-2.5" />
               Stop
@@ -177,6 +179,7 @@ export const BrowserView = memo(function BrowserView({
               value={browserUrl}
               onChange={(e) => setBrowserUrl(e.target.value)}
               placeholder="https://example.com"
+              aria-label="Browser URL"
               className="w-72 rounded-lg border border-border/50 bg-transparent px-3 py-1.5 font-mono text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:text-text-dark-primary dark:focus:border-border-dark-hover"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !startBrowserMutation.isPending) {

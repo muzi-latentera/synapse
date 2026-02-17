@@ -7,15 +7,17 @@ interface SelectItemProps {
   onSelect: () => void;
   className?: string;
   children: ReactNode;
+  role?: string;
 }
 
-function SelectItemInner({ isSelected, onSelect, className, children }: SelectItemProps) {
+function SelectItemInner({ isSelected, onSelect, className, children, role }: SelectItemProps) {
   return (
     <Button
       onClick={onSelect}
       variant="unstyled"
+      role={role}
       className={cn(
-        'w-full rounded-lg px-2 py-1.5 text-left transition-all duration-150',
+        'w-full rounded-lg px-2 py-1.5 text-left transition-colors duration-150',
         isSelected
           ? 'bg-surface-hover/80 dark:bg-surface-dark-hover/80'
           : 'hover:bg-surface-hover/50 active:bg-surface-hover/70 dark:hover:bg-surface-dark-hover/50 dark:active:bg-surface-dark-hover/70',

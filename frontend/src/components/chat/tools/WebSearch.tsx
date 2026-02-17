@@ -44,7 +44,7 @@ const SourceChip: React.FC<{ source: SearchSource; index: number }> = ({ source,
       target="_blank"
       rel="noopener noreferrer"
       title={source.title}
-      className="group/chip flex items-center gap-1.5 rounded-md bg-black/5 px-2 py-1 transition-all duration-150 hover:bg-surface-hover dark:bg-white/5 dark:hover:bg-surface-dark-hover"
+      className="group/chip flex items-center gap-1.5 rounded-md bg-black/5 px-2 py-1 transition-colors duration-150 hover:bg-surface-hover dark:bg-white/5 dark:hover:bg-surface-dark-hover"
     >
       <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-2xs font-medium text-text-quaternary dark:text-text-dark-quaternary">
         {faviconUrl ? (

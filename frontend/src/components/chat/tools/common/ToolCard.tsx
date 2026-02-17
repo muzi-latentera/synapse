@@ -104,6 +104,7 @@ const ToolCardInner: React.FC<ToolCardProps> = ({
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           className="-ml-1 rounded-md px-1 py-0.5 text-left transition-colors duration-150 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
+          aria-expanded={expanded}
         >
           {header}
         </button>

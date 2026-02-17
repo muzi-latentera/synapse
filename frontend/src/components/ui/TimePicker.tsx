@@ -210,7 +210,7 @@ export function TimePicker({
                     type="button"
                     onClick={() => handleHourSelect(hour)}
                     className={cn(
-                      'rounded py-1.5 text-xs font-medium transition-all',
+                      'rounded py-1.5 text-xs font-medium transition-colors',
                       selectedHour === hour
                         ? 'bg-text-primary text-surface dark:bg-text-dark-primary dark:text-surface-dark'
                         : 'text-text-primary hover:bg-surface-hover dark:text-text-dark-primary dark:hover:bg-surface-dark-hover',
@@ -233,7 +233,7 @@ export function TimePicker({
                     type="button"
                     onClick={() => handleMinuteSelect(minute)}
                     className={cn(
-                      'rounded py-1.5 text-xs font-medium transition-all',
+                      'rounded py-1.5 text-xs font-medium transition-colors',
                       selectedMinute === minute
                         ? 'bg-text-primary text-surface dark:bg-text-dark-primary dark:text-surface-dark'
                         : 'text-text-primary hover:bg-surface-hover dark:text-text-dark-primary dark:hover:bg-surface-dark-hover',
@@ -256,7 +256,7 @@ export function TimePicker({
                       handleTimeChange(selectedHour, selectedMinute, period);
                     }}
                     className={cn(
-                      'rounded px-3 py-1 text-xs font-medium transition-all',
+                      'rounded px-3 py-1 text-xs font-medium transition-colors',
                       selectedPeriod === period
                         ? 'bg-surface-active text-text-primary shadow-sm dark:bg-surface-dark-active dark:text-text-dark-primary'
                         : 'text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary',

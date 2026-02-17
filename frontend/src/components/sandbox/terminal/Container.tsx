@@ -141,7 +141,10 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
 
   return (
     <div className="flex h-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-      <div className="flex h-9 items-center border-b border-border/50 dark:border-border-dark/50">
+      <div
+        className="flex h-9 items-center border-b border-border/50 dark:border-border-dark/50"
+        role="tablist"
+      >
         {terminals.map((terminal) => (
           <button
             key={terminal.id}
@@ -152,6 +155,8 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
                 : 'text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary',
             )}
             onClick={() => setActiveTerminalId(terminal.id)}
+            role="tab"
+            aria-selected={activeTerminalId === terminal.id}
           >
             <span>{terminal.label}</span>
             {terminals.length > 1 && (
@@ -162,7 +167,7 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
                   closeTerminal(terminal.id);
                 }}
                 role="button"
-                aria-label={`Close ${terminal.label}`}
+                aria-label="Close terminal"
               >
                 <X className="h-2.5 w-2.5" />
               </span>

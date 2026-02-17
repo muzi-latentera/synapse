@@ -30,7 +30,7 @@ export function InputProvider({
   isLoading,
   isStreaming = false,
   onStopStream,
-  placeholder = 'Message Claudex...',
+  placeholder = 'Message Claudex\u2026',
   selectedModelId,
   onModelChange,
   dropdownPosition = 'top',
@@ -260,7 +260,7 @@ export function InputProvider({
     enhancePromptMutation.mutate({ prompt: message.trim(), modelId: selectedModelId });
   }, [hasMessage, isEnhancing, message, selectedModelId, enhancePromptMutation]);
 
-  const dynamicPlaceholder = isStreaming ? 'Type to queue message...' : placeholder;
+  const dynamicPlaceholder = isStreaming ? 'Type to queue message\u2026' : placeholder;
 
   const stateValue: InputState = useMemo(
     () => ({

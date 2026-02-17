@@ -199,10 +199,14 @@ export function SignupPage() {
         <div className="space-y-3.5">
           {fieldConfigs.map(({ name, label, placeholder, type, helperText }) => (
             <div key={name} className="space-y-1.5">
-              <Label className="text-xs text-text-secondary dark:text-text-dark-secondary">
+              <Label
+                htmlFor={name}
+                className="text-xs text-text-secondary dark:text-text-dark-secondary"
+              >
                 {label}
               </Label>
               <Input
+                id={name}
                 type={type}
                 value={values[name]}
                 onChange={(e) => handleChange(name, e.target.value)}

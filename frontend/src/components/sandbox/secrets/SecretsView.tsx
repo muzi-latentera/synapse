@@ -186,6 +186,7 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
             onClick={loadEnvironmentVariables}
             disabled={isLoading || !sandboxId}
             title="Refresh"
+            aria-label="Refresh secrets"
             variant="unstyled"
             className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary disabled:opacity-50 dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
           >
@@ -261,6 +262,7 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
                           value={secret.key}
                           onChange={(e) => handleUpdateSecret(index, 'key', e.target.value)}
                           placeholder="KEY"
+                          aria-label="Secret key"
                           className="w-full rounded-md border border-border/30 bg-transparent px-2 py-1 font-mono text-2xs text-text-primary focus:border-border-hover focus:outline-none dark:border-border-dark/30 dark:text-text-dark-primary dark:focus:border-border-dark-hover"
                           variant="unstyled"
                         />
@@ -270,12 +272,14 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
                             value={secret.value}
                             onChange={(e) => handleUpdateSecret(index, 'value', e.target.value)}
                             placeholder="VALUE"
+                            aria-label="Secret value"
                             className="w-full rounded-md border border-border/30 bg-transparent px-2 py-1 pr-7 font-mono text-2xs text-text-primary focus:border-border-hover focus:outline-none dark:border-border-dark/30 dark:text-text-dark-primary dark:focus:border-border-dark-hover"
                             variant="unstyled"
                           />
                           <Button
                             onClick={() => toggleShowValue(index)}
                             variant="unstyled"
+                            aria-label={showValues[index] ? 'Hide secret' : 'Show secret'}
                             className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:hover:text-text-dark-secondary"
                           >
                             {showValues[index] ? (
@@ -289,6 +293,7 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
                       <Button
                         onClick={() => handleRemoveSecret(index)}
                         variant="unstyled"
+                        aria-label="Delete secret"
                         className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-error-600 dark:hover:text-error-400"
                       >
                         <Trash2 className="h-3 w-3" />

@@ -171,6 +171,7 @@ function ImageThumbnail({
           src={state.imageSrc}
           alt={filename}
           className="block h-10 w-10 cursor-default rounded object-cover"
+          loading="lazy"
         />
         {isUploading && <LoadingProgressOverlay />}
       </div>

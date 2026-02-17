@@ -111,7 +111,7 @@ export const ListManagementTab = <T,>({
             {items.map((item, index) => (
               <div
                 key={getItemKey(item, index)}
-                className="group rounded-xl border border-border p-4 transition-all duration-200 hover:border-border-hover dark:border-border-dark dark:hover:border-border-dark-hover"
+                className="group rounded-xl border border-border p-4 transition-colors duration-200 hover:border-border-hover dark:border-border-dark dark:hover:border-border-dark-hover"
               >
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">{renderItem(item, index)}</div>

@@ -17,7 +17,7 @@ const PromptSuggestionsInner: React.FC<PromptSuggestionsProps> = ({ suggestions,
           key={`${index}-${suggestion}`}
           type="button"
           onClick={() => onSelect(suggestion)}
-          className="rounded-md bg-surface-tertiary/60 px-2.5 py-1 text-2xs text-text-tertiary transition-all duration-150 hover:bg-surface-hover hover:text-text-primary dark:bg-surface-dark-tertiary/60 dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
+          className="rounded-md bg-surface-tertiary/60 px-2.5 py-1 text-2xs text-text-tertiary transition-colors duration-150 hover:bg-surface-hover hover:text-text-primary dark:bg-surface-dark-tertiary/60 dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
         >
           {suggestion}
         </button>

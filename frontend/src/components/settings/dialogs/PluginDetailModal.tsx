@@ -155,6 +155,7 @@ function PluginModalHeader({
             href={plugin.homepage}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Visit homepage"
             className="rounded p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
           >
             <ExternalLink className="h-4 w-4" />
@@ -162,7 +163,8 @@ function PluginModalHeader({
         )}
         <button
           onClick={onClose}
-          className="rounded p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
+          aria-label="Close dialog"
+          className="rounded p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30 dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
         >
           <X className="h-4 w-4" />
         </button>

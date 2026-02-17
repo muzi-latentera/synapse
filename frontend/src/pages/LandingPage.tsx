@@ -157,9 +157,9 @@ export function LandingPage() {
         <div className="flex flex-1 items-center justify-center px-4 pb-10">
           <div className="w-full max-w-2xl">
             <div className="mb-6 text-center">
-              <p className="text-sm font-medium text-text-secondary dark:text-text-dark-secondary">
+              <h1 className="text-sm font-medium text-text-secondary dark:text-text-dark-secondary">
                 What would you like to build?
-              </p>
+              </h1>
             </div>
             <ChatProvider
               customAgents={allAgents}

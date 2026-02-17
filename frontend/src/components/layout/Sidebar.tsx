@@ -303,11 +303,12 @@ export function Sidebar({
   return (
     <>
       <aside
+        aria-label="Chat history"
         className={cn(
-          'absolute top-0 h-full w-64',
+          'absolute left-0 top-0 h-full w-64',
           'border-r border-border bg-surface-secondary dark:border-border-dark dark:bg-surface-dark-secondary',
-          'z-40 flex flex-col transition-[left] duration-500 ease-in-out',
-          sidebarOpen ? 'left-0' : '-left-64',
+          'z-40 flex flex-col transition-transform duration-500 ease-in-out',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         <div className="border-b border-border px-3 py-3 dark:border-border-dark">
@@ -411,6 +412,7 @@ export function Sidebar({
           onRename={handleRenameClick}
           onDelete={handleDeleteChat}
           onTogglePin={handleTogglePin}
+          onClose={() => setDropdown(null)}
         />
       )}
 

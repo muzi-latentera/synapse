@@ -54,7 +54,8 @@ export const AgentEditDialog: React.FC<AgentEditDialogProps> = ({
         </h3>
         <button
           onClick={handleClose}
-          className="text-text-quaternary transition-colors hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
+          aria-label="Close dialog"
+          className="text-text-quaternary transition-colors hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30 dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
         >
           <svg
             className="h-4 w-4"

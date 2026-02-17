@@ -171,7 +171,7 @@ export const DeviceAuthButton: React.FC<DeviceAuthButtonProps> = ({ value, onCha
   return (
     <div className="w-full">
       {value && state !== 'waiting' ? (
-        <div className="group flex animate-fade-in items-center justify-between rounded-xl border border-border bg-surface-secondary/50 p-4 backdrop-blur-sm transition-all hover:bg-surface-secondary dark:border-border-dark dark:bg-surface-dark-secondary/50 dark:hover:bg-surface-dark-secondary">
+        <div className="group flex animate-fade-in items-center justify-between rounded-xl border border-border bg-surface-secondary/50 p-4 backdrop-blur-sm transition-colors hover:bg-surface-secondary dark:border-border-dark dark:bg-surface-dark-secondary/50 dark:hover:bg-surface-dark-secondary">
           <div className="flex items-center gap-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-success-100 dark:bg-success-900/30">
               <Check className="h-3.5 w-3.5 text-success-600 dark:text-success-400" />
@@ -226,7 +226,7 @@ export const DeviceAuthButton: React.FC<DeviceAuthButtonProps> = ({ value, onCha
                 href={deviceInfo.uri}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-surface-primary dark:bg-surface-dark-primary group flex w-full items-center justify-between rounded-md border border-border px-3 py-2 shadow-sm transition-all hover:border-border-hover hover:bg-surface-hover hover:shadow-md dark:border-border-dark dark:hover:border-border-dark-hover dark:hover:bg-surface-dark-hover"
+                className="bg-surface-primary dark:bg-surface-dark-primary group flex w-full items-center justify-between rounded-md border border-border px-3 py-2 shadow-sm transition-colors hover:border-border-hover hover:bg-surface-hover hover:shadow-md dark:border-border-dark dark:hover:border-border-dark-hover dark:hover:bg-surface-dark-hover"
               >
                 <span className="truncate font-mono text-xs text-text-primary underline decoration-text-quaternary underline-offset-4 group-hover:decoration-text-secondary dark:text-text-dark-primary dark:decoration-text-dark-quaternary dark:group-hover:decoration-text-dark-secondary">
                   {deviceInfo.uri}
@@ -248,12 +248,12 @@ export const DeviceAuthButton: React.FC<DeviceAuthButtonProps> = ({ value, onCha
               <button
                 type="button"
                 onClick={() => void copyCode()}
-                className="group relative w-full overflow-hidden rounded-md border border-border-secondary bg-surface-tertiary/30 py-3 text-center shadow-sm transition-all hover:border-border-hover hover:bg-surface-tertiary hover:shadow-md active:scale-[0.99] dark:border-border-dark-secondary dark:bg-surface-dark-tertiary/30 dark:hover:border-border-dark-hover dark:hover:bg-surface-dark-tertiary"
+                className="group relative w-full overflow-hidden rounded-md border border-border-secondary bg-surface-tertiary/30 py-3 text-center shadow-sm transition-colors hover:border-border-hover hover:bg-surface-tertiary hover:shadow-md active:scale-[0.99] dark:border-border-dark-secondary dark:bg-surface-dark-tertiary/30 dark:hover:border-border-dark-hover dark:hover:bg-surface-dark-tertiary"
               >
                 <span className="font-mono text-xl font-bold tracking-[0.25em] text-text-primary transition-colors dark:text-text-dark-primary">
                   {deviceInfo.code}
                 </span>
-                <div className="bg-surface-primary/80 dark:bg-surface-dark-primary/80 absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100">
+                <div className="bg-surface-primary/80 dark:bg-surface-dark-primary/80 absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 opacity-0 backdrop-blur-sm transition-colors group-hover:opacity-100">
                   {copied ? (
                     <CheckCheck className="h-3.5 w-3.5 text-success-600 dark:text-success-400" />
                   ) : (

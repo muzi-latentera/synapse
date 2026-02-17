@@ -140,7 +140,9 @@ function DropdownInner<T>({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         variant="unstyled"
-        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-200 ${isOpen && !disabled ? 'bg-surface-hover dark:bg-surface-dark-hover' : 'hover:bg-surface-hover/60 dark:hover:bg-surface-dark-hover/60'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors duration-200 ${isOpen && !disabled ? 'bg-surface-hover dark:bg-surface-dark-hover' : 'hover:bg-surface-hover/60 dark:hover:bg-surface-dark-hover/60'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         {LeftIcon && (
           <LeftIcon
@@ -155,6 +157,7 @@ function DropdownInner<T>({
 
       {isOpen && !disabled && (
         <div
+          role="listbox"
           className={`absolute left-0 ${width} z-[60] rounded-xl border border-border bg-surface-secondary/95 shadow-medium backdrop-blur-xl backdrop-saturate-150 dark:border-border-dark dark:bg-surface-dark-secondary/95 dark:shadow-black/40 ${dropdownPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
         >
           {searchable && (
@@ -174,6 +177,7 @@ function DropdownInner<T>({
                   <Button
                     onClick={() => setSearchQuery('')}
                     variant="unstyled"
+                    aria-label="Clear search"
                     className="absolute right-1 rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:bg-surface-hover hover:text-text-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-secondary"
                   >
                     <X className="h-3 w-3" />
@@ -201,6 +205,7 @@ function DropdownInner<T>({
                     <SelectItem
                       key={getItemKey(item.data)}
                       isSelected={isSelected}
+                      role="option"
                       onSelect={() => {
                         onSelect(item.data);
                         setIsOpen(false);
@@ -234,6 +239,7 @@ function DropdownInner<T>({
                     <SelectItem
                       key={getItemKey(item)}
                       isSelected={isSelected}
+                      role="option"
                       onSelect={() => {
                         onSelect(item);
                         setIsOpen(false);

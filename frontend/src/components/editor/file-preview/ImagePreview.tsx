@@ -75,6 +75,7 @@ export const ImagePreview = memo(function ImagePreview({
         src={imageUrl}
         alt={fileName}
         className="max-h-full max-w-full object-contain"
+        loading="lazy"
         style={IMAGE_STYLE}
       />
     </PreviewContainer>

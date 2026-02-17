@@ -69,7 +69,15 @@ export function Button({
 
   if (variant === 'unstyled') {
     return (
-      <button ref={ref} className={className} disabled={disabled || isLoading} {...props}>
+      <button
+        ref={ref}
+        className={cn(
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30',
+          className,
+        )}
+        disabled={disabled || isLoading}
+        {...props}
+      >
         {content}
       </button>
     );

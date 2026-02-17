@@ -66,13 +66,19 @@ export const SettingsUploadModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-strong dark:border-border-dark dark:bg-surface-dark">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Upload settings"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-strong dark:border-border-dark dark:bg-surface-dark"
+      >
         <div className="flex items-center justify-between border-b border-border px-5 py-3 dark:border-border-dark">
           <h2 className="text-sm font-semibold text-text-primary dark:text-text-dark-primary">
             {title}
           </h2>
           <button
             onClick={handleClose}
+            aria-label="Close dialog"
             className="rounded-lg p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
           >
             <X className="h-4 w-4" />

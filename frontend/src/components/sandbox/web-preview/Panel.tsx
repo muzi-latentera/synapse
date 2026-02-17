@@ -102,6 +102,7 @@ export const Panel = memo(function Panel({
             variant="unstyled"
             className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
             title="Reload preview"
+            aria-label="Reload preview"
           >
             <RotateCcw className="h-3 w-3" />
           </Button>
@@ -118,6 +119,7 @@ export const Panel = memo(function Panel({
             variant="unstyled"
             className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
             title="Open in new tab"
+            aria-label="Open in new tab"
           >
             <ExternalLink className="h-3 w-3" />
           </Button>
@@ -171,7 +173,7 @@ export const Panel = memo(function Panel({
         )}
         <div
           className={cn(
-            'h-full w-full transition-all duration-300',
+            'h-full w-full transition-[max-width] duration-300',
             deviceView === 'mobile' &&
               'mx-auto max-w-sm border-x border-border/30 dark:border-border-dark/30',
           )}

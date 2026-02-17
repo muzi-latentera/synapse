@@ -30,7 +30,7 @@ const EnterPlanModeInner: React.FC<PlanModeToolProps> = ({ tool }) => (
           return 'Entering plan mode';
       }
     }}
-    loadingContent="Entering plan mode..."
+    loadingContent="Entering plan mode\u2026"
     error={tool.error}
   />
 );
@@ -110,13 +110,17 @@ const ExitPlanModeInner: React.FC<PlanModeToolProps> = ({ tool, chatId }) => {
 
           {showRejectInput && (
             <div className="mt-3">
-              <label className="text-2xs font-medium uppercase tracking-wide text-text-tertiary dark:text-text-dark-tertiary">
+              <label
+                htmlFor="plan-feedback"
+                className="text-2xs font-medium uppercase tracking-wide text-text-tertiary dark:text-text-dark-tertiary"
+              >
                 Alternative Instructions
               </label>
               <textarea
+                id="plan-feedback"
                 value={alternativeInstruction}
                 onChange={(e) => setAlternativeInstruction(e.target.value)}
-                placeholder="Tell the assistant what to do instead..."
+                placeholder="Tell the assistant what to do instead\u2026"
                 className="mt-1.5 w-full resize-none rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-text-primary placeholder-text-quaternary transition-colors focus:border-text-quaternary focus:outline-none focus:ring-1 focus:ring-text-quaternary/30 dark:border-border-dark dark:bg-surface-dark dark:text-text-dark-primary dark:placeholder-text-dark-tertiary"
                 rows={2}
                 disabled={isLoading}
@@ -179,10 +183,10 @@ const ExitPlanModeInner: React.FC<PlanModeToolProps> = ({ tool, chatId }) => {
           case 'failed':
             return 'Plan rejected';
           default:
-            return 'Waiting for plan approval...';
+            return 'Waiting for plan approval\u2026';
         }
       }}
-      loadingContent="Waiting for plan approval..."
+      loadingContent="Waiting for plan approval\u2026"
       error={tool.error}
     />
   );

@@ -80,7 +80,7 @@ export const Tree = memo(function Tree({
                 searchQuery.trim() && !hasResults ? (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <p className="text-xs text-text-quaternary dark:text-text-dark-quaternary">
-                      No files match "{searchQuery}"
+                      No files match &ldquo;{searchQuery}&rdquo;
                     </p>
                   </div>
                 ) : (

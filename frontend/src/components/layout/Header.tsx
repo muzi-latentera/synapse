@@ -328,6 +328,7 @@ export function Header({ onLogout, userName = 'User', isAuthPage = false }: Head
                 onClick={() => useUIStore.getState().setSidebarOpen(!sidebarOpen)}
                 position="left"
                 className="mr-1"
+                ariaLabel="Toggle sidebar"
               />
               {isChatPage && (
                 <Button

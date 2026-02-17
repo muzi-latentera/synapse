@@ -15,7 +15,7 @@ export interface SwitchProps extends Omit<
 }
 
 const trackBase =
-  'relative inline-flex shrink-0 cursor-pointer rounded-full border transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-text-quaternary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:opacity-50';
+  'relative inline-flex shrink-0 cursor-pointer rounded-full border transition-[background-color,border-color] duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-text-quaternary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black disabled:cursor-not-allowed disabled:opacity-50';
 
 const sizeClasses: Record<SwitchSize, string> = {
   md: 'h-[22px] w-10 px-0.5',
@@ -72,14 +72,14 @@ export function Switch({
       <span className="sr-only">Toggle</span>
       <span
         className={cn(
-          'flex h-full w-full items-center rounded-full transition-all duration-200',
+          'flex h-full w-full items-center rounded-full transition-transform duration-200',
           checked ? 'justify-end' : 'justify-start',
         )}
       >
         <span
           aria-hidden="true"
           className={cn(
-            'rounded-full shadow-sm transition-all duration-200',
+            'rounded-full shadow-sm transition-transform duration-200',
             knobSize[size],
             checked
               ? 'scale-100 bg-surface dark:bg-surface-dark'

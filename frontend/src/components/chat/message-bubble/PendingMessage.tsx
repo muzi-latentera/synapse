@@ -265,6 +265,7 @@ export const PendingMessage = memo(function PendingMessage({
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  aria-label="Edit message"
                   className="w-full resize-none bg-transparent px-3 py-1.5 text-sm leading-5 text-text-primary placeholder:text-text-quaternary focus:outline-none dark:text-text-dark-primary"
                   rows={1}
                 />

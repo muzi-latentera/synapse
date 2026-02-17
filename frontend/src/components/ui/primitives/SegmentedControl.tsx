@@ -67,7 +67,7 @@ export function SegmentedControl<T extends string = string>({
       role="radiogroup"
     >
       <span
-        className="absolute left-0.5 top-0.5 h-[calc(100%-4px)] rounded-md bg-surface-secondary shadow-sm transition-all duration-300 ease-out dark:bg-surface-dark-hover"
+        className="absolute left-0.5 top-0.5 h-[calc(100%-4px)] rounded-md bg-surface-secondary shadow-sm transition-[transform,width] duration-300 ease-out dark:bg-surface-dark-hover"
         style={indicatorStyle}
       />
       {options.map((option) => {
@@ -81,7 +81,7 @@ export function SegmentedControl<T extends string = string>({
             disabled={option.disabled}
             onClick={() => !option.disabled && onChange(option.value)}
             className={cn(
-              'relative z-10 rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors duration-200',
+              'relative z-10 rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30',
               isActive
                 ? 'text-text-primary dark:text-text-dark-primary'
                 : 'text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary',

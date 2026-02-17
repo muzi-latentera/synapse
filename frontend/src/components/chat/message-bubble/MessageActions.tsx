@@ -83,7 +83,7 @@ export const MessageActions = memo(function MessageActions({
           <Button
             onClick={() => onCopy(contentText, messageId)}
             variant="unstyled"
-            className={`relative overflow-hidden rounded-md p-1 transition-all duration-200 ${
+            className={`relative overflow-hidden rounded-md p-1 transition-colors duration-200 ${
               copiedMessageId === messageId
                 ? 'bg-success-100 text-success-600 dark:bg-success-500/10 dark:text-success-400'
                 : 'text-text-quaternary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-quaternary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary'
@@ -104,7 +104,7 @@ export const MessageActions = memo(function MessageActions({
                 onClick={handleRestore}
                 disabled={isRestoring || isGloballyStreaming}
                 variant="unstyled"
-                className={`relative rounded-md p-1 transition-all duration-200 ${
+                className={`relative rounded-md p-1 transition-colors duration-200 ${
                   isRestoring || isGloballyStreaming
                     ? 'cursor-not-allowed opacity-50'
                     : 'text-text-quaternary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-quaternary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary'
@@ -120,7 +120,7 @@ export const MessageActions = memo(function MessageActions({
                   onClick={handleFork}
                   disabled={isForking || isGloballyStreaming}
                   variant="unstyled"
-                  className={`relative rounded-md p-1 transition-all duration-200 ${
+                  className={`relative rounded-md p-1 transition-colors duration-200 ${
                     isForking || isGloballyStreaming
                       ? 'cursor-not-allowed opacity-50'
                       : 'text-text-quaternary hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-quaternary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary'

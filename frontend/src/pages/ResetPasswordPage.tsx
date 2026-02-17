@@ -222,11 +222,15 @@ export function ResetPasswordPage() {
         <div className="space-y-3.5">
           {fieldConfigs.map(({ name, label, placeholder }) => (
             <div key={name} className="space-y-1.5">
-              <Label className="text-xs text-text-secondary dark:text-text-dark-secondary">
+              <Label
+                htmlFor={name}
+                className="text-xs text-text-secondary dark:text-text-dark-secondary"
+              >
                 {label}
               </Label>
               <div className="relative">
                 <Input
+                  id={name}
                   type={visibleFields[name] ? 'text' : 'password'}
                   value={values[name]}
                   onChange={(e) => handleChange(name, e.target.value)}
@@ -241,6 +245,7 @@ export function ResetPasswordPage() {
                   variant="ghost"
                   size="icon"
                   className="absolute right-1.5 top-1/2 h-7 w-7 -translate-y-1/2 text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
+                  aria-label="Toggle password visibility"
                 >
                   {visibleFields[name] ? (
                     <EyeOff className="h-3.5 w-3.5" />

@@ -62,6 +62,12 @@ export function Layout({
   return (
     <LayoutContext.Provider value={contextValue}>
       <div className={cn('h-viewport flex flex-col', className)}>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[300] focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:text-text-primary focus:shadow-strong dark:focus:bg-surface-dark dark:focus:text-text-dark-primary"
+        >
+          Skip to main content
+        </a>
         {showHeader && <Header onLogout={onLogout} userName={userName} isAuthPage={isAuthPage} />}
 
         <div className="flex min-h-0 flex-1">
@@ -72,6 +78,7 @@ export function Layout({
           ) : null}
 
           <main
+            id="main-content"
             className={cn(
               'relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-surface transition-[padding] duration-500 ease-in-out dark:bg-surface-dark',
               shouldPushContent ? 'pl-64' : 'pl-0',

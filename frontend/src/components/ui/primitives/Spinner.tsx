@@ -21,7 +21,7 @@ export function Spinner({ ref, size = 'md', className, ...props }: SpinnerProps)
       ref={ref}
       aria-hidden="true"
       className={cn(
-        'inline-flex animate-spin rounded-full border-2 border-current border-t-transparent',
+        'inline-flex rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin',
         sizeClasses[size],
         className,
       )}

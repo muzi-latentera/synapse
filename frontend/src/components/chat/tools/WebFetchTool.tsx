@@ -18,7 +18,7 @@ const extractDomain = (url: string): string => {
   try {
     return new URL(url).hostname.replace('www.', '');
   } catch {
-    return url.length > 30 ? `${url.slice(0, 27)}...` : url;
+    return url.length > 30 ? `${url.slice(0, 27)}\u2026` : url;
   }
 };
 
@@ -45,7 +45,7 @@ const WebFetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             return `Fetching: ${domain}`;
         }
       }}
-      loadingContent="Fetching content..."
+      loadingContent="Fetching content\u2026"
       error={tool.error}
       expandable={hasExpandableContent}
     >

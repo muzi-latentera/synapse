@@ -99,7 +99,7 @@ export function Mermaid({ content }: MermaidProps) {
       {showPreview && state.status === 'loading' && (
         <div className="flex items-center justify-center p-8">
           <div className="flex items-center gap-3 text-text-tertiary dark:text-text-dark-tertiary">
-            <RefreshCw className="h-5 w-5 animate-spin" />
+            <RefreshCw className="h-5 w-5 motion-safe:animate-spin" />
             <span className="text-sm">Rendering diagram...</span>
           </div>
         </div>

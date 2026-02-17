@@ -310,6 +310,7 @@ function MarkDownInner({ content, className = '' }: { content: string; className
           <img
             className="my-4 h-auto max-w-full rounded-lg border border-border dark:border-border-dark"
             alt={alt || ''}
+            loading="lazy"
             {...props}
           />
         );

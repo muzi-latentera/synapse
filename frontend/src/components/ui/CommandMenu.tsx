@@ -79,10 +79,6 @@ export function CommandMenu() {
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
-
   const close = useCallback(() => {
     useUIStore.getState().setCommandMenuOpen(false);
   }, []);
@@ -159,13 +155,17 @@ export function CommandMenu() {
           'animate-fade-in',
         )}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-border/50 px-3 dark:border-border-dark/50">
           <Search className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActiveIndex(0);
+            }}
             placeholder="Search views..."
             className="h-10 w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-quaternary dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary"
             role="combobox"

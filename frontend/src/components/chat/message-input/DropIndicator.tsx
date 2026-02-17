@@ -30,7 +30,7 @@ export function DropIndicator({
 
   return (
     <div
-      className={`absolute inset-0 z-10 flex animate-fade-in items-center justify-center rounded-2xl bg-surface/80 backdrop-blur-sm transition-all duration-200 dark:bg-surface-dark/80 ${className}`}
+      className={`absolute inset-0 z-10 flex animate-fade-in items-center justify-center rounded-2xl bg-surface/80 backdrop-blur-sm transition-colors duration-200 dark:bg-surface-dark/80 ${className}`}
     >
       <div className="flex flex-col items-center gap-2 p-3 text-text-primary dark:text-text-dark-primary">
         <IconWrapper>

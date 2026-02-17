@@ -43,8 +43,9 @@ export const Header = memo(function Header({
               'text-text-quaternary hover:text-text-secondary',
               'dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary',
               'transition-colors duration-150',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30',
             )}
-            aria-label="Show file tree"
+            aria-label="Toggle file tree"
           >
             <PanelLeft size={14} />
           </button>

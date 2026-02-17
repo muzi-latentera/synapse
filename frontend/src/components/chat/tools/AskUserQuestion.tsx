@@ -142,12 +142,12 @@ export const AskUserQuestion: React.FC<AskUserQuestionProps> = ({ tool, chatId }
   }, [formAnswers, otherInputs, handleSubmitAnswers, questions]);
 
   const goToPrevious = useCallback(() => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
-  }, [currentIndex]);
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : prev));
+  }, []);
 
   const goToNext = useCallback(() => {
-    if (currentIndex < totalQuestions - 1) setCurrentIndex(currentIndex + 1);
-  }, [currentIndex, totalQuestions]);
+    setCurrentIndex((prev) => (prev < totalQuestions - 1 ? prev + 1 : prev));
+  }, [totalQuestions]);
 
   const isSelected = (optionLabel: string) => {
     const key = `question_${currentIndex}`;
@@ -178,6 +178,7 @@ export const AskUserQuestion: React.FC<AskUserQuestionProps> = ({ tool, chatId }
                 onClick={goToPrevious}
                 disabled={currentIndex === 0 || isLoading}
                 className="rounded p-0.5 text-text-tertiary transition-colors hover:bg-black/5 hover:text-text-secondary disabled:opacity-30 dark:text-text-dark-tertiary dark:hover:bg-white/5 dark:hover:text-text-dark-secondary"
+                aria-label="Previous question"
               >
                 <ChevronUp className="h-4 w-4" />
               </button>
@@ -189,6 +190,7 @@ export const AskUserQuestion: React.FC<AskUserQuestionProps> = ({ tool, chatId }
                 onClick={goToNext}
                 disabled={currentIndex === totalQuestions - 1 || isLoading}
                 className="rounded p-0.5 text-text-tertiary transition-colors hover:bg-black/5 hover:text-text-secondary disabled:opacity-30 dark:text-text-dark-tertiary dark:hover:bg-white/5 dark:hover:text-text-dark-secondary"
+                aria-label="Next question"
               >
                 <ChevronDown className="h-4 w-4" />
               </button>
@@ -223,7 +225,7 @@ export const AskUserQuestion: React.FC<AskUserQuestionProps> = ({ tool, chatId }
                     key={oIndex}
                     type="button"
                     onClick={() => handleOptionSelect(option.label)}
-                    className={`group flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-all ${
+                    className={`group flex w-full items-start gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors ${
                       selected
                         ? 'bg-black/5 dark:bg-white/5'
                         : 'hover:bg-black/5 dark:hover:bg-white/5'
@@ -260,8 +262,16 @@ export const AskUserQuestion: React.FC<AskUserQuestionProps> = ({ tool, chatId }
               })}
 
               <div
+                role="button"
+                tabIndex={0}
                 onClick={() => handleOptionSelect(OTHER_VALUE)}
-                className={`group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-all ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleOptionSelect(OTHER_VALUE);
+                  }
+                }}
+                className={`group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left transition-colors ${
                   isOtherSelected
                     ? 'bg-black/5 dark:bg-white/5'
                     : 'cursor-pointer hover:bg-black/5 dark:hover:bg-white/5'
@@ -279,11 +289,11 @@ export const AskUserQuestion: React.FC<AskUserQuestionProps> = ({ tool, chatId }
                 {isOtherSelected ? (
                   <input
                     type="text"
-                    placeholder="Type your answer..."
+                    placeholder="Type your answer\u2026"
                     value={otherInputs[currentKey] ?? ''}
                     onChange={(e) => handleOtherInputChange(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
-                    className="min-w-0 flex-1 bg-transparent text-xs text-text-primary placeholder-text-tertiary outline-none dark:text-text-dark-primary dark:placeholder-text-dark-tertiary"
+                    className="min-w-0 flex-1 bg-transparent text-xs text-text-primary placeholder-text-tertiary outline-none focus:ring-1 focus:ring-text-quaternary/30 dark:text-text-dark-primary dark:placeholder-text-dark-tertiary"
                     disabled={isLoading}
                     autoFocus
                   />
@@ -335,10 +345,10 @@ export const AskUserQuestion: React.FC<AskUserQuestionProps> = ({ tool, chatId }
           case 'failed':
             return 'Question cancelled or failed';
           default:
-            return 'Waiting for user response...';
+            return 'Waiting for user response\u2026';
         }
       }}
-      loadingContent="Waiting for response..."
+      loadingContent="Waiting for response\u2026"
       error={errorMessage}
       expandable={questionCount > 0 && toolStatus === 'completed' && !!answers}
     >

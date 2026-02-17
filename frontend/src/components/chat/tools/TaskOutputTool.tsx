@@ -19,7 +19,7 @@ const formatOutput = (result: unknown): string => {
 const TaskOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as TaskOutputInput | undefined;
   const taskId = input?.task_id ?? '';
-  const truncatedId = taskId.length > 12 ? `${taskId.slice(0, 12)}...` : taskId;
+  const truncatedId = taskId.length > 12 ? `${taskId.slice(0, 12)}\u2026` : taskId;
   const idSuffix = taskId ? `: ${truncatedId}` : '';
 
   const output = formatOutput(tool.result);
@@ -41,7 +41,7 @@ const TaskOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             return `Getting task output${idSuffix}`;
         }
       }}
-      loadingContent="Waiting for task output..."
+      loadingContent="Waiting for task output\u2026"
       error={tool.error}
       expandable={hasOutput}
     >
@@ -59,7 +59,7 @@ const TaskOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
 const BashOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as TaskOutputInput | undefined;
   const bashId = input?.bash_id ?? '';
-  const truncatedId = bashId.length > 12 ? `${bashId.slice(0, 12)}...` : bashId;
+  const truncatedId = bashId.length > 12 ? `${bashId.slice(0, 12)}\u2026` : bashId;
   const idSuffix = bashId ? `: ${truncatedId}` : '';
 
   const output = formatOutput(tool.result);
@@ -81,7 +81,7 @@ const BashOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             return `Getting bash output${idSuffix}`;
         }
       }}
-      loadingContent="Waiting for bash output..."
+      loadingContent="Waiting for bash output\u2026"
       error={tool.error}
       expandable={hasOutput}
     >

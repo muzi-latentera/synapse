@@ -128,6 +128,7 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
           <Switch
             checked={settings.notification_sound_enabled ?? true}
             onCheckedChange={onNotificationSoundChange}
+            aria-label="Sound notification"
           />
         </div>
         <div className="flex items-center justify-between gap-4 py-3">
@@ -142,6 +143,7 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
           <Switch
             checked={settings.auto_compact_disabled ?? false}
             onCheckedChange={onAutoCompactDisabledChange}
+            aria-label="Disable auto compact"
           />
         </div>
         <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
@@ -156,6 +158,7 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
           <Switch
             checked={settings.attribution_disabled ?? false}
             onCheckedChange={onAttributionDisabledChange}
+            aria-label="Disable attribution"
           />
         </div>
       </div>

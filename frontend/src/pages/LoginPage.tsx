@@ -173,12 +173,16 @@ export function LoginPage() {
           {fieldConfigs.map(({ name, label, placeholder, type, action }) => (
             <div key={name} className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-text-secondary dark:text-text-dark-secondary">
+                <Label
+                  htmlFor={name}
+                  className="text-xs text-text-secondary dark:text-text-dark-secondary"
+                >
                   {label}
                 </Label>
                 {action}
               </div>
               <Input
+                id={name}
                 type={type}
                 value={values[name]}
                 onChange={(e) => handleChange(name, e.target.value)}
@@ -212,7 +216,7 @@ export function LoginPage() {
           className="text-xs"
           onClick={() => navigate('/signup')}
         >
-          Don't have an account? Create one
+          Don{'\u2019'}t have an account? Create one
         </Button>
       </div>
     </LoginPageLayout>

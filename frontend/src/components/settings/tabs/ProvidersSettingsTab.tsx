@@ -118,6 +118,8 @@ export const ProvidersSettingsTab: React.FC<ProvidersSettingsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => toggleExpanded(provider.id)}
+                    aria-label="Toggle provider details"
+                    aria-expanded={isExpanded}
                     className="flex-shrink-0 text-text-quaternary transition-colors hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
                   >
                     {isExpanded ? (
@@ -157,6 +159,7 @@ export const ProvidersSettingsTab: React.FC<ProvidersSettingsTabProps> = ({
                         variant="ghost"
                         size="icon"
                         onClick={() => onEditProvider(provider)}
+                        aria-label="Edit provider"
                         className="h-7 w-7 text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
                       >
                         <Pencil className="h-3 w-3" />
@@ -165,6 +168,7 @@ export const ProvidersSettingsTab: React.FC<ProvidersSettingsTabProps> = ({
                         variant="ghost"
                         size="icon"
                         onClick={() => setProviderPendingDelete(provider)}
+                        aria-label="Delete provider"
                         className="h-7 w-7 text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
                       >
                         <Trash2 className="h-3 w-3" />

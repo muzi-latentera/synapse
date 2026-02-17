@@ -76,6 +76,7 @@ export function RenameModal({
           placeholder="Enter chat title"
           disabled={isLoading}
           className="w-full"
+          aria-label="New name"
         />
       </div>
 
