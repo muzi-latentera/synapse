@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { Button } from '@/components/ui/primitives/Button';
 import { Spinner } from '@/components/ui/primitives/Spinner';
-import MarkDown from '@/components/ui/MarkDown';
+import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import { Bot, Terminal, Zap, Plug, ExternalLink, X, AlertCircle } from 'lucide-react';
 import {
   usePluginDetailsQuery,
@@ -390,7 +390,7 @@ export const PluginDetailModal: React.FC<PluginDetailModalProps> = ({
                     Documentation
                   </h3>
                   <div className="max-h-64 overflow-y-auto rounded-lg bg-surface-tertiary p-3 dark:bg-surface-dark-tertiary">
-                    <MarkDown content={details.readme} />
+                    <LazyMarkDown content={details.readme} />
                   </div>
                 </div>
               )}

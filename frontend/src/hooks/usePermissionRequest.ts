@@ -24,8 +24,6 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
   const [error, setError] = useState<string | null>(null);
 
   const pendingRequests = usePermissionStore((state) => state.pendingRequests);
-  const setPermissionRequest = usePermissionStore((state) => state.setPermissionRequest);
-  const clearPermissionRequest = usePermissionStore((state) => state.clearPermissionRequest);
 
   const pendingRequest = chatId ? (pendingRequests.get(chatId) ?? null) : null;
 
@@ -37,9 +35,9 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
     (request: PermissionRequest) => {
       if (!chatId) return;
       if (isRequestResolved(request.request_id)) return;
-      setPermissionRequest(chatId, request);
+      usePermissionStore.getState().setPermissionRequest(chatId, request);
     },
-    [chatId, setPermissionRequest],
+    [chatId],
   );
 
   const handleApprove = useCallback(async () => {
@@ -52,18 +50,18 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
     try {
       await permissionService.respondToPermission(chatId, pendingRequest.request_id, true);
       addResolvedRequestId(pendingRequest.request_id);
-      clearPermissionRequest(chatId);
+      usePermissionStore.getState().clearPermissionRequest(chatId);
     } catch (err) {
       if (isExpiredRequestError(err)) {
         addResolvedRequestId(pendingRequest.request_id);
-        clearPermissionRequest(chatId);
+        usePermissionStore.getState().clearPermissionRequest(chatId);
       } else {
         setError(err instanceof Error ? err.message : 'Failed to approve permission');
       }
     } finally {
       setIsLoading(false);
     }
-  }, [chatId, pendingRequest, clearPermissionRequest]);
+  }, [chatId, pendingRequest]);
 
   const handleReject = useCallback(
     async (alternativeInstruction?: string) => {
@@ -81,11 +79,11 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
           alternativeInstruction,
         );
         addResolvedRequestId(pendingRequest.request_id);
-        clearPermissionRequest(chatId);
+        usePermissionStore.getState().clearPermissionRequest(chatId);
       } catch (err) {
         if (isExpiredRequestError(err)) {
           addResolvedRequestId(pendingRequest.request_id);
-          clearPermissionRequest(chatId);
+          usePermissionStore.getState().clearPermissionRequest(chatId);
         } else {
           setError(err instanceof Error ? err.message : 'Failed to reject permission');
         }
@@ -93,7 +91,7 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
         setIsLoading(false);
       }
     },
-    [chatId, pendingRequest, clearPermissionRequest],
+    [chatId, pendingRequest],
   );
 
   return {

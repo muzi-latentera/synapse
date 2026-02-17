@@ -23,6 +23,8 @@ type LinkProps = AnchorHTMLAttributes<HTMLAnchorElement>;
 
 type ImageProps = ImgHTMLAttributes<HTMLImageElement>;
 
+const MATH_PATTERN = /(^|[^\\])(\$[^$\n]+\$|\$\$[\s\S]*?\$\$|\\\(|\\\[)/;
+
 const createImageAttachment = (url: string, alt?: string): MessageAttachment => {
   return {
     id: url,
@@ -39,10 +41,7 @@ function MarkDownInner({ content, className = '' }: { content: string; className
   const [remarkMathPlugin, setRemarkMathPlugin] = useState<unknown>(null);
   const [rehypeKatexPlugin, setRehypeKatexPlugin] = useState<unknown>(null);
 
-  const needsMath = useMemo(
-    () => /(^|[^\\])(\$[^$\n]+\$|\$\$[\s\S]*?\$\$|\\\(|\\\[)/.test(content),
-    [content],
-  );
+  const needsMath = useMemo(() => MATH_PATTERN.test(content), [content]);
 
   useEffect(() => {
     let cancelled = false;
