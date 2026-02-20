@@ -11,7 +11,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { isBrowserObjectUrl } from '@/utils/attachmentUrl';
 import { UserMessage, AssistantMessage } from '@/components/chat/message-bubble/Message';
-import { PendingMessage } from '@/components/chat/message-bubble/PendingMessage';
+import { QueueMessageCard } from './QueueMessageCard';
 import { Input } from '@/components/chat/message-input/Input';
 import { ChatSkeleton } from './ChatSkeleton';
 import { ScrollButton } from './ScrollButton';
@@ -380,7 +380,7 @@ export const Chat = memo(function Chat() {
   const showThinking = isLoading || (isStreaming && !lastBotHasContent);
 
   const listFooter = useMemo(() => {
-    if (!showThinking && !showPermissionAtEnd && pendingMessages.length === 0 && !error) {
+    if (!showThinking && !showPermissionAtEnd && !error) {
       return null;
     }
 
@@ -388,26 +388,10 @@ export const Chat = memo(function Chat() {
       <div className="w-full lg:mx-auto lg:max-w-3xl">
         {showThinking && <ThinkingIndicator />}
         {showPermissionAtEnd && <MessageInlinePermission />}
-        {pendingMessages.map((pending) => (
-          <PendingMessage
-            key={pending.id}
-            message={pending}
-            onCancel={handleCancelPending}
-            onEdit={handleEditPending}
-          />
-        ))}
         {error && <ErrorMessage error={error} onDismiss={onDismissError} />}
       </div>
     );
-  }, [
-    error,
-    handleCancelPending,
-    handleEditPending,
-    onDismissError,
-    pendingMessages,
-    showPermissionAtEnd,
-    showThinking,
-  ]);
+  }, [error, onDismissError, showPermissionAtEnd, showThinking]);
 
   const virtuosoContext = useMemo<VirtuosoContextValue>(
     () => ({ header: listHeader, footer: listFooter }),
@@ -451,24 +435,40 @@ export const Chat = memo(function Chat() {
         {showScrollButton && <ScrollButton onClick={scrollToBottom} />}
 
         <div className="relative bg-surface pb-safe dark:bg-surface-dark">
-          <div className="w-full py-2 lg:mx-auto lg:max-w-3xl">
-            <Input
-              message={inputMessage}
-              setMessage={setInputMessage}
-              onSubmit={onSubmit}
-              onAttach={onAttach}
-              attachedFiles={attachedFiles}
-              isLoading={isLoading}
-              isStreaming={isStreaming}
-              onStopStream={onStopStream}
-              selectedModelId={selectedModelId}
-              onModelChange={onModelChange}
-              dropdownPosition="top"
-              showAttachedFilesPreview={true}
-              contextUsage={contextUsage}
-              showTip={false}
-              chatId={chatId}
-            />
+          <div className="relative w-full py-2 lg:mx-auto lg:max-w-3xl">
+            {pendingMessages.length > 0 && (
+              <div className="relative z-0 -mb-6 px-10 sm:px-14">
+                <div className="flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border/50 bg-surface-secondary pb-6 dark:border-border-dark/50 dark:bg-surface-dark-secondary">
+                  {pendingMessages.map((pending) => (
+                    <QueueMessageCard
+                      key={pending.id}
+                      message={pending}
+                      onCancel={handleCancelPending}
+                      onEdit={handleEditPending}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="relative z-10">
+              <Input
+                message={inputMessage}
+                setMessage={setInputMessage}
+                onSubmit={onSubmit}
+                onAttach={onAttach}
+                attachedFiles={attachedFiles}
+                isLoading={isLoading}
+                isStreaming={isStreaming}
+                onStopStream={onStopStream}
+                selectedModelId={selectedModelId}
+                onModelChange={onModelChange}
+                dropdownPosition="top"
+                showAttachedFilesPreview={true}
+                contextUsage={contextUsage}
+                showTip={false}
+                chatId={chatId}
+              />
+            </div>
           </div>
         </div>
       </div>
