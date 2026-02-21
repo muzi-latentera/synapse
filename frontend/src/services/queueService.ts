@@ -1,7 +1,7 @@
 import { apiClient } from '@/lib/api';
 import { ensureResponse, serviceCall } from '@/services/base/BaseService';
 import { validateId, validateRequired } from '@/utils/validation';
-import type { QueuedMessage, QueueUpsertResponse } from '@/types/queue.types';
+import type { QueuedMessage, QueueAddResponse } from '@/types/queue.types';
 
 async function queueMessage(
   chatId: string,
@@ -10,7 +10,7 @@ async function queueMessage(
   permissionMode: string = 'auto',
   thinkingMode: string | null = null,
   files?: File[],
-): Promise<QueueUpsertResponse> {
+): Promise<QueueAddResponse> {
   validateId(chatId, 'Chat ID');
   validateRequired(content, 'Content');
   validateRequired(modelId, 'Model ID');
@@ -30,7 +30,7 @@ async function queueMessage(
       });
     }
 
-    const response = await apiClient.postForm<QueueUpsertResponse>(
+    const response = await apiClient.postForm<QueueAddResponse>(
       `/chat/chats/${chatId}/queue`,
       formData,
     );
@@ -38,24 +38,39 @@ async function queueMessage(
   });
 }
 
-async function getQueue(chatId: string): Promise<QueuedMessage | null> {
+async function getQueue(chatId: string): Promise<QueuedMessage[]> {
   validateId(chatId, 'Chat ID');
 
   return serviceCall(async () => {
-    const response = await apiClient.get<QueuedMessage | null>(`/chat/chats/${chatId}/queue`);
-    return response ?? null;
+    const response = await apiClient.get<QueuedMessage[]>(`/chat/chats/${chatId}/queue`);
+    return response ?? [];
   });
 }
 
-async function updateQueuedMessage(chatId: string, content: string): Promise<QueuedMessage> {
+async function updateQueuedMessage(
+  chatId: string,
+  messageId: string,
+  content: string,
+): Promise<QueuedMessage> {
   validateId(chatId, 'Chat ID');
+  validateId(messageId, 'Message ID');
   validateRequired(content, 'Content');
 
   return serviceCall(async () => {
-    const response = await apiClient.patch<QueuedMessage>(`/chat/chats/${chatId}/queue`, {
-      content,
-    });
+    const response = await apiClient.patch<QueuedMessage>(
+      `/chat/chats/${chatId}/queue/${messageId}`,
+      { content },
+    );
     return ensureResponse(response, 'Failed to update queued message');
+  });
+}
+
+async function deleteQueuedMessage(chatId: string, messageId: string): Promise<void> {
+  validateId(chatId, 'Chat ID');
+  validateId(messageId, 'Message ID');
+
+  await serviceCall(async () => {
+    await apiClient.delete(`/chat/chats/${chatId}/queue/${messageId}`);
   });
 }
 
@@ -71,5 +86,6 @@ export const queueService = {
   queueMessage,
   getQueue,
   updateQueuedMessage,
+  deleteQueuedMessage,
   clearQueue,
 };

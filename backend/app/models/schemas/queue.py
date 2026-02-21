@@ -22,8 +22,6 @@ class QueuedMessage(QueuedMessageBase):
     attachments: list[dict[str, Any]] | None = None
 
 
-class QueueUpsertResponse(BaseModel):
+class QueueAddResponse(BaseModel):
     id: UUID
-    created: bool
-    content: str
-    attachments: list[dict[str, Any]] | None = None
+    queued_at: datetime

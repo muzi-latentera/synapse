@@ -13,11 +13,8 @@ export interface QueuedMessage {
   attachments?: QueueMessageAttachment[];
 }
 
-export interface QueueUpsertResponse {
+export interface QueueAddResponse {
   id: string;
-  created: boolean;
-  content: string;
-  attachments?: QueueMessageAttachment[];
 }
 
 export interface LocalQueuedMessage {

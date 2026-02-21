@@ -13,8 +13,8 @@ import type {
 
 interface QueueMessageCardProps {
   message: LocalQueuedMessage;
-  onCancel: () => void;
-  onEdit: (newContent: string) => void;
+  onCancel: (messageId: string) => void;
+  onEdit: (messageId: string, newContent: string) => void;
 }
 
 function UploadingOverlay() {
@@ -27,7 +27,7 @@ function UploadingOverlay() {
   );
 }
 
-function LocalUploadingPreview({ file }: { file: File }) {
+function LocalFilePreview({ file, uploading }: { file: File; uploading: boolean }) {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [fileType, setFileType] = useState<'image' | 'pdf' | 'xlsx' | 'unknown'>('unknown');
 
@@ -61,7 +61,7 @@ function LocalUploadingPreview({ file }: { file: File }) {
           alt={file.name || 'Attachment'}
           className="h-8 w-8 rounded-md object-cover"
         />
-        <UploadingOverlay />
+        {uploading && <UploadingOverlay />}
       </div>
     );
   }
@@ -70,7 +70,7 @@ function LocalUploadingPreview({ file }: { file: File }) {
     return (
       <div className="relative flex h-8 w-8 items-center justify-center rounded-md bg-surface-tertiary dark:bg-surface-dark-tertiary">
         <FileSpreadsheet className="h-4 w-4 text-success-600 dark:text-success-400" />
-        <UploadingOverlay />
+        {uploading && <UploadingOverlay />}
       </div>
     );
   }
@@ -79,7 +79,7 @@ function LocalUploadingPreview({ file }: { file: File }) {
     return (
       <div className="relative flex h-8 w-8 items-center justify-center rounded-md bg-surface-tertiary dark:bg-surface-dark-tertiary">
         <FileText className="h-4 w-4 text-error-500 dark:text-error-400" />
-        <UploadingOverlay />
+        {uploading && <UploadingOverlay />}
       </div>
     );
   }
@@ -87,7 +87,7 @@ function LocalUploadingPreview({ file }: { file: File }) {
   return (
     <div className="relative flex h-8 w-8 items-center justify-center rounded-md bg-surface-tertiary dark:bg-surface-dark-tertiary">
       <FileText className="h-4 w-4 text-text-tertiary dark:text-text-dark-tertiary" />
-      <UploadingOverlay />
+      {uploading && <UploadingOverlay />}
     </div>
   );
 }
@@ -206,12 +206,12 @@ export const QueueMessageCard = memo(function QueueMessageCard({
   const handleSaveEdit = useCallback(() => {
     const trimmed = editContent.trim();
     if (!trimmed) {
-      onCancel();
+      onCancel(message.id);
     } else {
-      onEdit(trimmed);
+      onEdit(message.id, trimmed);
     }
     setIsEditing(false);
-  }, [editContent, onCancel, onEdit]);
+  }, [editContent, message.id, onCancel, onEdit]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -233,9 +233,10 @@ export const QueueMessageCard = memo(function QueueMessageCard({
           {hasLocalFiles && !hasServerAttachments && (
             <div className="flex flex-wrap gap-1">
               {message.files!.map((file, idx) => (
-                <LocalUploadingPreview
+                <LocalFilePreview
                   key={`${file.name}-${file.lastModified}-${idx}`}
                   file={file}
+                  uploading={!message.synced}
                 />
               ))}
             </div>
@@ -292,7 +293,7 @@ export const QueueMessageCard = memo(function QueueMessageCard({
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
               <Button
-                onClick={onCancel}
+                onClick={() => onCancel(message.id)}
                 variant="ghost"
                 className="h-6 rounded-md px-2 py-0 text-text-tertiary hover:bg-error-50 hover:text-error-600 dark:hover:bg-error-500/10 dark:hover:text-error-400"
                 aria-label="Cancel message"

@@ -122,16 +122,19 @@ export const Chat = memo(function Chat() {
     }
   }, [chatId]);
 
-  const handleCancelPending = useCallback(() => {
-    if (chatId) {
-      useMessageQueueStore.getState().clearAndSync(chatId);
-    }
-  }, [chatId]);
-
-  const handleEditPending = useCallback(
-    (newContent: string) => {
+  const handleCancelMessage = useCallback(
+    (messageId: string) => {
       if (chatId) {
-        useMessageQueueStore.getState().updateQueuedMessage(chatId, newContent);
+        void useMessageQueueStore.getState().removeMessage(chatId, messageId);
+      }
+    },
+    [chatId],
+  );
+
+  const handleEditMessage = useCallback(
+    (messageId: string, newContent: string) => {
+      if (chatId) {
+        void useMessageQueueStore.getState().updateQueuedMessage(chatId, messageId, newContent);
       }
     },
     [chatId],
@@ -443,8 +446,8 @@ export const Chat = memo(function Chat() {
                     <QueueMessageCard
                       key={pending.id}
                       message={pending}
-                      onCancel={handleCancelPending}
-                      onEdit={handleEditPending}
+                      onCancel={handleCancelMessage}
+                      onEdit={handleEditMessage}
                     />
                   ))}
                 </div>

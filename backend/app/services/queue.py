@@ -8,7 +8,7 @@ from app.constants import (
     QUEUE_MESSAGE_TTL_SECONDS,
     REDIS_KEY_CHAT_QUEUE,
 )
-from app.models.schemas.queue import QueuedMessage, QueueUpsertResponse
+from app.models.schemas.queue import QueueAddResponse, QueuedMessage
 
 from app.utils.cache import CacheStore
 
@@ -22,7 +22,22 @@ class QueueService:
     def _queue_key(self, chat_id: str) -> str:
         return REDIS_KEY_CHAT_QUEUE.format(chat_id=chat_id)
 
-    async def upsert_message(
+    async def _read_queue(self, key: str) -> list[dict[str, Any]]:
+        raw = await self.cache.get(key)
+        if not raw:
+            return []
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return [parsed]
+        return cast(list[dict[str, Any]], parsed)
+
+    async def _write_queue(self, key: str, queue: list[dict[str, Any]]) -> None:
+        if not queue:
+            await self.cache.delete(key)
+        else:
+            await self.cache.set(key, json.dumps(queue), ex=QUEUE_MESSAGE_TTL_SECONDS)
+
+    async def add_message(
         self,
         chat_id: str,
         content: str,
@@ -30,103 +45,81 @@ class QueueService:
         permission_mode: str = "auto",
         thinking_mode: str | None = None,
         attachments: list[dict[str, Any]] | None = None,
-    ) -> QueueUpsertResponse:
+    ) -> QueueAddResponse:
         key = self._queue_key(chat_id)
-        raw = await self.cache.get(key)
-
-        if raw:
-            data = json.loads(raw)
-            data["content"] = data["content"] + "\n" + content
-            data["model_id"] = model_id
-            data["permission_mode"] = permission_mode
-            if thinking_mode is not None:
-                data["thinking_mode"] = thinking_mode
-
-            if attachments:
-                existing_attachments = data.get("attachments") or []
-                data["attachments"] = existing_attachments + attachments
-
-            await self.cache.set(key, json.dumps(data), ex=QUEUE_MESSAGE_TTL_SECONDS)
-
-            return QueueUpsertResponse(
-                id=UUID(data["id"]),
-                created=False,
-                content=data["content"],
-                attachments=data.get("attachments"),
-            )
+        queue = await self._read_queue(key)
 
         message_id = uuid4()
+        queued_at = datetime.now(timezone.utc)
         message_data: dict[str, Any] = {
             "id": str(message_id),
             "content": content,
             "model_id": model_id,
             "permission_mode": permission_mode,
             "thinking_mode": thinking_mode,
-            "queued_at": datetime.now(timezone.utc).isoformat(),
+            "queued_at": queued_at.isoformat(),
             "attachments": attachments,
         }
 
-        await self.cache.set(
-            key, json.dumps(message_data), ex=QUEUE_MESSAGE_TTL_SECONDS
-        )
+        queue.append(message_data)
+        await self._write_queue(key, queue)
 
-        return QueueUpsertResponse(
-            id=message_id,
-            created=True,
-            content=content,
-            attachments=attachments,
-        )
+        return QueueAddResponse(id=message_id, queued_at=queued_at)
 
-    async def get_message(self, chat_id: str) -> QueuedMessage | None:
-        key = self._queue_key(chat_id)
-        raw = await self.cache.get(key)
-
-        if not raw:
-            return None
-
-        data = json.loads(raw)
+    @staticmethod
+    def _to_queued_message(item: dict[str, Any]) -> QueuedMessage:
         return QueuedMessage(
-            id=UUID(data["id"]),
-            content=data["content"],
-            model_id=data["model_id"],
-            permission_mode=data.get("permission_mode", "auto"),
-            thinking_mode=data.get("thinking_mode"),
-            queued_at=datetime.fromisoformat(data["queued_at"]),
-            attachments=data.get("attachments"),
+            id=UUID(item["id"]),
+            content=item["content"],
+            model_id=item["model_id"],
+            permission_mode=item.get("permission_mode", "auto"),
+            thinking_mode=item.get("thinking_mode"),
+            queued_at=datetime.fromisoformat(item["queued_at"]),
+            attachments=item.get("attachments"),
         )
 
-    async def update_message(self, chat_id: str, content: str) -> QueuedMessage | None:
+    async def get_queue(self, chat_id: str) -> list[QueuedMessage]:
         key = self._queue_key(chat_id)
-        raw = await self.cache.get(key)
+        queue = await self._read_queue(key)
+        return [self._to_queued_message(item) for item in queue]
 
-        if not raw:
-            return None
-
-        data = json.loads(raw)
-        data["content"] = content
-
-        await self.cache.set(key, json.dumps(data), ex=QUEUE_MESSAGE_TTL_SECONDS)
-
-        return QueuedMessage(
-            id=UUID(data["id"]),
-            content=data["content"],
-            model_id=data["model_id"],
-            permission_mode=data.get("permission_mode", "auto"),
-            thinking_mode=data.get("thinking_mode"),
-            queued_at=datetime.fromisoformat(data["queued_at"]),
-            attachments=data.get("attachments"),
-        )
-
-    async def clear_queue(self, chat_id: str) -> bool:
+    async def update_message(
+        self, chat_id: str, message_id: str, content: str
+    ) -> QueuedMessage | None:
         key = self._queue_key(chat_id)
-        deleted = await self.cache.delete(key)
-        return deleted > 0
+        queue = await self._read_queue(key)
+
+        for item in queue:
+            if item["id"] == message_id:
+                item["content"] = content
+                await self._write_queue(key, queue)
+                return self._to_queued_message(item)
+
+        return None
+
+    async def delete_message(self, chat_id: str, message_id: str) -> bool:
+        key = self._queue_key(chat_id)
+        queue = await self._read_queue(key)
+        original_len = len(queue)
+        queue = [item for item in queue if item["id"] != message_id]
+
+        if len(queue) == original_len:
+            return False
+
+        await self._write_queue(key, queue)
+        return True
+
+    async def clear_queue(self, chat_id: str) -> None:
+        key = self._queue_key(chat_id)
+        await self.cache.delete(key)
 
     async def pop_next_message(self, chat_id: str) -> dict[str, Any] | None:
         key = self._queue_key(chat_id)
-        raw = await self.cache.getdel(key)
+        queue = await self._read_queue(key)
 
-        if not raw:
+        if not queue:
             return None
 
-        return cast(dict[str, Any], json.loads(raw))
+        next_msg = queue[0]
+        await self._write_queue(key, queue[1:])
+        return next_msg

@@ -81,9 +81,9 @@ from .mcps import McpCreateRequest, McpDeleteResponse, McpResponse, McpUpdateReq
 from .ai_model import AIModelResponse
 from .errors import HTTPErrorResponse
 from .queue import (
+    QueueAddResponse,
     QueuedMessage,
     QueueMessageUpdate,
-    QueueUpsertResponse,
 )
 
 __all__ = [
@@ -182,5 +182,5 @@ __all__ = [
     # queue
     "QueuedMessage",
     "QueueMessageUpdate",
-    "QueueUpsertResponse",
+    "QueueAddResponse",
 ]

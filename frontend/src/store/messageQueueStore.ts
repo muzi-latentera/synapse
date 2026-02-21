@@ -16,12 +16,13 @@ interface MessageQueueState {
     thinkingMode?: string | null,
     files?: File[],
   ) => Promise<string>;
-  updateQueuedMessage: (chatId: string, content: string) => Promise<void>;
+  updateQueuedMessage: (chatId: string, messageId: string, content: string) => Promise<void>;
+  removeMessage: (chatId: string, messageId: string) => Promise<void>;
   clearAndSync: (chatId: string) => Promise<void>;
   getQueue: (chatId: string) => LocalQueuedMessage[];
   clearQueue: (chatId: string) => void;
   fetchQueue: (chatId: string) => Promise<void>;
-  syncPendingMessages: (chatId: string, modelId: string) => Promise<void>;
+  syncPendingMessages: (chatId: string) => Promise<void>;
   removeLocalOnly: (chatId: string, messageId: string) => void;
   cleanupChat: (chatId: string) => void;
 }
@@ -39,54 +40,6 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
     files?: File[],
   ): Promise<string> => {
     const currentQueue = get().queues.get(chatId) || [];
-    const existingMessage = currentQueue[0];
-
-    if (existingMessage) {
-      const appendedContent = existingMessage.content + '\n' + content;
-      const mergedFiles = [...(existingMessage.files || []), ...(files || [])];
-
-      set((state) => {
-        const nextQueues = new Map(state.queues);
-        nextQueues.set(chatId, [
-          {
-            ...existingMessage,
-            content: appendedContent,
-            files: mergedFiles.length > 0 ? mergedFiles : undefined,
-          },
-        ]);
-        return { queues: nextQueues };
-      });
-
-      if (existingMessage.synced) {
-        try {
-          const result = await queueService.queueMessage(
-            chatId,
-            content,
-            modelId,
-            permissionMode,
-            thinkingMode,
-            files,
-          );
-
-          set((state) => {
-            const nextQueues = new Map(state.queues);
-            const queue = nextQueues.get(chatId) || [];
-            const updatedQueue = queue.map((msg) =>
-              msg.id === existingMessage.id
-                ? { ...msg, content: result.content, attachments: result.attachments }
-                : msg,
-            );
-            nextQueues.set(chatId, updatedQueue);
-            return { queues: nextQueues };
-          });
-        } catch (error) {
-          console.error('Failed to append to queued message:', error);
-        }
-      }
-
-      return existingMessage.id;
-    }
-
     const tempId = crypto.randomUUID();
     const tempMessage: LocalQueuedMessage = {
       id: tempId,
@@ -99,7 +52,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
 
     set((state) => {
       const nextQueues = new Map(state.queues);
-      nextQueues.set(chatId, [tempMessage]);
+      nextQueues.set(chatId, [...currentQueue, tempMessage]);
       return { queues: nextQueues };
     });
 
@@ -117,9 +70,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
         const nextQueues = new Map(state.queues);
         const queue = nextQueues.get(chatId) || [];
         const updatedQueue = queue.map((msg) =>
-          msg.id === tempId
-            ? { ...msg, id: result.id, synced: true, attachments: result.attachments }
-            : msg,
+          msg.id === tempId ? { ...msg, id: result.id, synced: true } : msg,
         );
         nextQueues.set(chatId, updatedQueue);
         return { queues: nextQueues };
@@ -139,37 +90,67 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
     }
   },
 
-  updateQueuedMessage: async (chatId: string, content: string) => {
+  updateQueuedMessage: async (chatId: string, messageId: string, content: string) => {
     const trimmedContent = content.trim();
     const currentQueue = get().queues.get(chatId) || [];
-    const message = currentQueue[0];
+    const message = currentQueue.find((m) => m.id === messageId);
 
     if (!message) {
       return;
     }
 
     if (!trimmedContent) {
-      await get().clearAndSync(chatId);
+      await get().removeMessage(chatId, messageId);
       return;
     }
 
     set((state) => {
       const nextQueues = new Map(state.queues);
-      nextQueues.set(chatId, [{ ...message, content: trimmedContent }]);
+      const queue = nextQueues.get(chatId) || [];
+      const updatedQueue = queue.map((msg) =>
+        msg.id === messageId ? { ...msg, content: trimmedContent } : msg,
+      );
+      nextQueues.set(chatId, updatedQueue);
       return { queues: nextQueues };
     });
 
     if (message.synced) {
       try {
-        await queueService.updateQueuedMessage(chatId, trimmedContent);
+        await queueService.updateQueuedMessage(chatId, messageId, trimmedContent);
       } catch (error) {
         console.error('Failed to sync message update:', error);
       }
     }
   },
 
+  removeMessage: async (chatId: string, messageId: string) => {
+    const currentQueue = get().queues.get(chatId) || [];
+    const message = currentQueue.find((m) => m.id === messageId);
+
+    set((state) => {
+      const nextQueues = new Map(state.queues);
+      const queue = nextQueues.get(chatId) || [];
+      const filtered = queue.filter((msg) => msg.id !== messageId);
+      if (filtered.length === 0) {
+        nextQueues.delete(chatId);
+      } else {
+        nextQueues.set(chatId, filtered);
+      }
+      return { queues: nextQueues };
+    });
+
+    if (message?.synced) {
+      try {
+        await queueService.deleteQueuedMessage(chatId, messageId);
+      } catch (error) {
+        console.error('Failed to sync message delete:', error);
+      }
+    }
+  },
+
   clearAndSync: async (chatId: string) => {
-    const message = get().queues.get(chatId)?.[0];
+    const queue = get().queues.get(chatId) || [];
+    const hasSynced = queue.some((m) => m.synced);
 
     set((state) => {
       const nextQueues = new Map(state.queues);
@@ -177,7 +158,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
       return { queues: nextQueues };
     });
 
-    if (message?.synced) {
+    if (hasSynced) {
       try {
         await queueService.clearQueue(chatId);
       } catch (error) {
@@ -226,33 +207,29 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
 
   fetchQueue: async (chatId: string) => {
     try {
-      const serverMessage = await queueService.getQueue(chatId);
+      const serverMessages = await queueService.getQueue(chatId);
 
       set((state) => {
         const nextQueues = new Map(state.queues);
         const existingQueue = nextQueues.get(chatId) || [];
 
-        if (serverMessage) {
-          const localMessage: LocalQueuedMessage = {
-            id: serverMessage.id,
-            content: serverMessage.content,
-            model_id: serverMessage.model_id,
-            attachments: serverMessage.attachments,
-            queuedAt: new Date(serverMessage.queued_at).getTime(),
-            synced: true,
-          };
+        const serverIds = new Set(serverMessages.map((m) => m.id));
+        const pendingMessages = existingQueue.filter((m) => !m.synced && !serverIds.has(m.id));
 
-          const pendingMessages = existingQueue.filter(
-            (m) => !m.synced && m.id !== serverMessage.id,
-          );
-          nextQueues.set(chatId, [localMessage, ...pendingMessages]);
+        const syncedMessages: LocalQueuedMessage[] = serverMessages.map((msg) => ({
+          id: msg.id,
+          content: msg.content,
+          model_id: msg.model_id,
+          attachments: msg.attachments,
+          queuedAt: new Date(msg.queued_at).getTime(),
+          synced: true,
+        }));
+
+        const merged = [...syncedMessages, ...pendingMessages];
+        if (merged.length > 0) {
+          nextQueues.set(chatId, merged);
         } else {
-          const pendingMessages = existingQueue.filter((m) => !m.synced);
-          if (pendingMessages.length > 0) {
-            nextQueues.set(chatId, pendingMessages);
-          } else {
-            nextQueues.delete(chatId);
-          }
+          nextQueues.delete(chatId);
         }
 
         return { queues: nextQueues };
@@ -262,7 +239,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
     }
   },
 
-  syncPendingMessages: async (chatId: string, modelId: string) => {
+  syncPendingMessages: async (chatId: string) => {
     const state = get();
     if (state.isSyncing.get(chatId)) {
       return;
@@ -283,7 +260,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
           const result = await queueService.queueMessage(
             chatId,
             msg.content,
-            modelId,
+            msg.model_id,
             'auto',
             null,
             msg.files,
@@ -293,9 +270,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
             const nextQueues = new Map(s.queues);
             const currentQueue = nextQueues.get(chatId) || [];
             const updatedQueue = currentQueue.map((m) =>
-              m.id === msg.id
-                ? { ...m, id: result.id, synced: true, attachments: result.attachments }
-                : m,
+              m.id === msg.id ? { ...m, id: result.id, synced: true } : m,
             );
             nextQueues.set(chatId, updatedQueue);
             return { queues: nextQueues };
