@@ -16,6 +16,7 @@ rand = "0.9"
 dirs = "5"
 reqwest = "0.12"
 tokio = { version = "1", features = ["time"] }
+tauri-plugin-store = "2.4.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"

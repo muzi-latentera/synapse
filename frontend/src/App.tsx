@@ -14,6 +14,7 @@ import { toasterConfig } from '@/config/toaster';
 import { AuthRoute } from '@/components/routes/AuthRoute';
 import { API_BASE_URL } from '@/lib/api';
 import { check } from '@tauri-apps/plugin-updater';
+import { authStorage } from '@/utils/storage';
 
 const LandingPage = lazy(() =>
   import('@/pages/LandingPage').then((m) => ({ default: m.LandingPage })),
@@ -175,8 +176,28 @@ function AppContent() {
 export default function App() {
   const theme = useUIStore((state) => state.theme);
   const [backendReady, setBackendReady] = useState<boolean | null>(null);
+  const [authHydrated, setAuthHydrated] = useState(false);
 
-  useGlobalStream();
+  useGlobalStream({ enabled: authHydrated });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    authStorage
+      .hydrate()
+      .catch((error) => {
+        console.error('Auth storage hydration failed:', error);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        useAuthStore.getState().setAuthenticated(!!authStorage.getToken());
+        setAuthHydrated(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     document.body.classList.remove('light', 'dark');
@@ -227,6 +248,10 @@ export default function App() {
       console.error('Desktop updater check failed:', error);
     });
   }, []);
+
+  if (!authHydrated) {
+    return <LoadingScreen />;
+  }
 
   return (
     <BrowserRouter>
