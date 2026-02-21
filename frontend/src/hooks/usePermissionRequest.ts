@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { permissionService } from '@/services/permissionService';
 import { usePermissionStore } from '@/store/permissionStore';
 import { addResolvedRequestId, isRequestResolved } from '@/utils/permissionStorage';
+import { notifyPermissionRequest } from '@/utils/notifications';
 import type { PermissionRequest } from '@/types/chat.types';
 
 type ApiError = Error & { status?: number };
@@ -35,7 +36,13 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
     (request: PermissionRequest) => {
       if (!chatId) return;
       if (isRequestResolved(request.request_id)) return;
+      const existingRequest = usePermissionStore.getState().pendingRequests.get(chatId);
+      if (existingRequest?.request_id === request.request_id) {
+        return;
+      }
+
       usePermissionStore.getState().setPermissionRequest(chatId, request);
+      void notifyPermissionRequest(request);
     },
     [chatId],
   );

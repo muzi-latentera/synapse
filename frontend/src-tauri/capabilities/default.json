@@ -3,5 +3,5 @@
   "identifier": "main-capability",
   "description": "Desktop capability for the main window",
   "windows": ["main"],
-  "permissions": ["core:default", "store:default", "updater:default"]
+  "permissions": ["core:default", "store:default", "updater:default", "notification:default"]
 }
