@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build Desktop Bundles (macOS)
+  publish:
+    name: Build and Publish Desktop Release
     runs-on: macos-latest
 
     steps:
@@ -40,40 +40,17 @@ jobs:
           jq --arg v "$VERSION" '.version = $v' tauri.conf.json > tmp.json && mv tmp.json tauri.conf.json
           sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
 
-      - name: Build Tauri bundles
-        run: |
-          cd frontend
-          npm run desktop:build
-
-      - name: Upload desktop artifacts
-        uses: actions/upload-artifact@v4
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
         with:
-          name: desktop-macos
-          if-no-files-found: error
-          path: |
-            frontend/src-tauri/target/release/bundle/**/*.dmg
-            frontend/src-tauri/target/release/bundle/**/*.app.tar.gz
-            frontend/src-tauri/target/release/bundle/**/*.app.tar.gz.sig
-
-  publish:
-    name: Publish Desktop Release
-    runs-on: ubuntu-22.04
-    needs: build
-    steps:
-      - name: Download desktop artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: desktop-artifacts
-          merge-multiple: true
-
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Claudex Desktop ${{ github.ref_name }}
-          body: Desktop release for ${{ github.ref_name }}.
-          draft: false
+          projectPath: frontend
+          tagName: ${{ github.ref_name }}
+          releaseName: Claudex Desktop ${{ github.ref_name }}
+          releaseBody: Desktop release for ${{ github.ref_name }}.
+          releaseDraft: false
           prerelease: false
-          fail_on_unmatched_files: true
-          files: |
-            desktop-artifacts/**/*
+          uploadUpdaterJson: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}

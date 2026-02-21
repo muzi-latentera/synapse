@@ -111,6 +111,7 @@ fn main() {
     let backend_for_exit = backend_process.clone();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             let app_handle = app.handle().clone();
             let backend_bin = resolve_backend_binary(&app_handle);

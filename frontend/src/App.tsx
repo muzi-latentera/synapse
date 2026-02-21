@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { useCurrentUserQuery } from '@/hooks/queries/useAuthQueries';
@@ -12,6 +13,7 @@ import { authService } from '@/services/authService';
 import { toasterConfig } from '@/config/toaster';
 import { AuthRoute } from '@/components/routes/AuthRoute';
 import { API_BASE_URL } from '@/lib/api';
+import { check } from '@tauri-apps/plugin-updater';
 
 const LandingPage = lazy(() =>
   import('@/pages/LandingPage').then((m) => ({ default: m.LandingPage })),
@@ -31,6 +33,27 @@ const ResetPasswordPage = lazy(() =>
   import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
 );
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+
+const isTauriRuntime = (): boolean =>
+  typeof window !== 'undefined' && ('__TAURI__' in window || window.location.protocol === 'tauri:');
+
+async function checkDesktopUpdate(): Promise<void> {
+  const update = await check();
+  if (!update?.available) {
+    return;
+  }
+
+  const shouldInstall = window.confirm(`Claudex ${update.version} is available. Install now?`);
+  if (!shouldInstall) {
+    return;
+  }
+
+  toast.loading('Downloading desktop update...', { id: 'desktop-update' });
+  await update.downloadAndInstall();
+  toast.success(`Claudex ${update.version} installed. Restart app to finish update.`, {
+    id: 'desktop-update',
+  });
+}
 
 function AppContent() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -166,10 +189,7 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    const isTauri =
-      typeof window !== 'undefined' &&
-      ('__TAURI__' in window || window.location.protocol === 'tauri:');
-    if (!isTauri) return;
+    if (!isTauriRuntime()) return;
 
     let interval: number | undefined;
     let cancelled = false;
@@ -198,6 +218,14 @@ export default function App() {
       cancelled = true;
       if (interval) window.clearInterval(interval);
     };
+  }, []);
+
+  useEffect(() => {
+    if (import.meta.env.DEV || !isTauriRuntime()) return;
+
+    checkDesktopUpdate().catch((error) => {
+      console.error('Desktop updater check failed:', error);
+    });
   }, []);
 
   return (
