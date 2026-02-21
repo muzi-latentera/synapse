@@ -5,13 +5,17 @@ import { streamService } from '@/services/streamService';
 import { chatService } from '@/services/chatService';
 
 interface UseGlobalStreamOptions {
+  enabled?: boolean;
   onValidationComplete?: () => void;
 }
 
 export function useGlobalStream(options?: UseGlobalStreamOptions) {
   const hasValidatedRef = useRef(false);
+  const enabled = options?.enabled ?? true;
+  const onValidationComplete = options?.onValidationComplete;
 
   useEffect(() => {
+    if (!enabled) return;
     if (hasValidatedRef.current) return;
     hasValidatedRef.current = true;
 
@@ -34,13 +38,13 @@ export function useGlobalStream(options?: UseGlobalStreamOptions) {
       });
 
       await Promise.allSettled(validationPromises);
-      options?.onValidationComplete?.();
+      onValidationComplete?.();
     };
 
     const timeoutId = setTimeout(validateStreams, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [options]);
+  }, [enabled, onValidationComplete]);
 
   const stopAllStreams = useCallback(async () => {
     await streamService.stopAllStreams();

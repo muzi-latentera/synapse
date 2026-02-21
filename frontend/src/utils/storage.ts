@@ -1,5 +1,19 @@
 import { logger } from '@/utils/logger';
 
+const AUTH_TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+const AUTH_STORE_PATH = 'auth.store.json';
+const CHAT_EVENT_ID_PREFIX = 'chat:';
+const CHAT_EVENT_ID_SUFFIX = ':lastEventId';
+const MAX_CHAT_EVENT_ID_ENTRIES = 500;
+
+interface AuthStoreBackend {
+  get<T>(key: string): Promise<T | undefined>;
+  set(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  save(): Promise<void>;
+}
+
 const getStorage = (): Storage | null => {
   if (typeof window === 'undefined') {
     return null;
@@ -12,6 +26,9 @@ const getStorage = (): Storage | null => {
     return null;
   }
 };
+
+const isTauriRuntime = (): boolean =>
+  typeof window !== 'undefined' && ('__TAURI__' in window || window.location.protocol === 'tauri:');
 
 export const safeGetItem = (key: string): string | null => {
   const storageInstance = getStorage();
@@ -53,49 +70,162 @@ const safeRemoveItem = (key: string): void => {
   }
 };
 
+let desktopStorePromise: Promise<AuthStoreBackend | null> | null = null;
+
+async function getDesktopAuthStore(): Promise<AuthStoreBackend | null> {
+  if (!isTauriRuntime()) {
+    return null;
+  }
+  if (desktopStorePromise) {
+    try {
+      return await desktopStorePromise;
+    } catch (error) {
+      desktopStorePromise = null;
+      logger.error('Desktop auth store init failed', 'storage.getDesktopAuthStore', error);
+      return null;
+    }
+  }
+
+  desktopStorePromise = (async () => {
+    const { load } = await import('@tauri-apps/plugin-store');
+    return await load(AUTH_STORE_PATH, { defaults: {}, autoSave: false });
+  })();
+
+  try {
+    return await desktopStorePromise;
+  } catch (error) {
+    desktopStorePromise = null;
+    logger.error('Desktop auth store init failed', 'storage.getDesktopAuthStore', error);
+    return null;
+  }
+}
+
 let cachedToken: string | null = null;
 let cachedRefreshToken: string | null = null;
 let tokenCacheInitialized = false;
 
-function initTokenCache(): void {
+async function persistDesktopAuthState(): Promise<void> {
+  const store = await getDesktopAuthStore();
+  if (!store) {
+    return;
+  }
+
+  try {
+    if (cachedToken) {
+      await store.set(AUTH_TOKEN_KEY, cachedToken);
+    } else {
+      await store.delete(AUTH_TOKEN_KEY);
+    }
+
+    if (cachedRefreshToken) {
+      await store.set(REFRESH_TOKEN_KEY, cachedRefreshToken);
+    } else {
+      await store.delete(REFRESH_TOKEN_KEY);
+    }
+
+    await store.save();
+  } catch (error) {
+    logger.error('Desktop auth store persist failed', 'storage.persistDesktopAuthState', error);
+  }
+}
+
+function initTokenCacheFromLocalStorage(): void {
   if (tokenCacheInitialized) return;
-  cachedToken = safeGetItem('auth_token');
-  cachedRefreshToken = safeGetItem('refresh_token');
+  cachedToken = safeGetItem(AUTH_TOKEN_KEY);
+  cachedRefreshToken = safeGetItem(REFRESH_TOKEN_KEY);
   tokenCacheInitialized = true;
 }
 
 export const authStorage = {
+  hydrate: async (): Promise<void> => {
+    if (tokenCacheInitialized) {
+      return;
+    }
+
+    if (!isTauriRuntime()) {
+      initTokenCacheFromLocalStorage();
+      return;
+    }
+
+    const store = await getDesktopAuthStore();
+    if (store) {
+      try {
+        const persistedToken = await store.get<string>(AUTH_TOKEN_KEY);
+        const persistedRefreshToken = await store.get<string>(REFRESH_TOKEN_KEY);
+
+        cachedToken = persistedToken ?? null;
+        cachedRefreshToken = persistedRefreshToken ?? null;
+      } catch (error) {
+        logger.error('Desktop auth store read failed', 'storage.authStorage.hydrate', error);
+      }
+    }
+
+    tokenCacheInitialized = true;
+  },
   getToken: (): string | null => {
-    initTokenCache();
+    if (!tokenCacheInitialized && !isTauriRuntime()) {
+      initTokenCacheFromLocalStorage();
+    }
     return cachedToken;
   },
   setToken: (token: string): void => {
     cachedToken = token;
-    safeSetItem('auth_token', token);
+    tokenCacheInitialized = true;
+
+    if (isTauriRuntime()) {
+      void persistDesktopAuthState();
+      safeRemoveItem(AUTH_TOKEN_KEY);
+      return;
+    }
+
+    safeSetItem(AUTH_TOKEN_KEY, token);
   },
   getRefreshToken: (): string | null => {
-    initTokenCache();
+    if (!tokenCacheInitialized && !isTauriRuntime()) {
+      initTokenCacheFromLocalStorage();
+    }
     return cachedRefreshToken;
   },
   setRefreshToken: (token: string): void => {
     cachedRefreshToken = token;
-    safeSetItem('refresh_token', token);
+    tokenCacheInitialized = true;
+
+    if (isTauriRuntime()) {
+      void persistDesktopAuthState();
+      safeRemoveItem(REFRESH_TOKEN_KEY);
+      return;
+    }
+
+    safeSetItem(REFRESH_TOKEN_KEY, token);
   },
   removeRefreshToken: (): void => {
     cachedRefreshToken = null;
-    safeRemoveItem('refresh_token');
+    tokenCacheInitialized = true;
+
+    if (isTauriRuntime()) {
+      void persistDesktopAuthState();
+      safeRemoveItem(REFRESH_TOKEN_KEY);
+      return;
+    }
+
+    safeRemoveItem(REFRESH_TOKEN_KEY);
   },
   clearAuth: (): void => {
     cachedToken = null;
     cachedRefreshToken = null;
-    safeRemoveItem('auth_token');
-    safeRemoveItem('refresh_token');
+    tokenCacheInitialized = true;
+
+    if (isTauriRuntime()) {
+      void persistDesktopAuthState();
+      safeRemoveItem(AUTH_TOKEN_KEY);
+      safeRemoveItem(REFRESH_TOKEN_KEY);
+      return;
+    }
+
+    safeRemoveItem(AUTH_TOKEN_KEY);
+    safeRemoveItem(REFRESH_TOKEN_KEY);
   },
 };
-
-const CHAT_EVENT_ID_PREFIX = 'chat:';
-const CHAT_EVENT_ID_SUFFIX = ':lastEventId';
-const MAX_CHAT_EVENT_ID_ENTRIES = 500;
 
 export const chatStorage = {
   getEventId: (chatId: string): string | null =>
