@@ -51,6 +51,10 @@ class SandboxProviderFactory:
             return ModalSandboxProvider(api_key=api_key)
 
         if provider_type == SandboxProviderType.HOST:
+            if not settings.DESKTOP_MODE:
+                raise SandboxException(
+                    "Host provider is only available in the desktop app"
+                )
             host_base_dir = settings.get_host_sandbox_base_dir()
             return LocalHostProvider(
                 base_dir=host_base_dir,
