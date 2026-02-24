@@ -7,7 +7,6 @@ import aiodocker
 from claude_agent_sdk._errors import CLIConnectionError, ProcessError
 from claude_agent_sdk.types import ClaudeAgentOptions
 
-from app.constants import TERMINAL_TYPE
 from app.services.sandbox_providers.types import DockerConfig
 from app.services.transports.base import BaseSandboxTransport
 
@@ -30,24 +29,17 @@ class DockerSandboxTransport(BaseSandboxTransport):
         self._stream: Any = None
         self._reader_task: asyncio.Task[None] | None = None
 
-    def _get_logger(self) -> Any:
-        return logger
-
     def _get_docker(self) -> aiodocker.Docker:
         if self._docker is None:
             try:
-                if self._docker_config.host:
-                    self._docker = aiodocker.Docker(url=self._docker_config.host)
-                else:
-                    self._docker = aiodocker.Docker()
+                self._docker = aiodocker.Docker(url=self._docker_config.host or None)
             except Exception as e:
                 raise CLIConnectionError(f"Failed to connect to Docker: {e}")
         return self._docker
 
     async def _get_container(self) -> Any:
-        docker = self._get_docker()
         try:
-            container = await docker.containers.get(
+            container = await self._get_docker().containers.get(
                 f"claudex-sandbox-{self._sandbox_id}"
             )
             info = await container.show()
@@ -64,20 +56,13 @@ class DockerSandboxTransport(BaseSandboxTransport):
             return
         self._stdin_closed = False
 
-        try:
-            self._container = await self._get_container()
-        except Exception as exc:
-            raise CLIConnectionError(
-                f"Failed to connect to sandbox {self._sandbox_id}: {exc}"
-            ) from exc
+        self._container = await self._get_container()
 
-        command_line = self._build_command()
         envs, cwd, user = self._prepare_environment()
-        envs["TERM"] = TERMINAL_TYPE
 
         try:
             self._exec = await self._container.exec(
-                cmd=["bash", "-c", f"exec {command_line}"],
+                cmd=["bash", "-c", f"exec {self._build_command()}"],
                 stdin=True,
                 tty=False,
                 environment=envs,
@@ -105,8 +90,9 @@ class DockerSandboxTransport(BaseSandboxTransport):
                     break
 
                 if msg.stream == 1:
-                    decoded = msg.data.decode("utf-8", errors="replace")
-                    await self._stdout_queue.put(decoded)
+                    await self._stdout_queue.put(
+                        msg.data.decode("utf-8", errors="replace")
+                    )
                 elif msg.stream == 2 and self._options.stderr:
                     try:
                         self._options.stderr(msg.data.decode("utf-8", errors="replace"))
@@ -134,16 +120,15 @@ class DockerSandboxTransport(BaseSandboxTransport):
             return
         try:
             info = await self._get_exec_info()
-            if not info or not info.get("Running", False):
-                return
-            pid = info.get("Pid")
+            pid = info and info.get("Running") and info.get("Pid")
             if not pid:
                 return
-            kill_exec = await self._container.exec(
-                cmd=["/bin/kill", "-KILL", f"-{pid}"],
-                user="root",
-            )
-            await kill_exec.start(detach=True)
+            await (
+                await self._container.exec(
+                    cmd=["/bin/kill", "-KILL", f"-{pid}"],
+                    user="root",
+                )
+            ).start(detach=True)
         except Exception as e:
             logger.debug("Failed to kill exec process: %s", e)
 
@@ -170,25 +155,16 @@ class DockerSandboxTransport(BaseSandboxTransport):
             raise CLIConnectionError("Stream not available")
         await self._stream.write_in(data.encode("utf-8"))
 
-    async def _write_stream_eof(self) -> None:
-        if not self._stream:
-            return
-        await self._stream._init()
-        resp = self._stream._resp
-        if not resp or not resp.connection:
-            return
-        transport = resp.connection.transport
-        if not transport:
-            return
-        if transport.can_write_eof():
-            transport.write_eof()
-
     async def _send_eof(self) -> None:
         if not self._stream:
             return
         try:
-            await self._write_stream_eof()
-        except Exception:
+            await self._stream._init()
+            resp = self._stream._resp
+            transport = resp and resp.connection and resp.connection.transport
+            if transport and transport.can_write_eof():
+                transport.write_eof()
+        except OSError:
             pass
 
     async def _monitor_process(self) -> None:
