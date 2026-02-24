@@ -138,7 +138,6 @@ async def terminal_websocket(
         sandbox_id=sandbox_id,
         terminal_id=terminal_id,
         provider_type=provider_type,
-        api_key=None,
         workspace_path=workspace_path,
     )
 

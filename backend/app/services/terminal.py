@@ -172,7 +172,6 @@ class TerminalSessionRegistry:
         sandbox_id: str,
         terminal_id: str,
         provider_type: SandboxProviderType,
-        api_key: str | None,
         workspace_path: str | None,
     ) -> TerminalSessionRecord:
         key = self.build_session_key(user_id, sandbox_id, terminal_id)
@@ -181,7 +180,7 @@ class TerminalSessionRegistry:
             if existing:
                 return existing
 
-            provider = SandboxProviderFactory.create(provider_type, api_key)
+            provider = SandboxProviderFactory.create(provider_type)
             if provider_type == SandboxProviderType.HOST and workspace_path:
                 host_provider = cast(LocalHostProvider, provider)
                 host_provider.bind_workspace(
