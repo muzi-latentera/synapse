@@ -38,8 +38,8 @@ const MobilePreviewView = lazy(() =>
 const BrowserView = lazy(() =>
   import('@/components/views/BrowserView').then((m) => ({ default: m.BrowserView })),
 );
-const TerminalView = lazy(() =>
-  import('@/components/views/TerminalView').then((m) => ({ default: m.TerminalView })),
+const TerminalContainer = lazy(() =>
+  import('@/components/sandbox/terminal/Container').then((m) => ({ default: m.Container })),
 );
 
 const viewLoadingFallback = (
@@ -233,7 +233,12 @@ export function ChatPage() {
         <div className="relative flex h-full w-full">
           <div className={isTerminal ? 'flex h-full w-full' : 'hidden'}>
             <Suspense fallback={viewLoadingFallback}>
-              <TerminalView currentChat={currentChat} isVisible={isTerminal} panelKey={slot} />
+              <TerminalContainer
+                sandboxId={currentChat?.sandbox_id}
+                chatId={currentChat?.id}
+                isVisible={isTerminal}
+                panelKey={slot}
+              />
             </Suspense>
           </div>
           <div className={isTerminal ? 'hidden' : 'flex h-full w-full'}>

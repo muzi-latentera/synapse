@@ -1,19 +1,23 @@
 import asyncio
+import json
 import logging
 import shlex
+from asyncio import QueueEmpty, QueueFull
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, cast
+from typing import Callable, TypeVar, cast
 
 from fastapi import WebSocket
 
-from app.constants import PTY_INPUT_QUEUE_SIZE
+from app.constants import PTY_INPUT_QUEUE_SIZE, PTY_OUTPUT_QUEUE_SIZE
+from app.services.exceptions import SandboxException
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers import LocalHostProvider, SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
-from app.utils.queue import drain_queue, put_with_overflow
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
 
 
 @dataclass
@@ -22,10 +26,10 @@ class TerminalSessionRecord:
     sandbox_id: str
     terminal_id: str
     sandbox_service: SandboxService
-    on_close: Callable[[], Any]
+    on_close: Callable[[], None]
     pty_id: str | None = None
-    size: dict[str, int] | None = None
     output_task: asyncio.Task[None] | None = None
+    output_queue: asyncio.Queue[str] | None = None
     input_task: asyncio.Task[None] | None = None
     input_queue: asyncio.Queue[bytes] | None = None
     active_websocket: WebSocket | None = None
@@ -34,11 +38,11 @@ class TerminalSessionRecord:
     async def ensure_started(self, rows: int, cols: int) -> bool:
         if self.pty_id is None:
             tmux_session = self._get_tmux_session_name()
-            pty_session = await self.sandbox_service.create_pty_session(
-                self.sandbox_id, rows, cols, tmux_session
+            self.output_queue = asyncio.Queue(maxsize=PTY_OUTPUT_QUEUE_SIZE)
+            self.pty_id = await self.sandbox_service.create_pty_session(
+                self.sandbox_id, rows, cols, tmux_session,
+                on_data=self._enqueue_output,
             )
-            self.pty_id = pty_session["id"]
-            self.size = {"rows": pty_session["rows"], "cols": pty_session["cols"]}
             self.input_queue = asyncio.Queue(maxsize=PTY_INPUT_QUEUE_SIZE)
             self.input_task = asyncio.create_task(self._input_worker(self.pty_id))
             self.input_task.add_done_callback(self._handle_input_task_done)
@@ -47,10 +51,10 @@ class TerminalSessionRecord:
         await self.resize(rows, cols)
         return True
 
-    def enqueue_input(self, data: Any) -> None:
-        if not self.input_queue or not isinstance(data, (bytes, bytearray)):
+    def enqueue_input(self, data: bytes) -> None:
+        if not self.input_queue:
             return
-        put_with_overflow(self.input_queue, bytes(data))
+        self._force_enqueue(self.input_queue, data)
 
     async def resize(self, rows: int, cols: int) -> None:
         if not self.pty_id:
@@ -61,13 +65,12 @@ class TerminalSessionRecord:
             rows,
             cols,
         )
-        self.size = {"rows": rows, "cols": cols}
 
     async def attach(self, websocket: WebSocket) -> None:
         if self.active_websocket and self.active_websocket is not websocket:
             try:
                 await self.active_websocket.close()
-            except Exception:
+            except (RuntimeError, OSError):
                 pass
 
         self.active_websocket = websocket
@@ -79,9 +82,7 @@ class TerminalSessionRecord:
             self.output_task.cancel()
 
         self.output_task = asyncio.create_task(
-            self.sandbox_service.forward_pty_output(
-                self.sandbox_id, self.pty_id, websocket
-            )
+            self._forward_output(websocket)
         )
 
     async def detach(self) -> None:
@@ -106,6 +107,7 @@ class TerminalSessionRecord:
             self.input_task = None
 
         self.input_queue = None
+        self.output_queue = None
 
         if self.pty_id:
             await self.sandbox_service.cleanup_pty_session(self.sandbox_id, self.pty_id)
@@ -125,7 +127,7 @@ class TerminalSessionRecord:
             await self.sandbox_service.execute_command(
                 self.sandbox_id, f"tmux kill-session -t {shlex.quote(session_name)}"
             )
-        except Exception:
+        except (OSError, RuntimeError, SandboxException):
             pass
 
     def _get_tmux_session_name(self) -> str:
@@ -140,11 +142,59 @@ class TerminalSessionRecord:
             return
 
         while True:
-            buffer = await drain_queue(self.input_queue)
+            buffer = await self._drain(self.input_queue)
             payload = b"".join(buffer)
             await self.sandbox_service.send_pty_input(
                 self.sandbox_id, session_id, payload
             )
+
+    async def _enqueue_output(self, data: bytes) -> None:
+        if not self.output_queue:
+            return
+        self._force_enqueue(self.output_queue, data.decode("utf-8", errors="replace"))
+
+    async def _forward_output(self, websocket: WebSocket) -> None:
+        if not self.output_queue:
+            return
+        try:
+            while True:
+                buffer = await self._drain(self.output_queue)
+                payload = json.dumps({"type": "stdout", "data": "".join(buffer)})
+                await websocket.send_text(payload)
+        except asyncio.CancelledError:
+            raise
+        except (OSError, RuntimeError) as e:
+            logger.error(
+                "Error forwarding PTY output for sandbox %s: %s",
+                self.sandbox_id, e, exc_info=True,
+            )
+
+    @staticmethod
+    def _force_enqueue(queue: "asyncio.Queue[_T]", item: "_T") -> bool:
+        try:
+            queue.put_nowait(item)
+            return True
+        except QueueFull:
+            try:
+                queue.get_nowait()
+            except QueueEmpty:
+                pass
+            try:
+                queue.put_nowait(item)
+                return True
+            except QueueFull:
+                return False
+
+    @staticmethod
+    async def _drain(queue: "asyncio.Queue[_T]") -> "list[_T]":
+        first = await queue.get()
+        buffer = [first]
+        while True:
+            try:
+                buffer.append(queue.get_nowait())
+            except QueueEmpty:
+                break
+        return buffer
 
     @staticmethod
     def _handle_input_task_done(task: asyncio.Task[None]) -> None:
@@ -152,7 +202,7 @@ class TerminalSessionRecord:
             task.result()
         except asyncio.CancelledError:
             pass
-        except Exception as exc:
+        except (OSError, RuntimeError) as exc:
             logger.error("Error in input task: %s", exc)
 
 
@@ -210,7 +260,7 @@ class TerminalSessionRegistry:
         for session in sessions:
             try:
                 await session.terminate()
-            except Exception as exc:
+            except (OSError, RuntimeError, SandboxException) as exc:
                 logger.error("Failed to terminate terminal session: %s", exc)
 
 

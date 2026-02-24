@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { logger } from '@/utils/logger';
 import type { FC } from 'react';
 import 'xterm/css/xterm.css';
@@ -37,9 +37,15 @@ export const TerminalTab: FC<TerminalTabProps> = ({
   const hasSentInitRef = useRef(false);
   const wsRef = useRef<WebSocket | null>(null);
   const isClosingRef = useRef(false);
-  const shouldCloseRef = useRef(false);
+  const shouldCloseRef = useRef(shouldClose);
 
-  const backgroundClass = useMemo(() => getTerminalBackgroundClass(theme), [theme]);
+  const backgroundClass = getTerminalBackgroundClass(theme);
+
+  const resetWsRefs = useCallback(() => {
+    wsRef.current = null;
+    hasSentInitRef.current = false;
+    lastSentSizeRef.current = null;
+  }, []);
 
   const handleFit = useCallback((size: TerminalSize) => {
     if (!hasSentInitRef.current) {
@@ -73,9 +79,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
     onFit: handleFit,
   });
 
-  useEffect(() => {
-    shouldCloseRef.current = shouldClose;
-  }, [shouldClose]);
+  shouldCloseRef.current = shouldClose;
 
   useEffect(() => {
     if (!sandboxId || !isReady) return;
@@ -94,8 +98,6 @@ export const TerminalTab: FC<TerminalTabProps> = ({
     lastSentSizeRef.current = null;
 
     const handleOpen = () => {
-      setSessionState('connecting');
-
       ws.send(JSON.stringify({ type: 'auth', token }));
 
       const size =
@@ -104,13 +106,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
           ? { rows: terminalRef.current.rows, cols: terminalRef.current.cols }
           : { rows: 24, cols: 80 });
 
-      const payload = {
-        type: 'init',
-        rows: size.rows,
-        cols: size.cols,
-      };
-
-      ws.send(JSON.stringify(payload));
+      ws.send(JSON.stringify({ type: 'init', rows: size.rows, cols: size.cols }));
       hasSentInitRef.current = true;
       lastSentSizeRef.current = size;
 
@@ -156,9 +152,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
     };
 
     const handleClose = () => {
-      wsRef.current = null;
-      hasSentInitRef.current = false;
-      lastSentSizeRef.current = null;
+      resetWsRefs();
       setSessionState((prev) => (prev === 'error' ? prev : 'idle'));
     };
 
@@ -186,12 +180,10 @@ export const TerminalTab: FC<TerminalTabProps> = ({
         ws.send(JSON.stringify({ type: 'detach' }));
       }
       ws.close();
-      wsRef.current = null;
-      hasSentInitRef.current = false;
-      lastSentSizeRef.current = null;
+      resetWsRefs();
       setSessionState('idle');
     };
-  }, [sandboxId, terminalId, isReady, fitTerminal, terminalRef]);
+  }, [sandboxId, terminalId, isReady, fitTerminal, terminalRef, resetWsRefs]);
 
   useEffect(() => {
     if (!shouldClose || isClosingRef.current) {
@@ -204,12 +196,10 @@ export const TerminalTab: FC<TerminalTabProps> = ({
       ws.send(JSON.stringify({ type: 'close' }));
     }
     ws?.close();
-    wsRef.current = null;
-    hasSentInitRef.current = false;
-    lastSentSizeRef.current = null;
+    resetWsRefs();
     setSessionState('idle');
     onClosed?.();
-  }, [shouldClose, onClosed]);
+  }, [shouldClose, onClosed, resetWsRefs]);
 
   useEffect(() => {
     if (!isVisible) {
@@ -221,29 +211,20 @@ export const TerminalTab: FC<TerminalTabProps> = ({
     });
   }, [isVisible, terminalRef]);
 
-  const overlayMessage = useMemo(() => {
-    if (!isReady) {
-      return 'Initializing terminal...';
-    }
-
-    switch (sessionState) {
-      case 'connecting':
-        return 'Connecting to sandbox terminal...';
-      case 'error':
-        return 'Terminal connection interrupted';
-      default:
-        return null;
-    }
-  }, [isReady, sessionState]);
-
-  const shouldShowOverlay = isVisible && overlayMessage !== null;
+  const overlayMessage = !isReady
+    ? 'Initializing terminal...'
+    : sessionState === 'connecting'
+      ? 'Connecting to sandbox terminal...'
+      : sessionState === 'error'
+        ? 'Terminal connection interrupted'
+        : null;
 
   return (
     <div className={`relative flex h-full flex-col ${backgroundClass}`}>
       <div className="h-full overflow-hidden p-2">
         <div ref={wrapperRef} className={`h-full w-full ${isVisible ? 'block' : 'hidden'}`} />
       </div>
-      {shouldShowOverlay && (
+      {isVisible && overlayMessage && (
         <div className={`absolute inset-0 flex items-center justify-center ${backgroundClass}`}>
           <div className="text-xs text-text-tertiary dark:text-text-dark-tertiary">
             {overlayMessage}

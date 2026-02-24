@@ -6,6 +6,7 @@ from typing import NamedTuple
 
 from fastapi import APIRouter, WebSocket
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.websockets import WebSocketDisconnect
 
 from app.constants import (
@@ -20,19 +21,15 @@ from app.constants import (
     WS_MSG_PING,
     WS_MSG_RESIZE,
 )
-from app.core.config import get_settings
 from app.core.security import get_user_from_token
 from app.db.session import SessionLocal
 from app.models.db_models.chat import Chat
 from app.models.db_models.user import User
 from app.services.exceptions import UserException
-from app.services.sandbox_providers import (
-    SandboxProviderType,
-)
+from app.services.sandbox_providers import SandboxProviderType
 from app.services.terminal import terminal_session_registry
 from app.services.user import UserService
 
-settings = get_settings()
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -74,13 +71,12 @@ async def _authenticate_user(
                 sandbox_provider = SandboxProviderType.DOCKER.value
 
         return AuthResult(user, sandbox_provider)
-    except Exception as e:
+    except (ValueError, OSError, SQLAlchemyError) as e:
         logger.warning("WebSocket authentication failed: %s", e)
         return NO_AUTH_RESULT
 
 
 async def _wait_for_auth(websocket: WebSocket, timeout: float = 10.0) -> AuthResult:
-
     try:
         message = await asyncio.wait_for(websocket.receive(), timeout=timeout)
         data = json.loads(message["text"])
@@ -185,19 +181,18 @@ async def terminal_websocket(
                 is_reattach = await session.ensure_started(rows, cols)
                 await session.attach(websocket)
 
-                size = session.size or {"rows": rows, "cols": cols}
                 await websocket.send_text(
                     json.dumps(
                         {
                             "type": WS_MSG_INIT,
                             "id": session.pty_id,
-                            "rows": size["rows"],
-                            "cols": size["cols"],
+                            "rows": rows,
+                            "cols": cols,
                         }
                     )
                 )
 
-                if is_reattach and session.pty_id:
+                if is_reattach:
                     await session.sandbox_service.send_pty_input(
                         session.sandbox_id, session.pty_id, b" \x0c"
                     )

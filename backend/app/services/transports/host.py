@@ -1,17 +1,16 @@
 import asyncio
-import contextlib
 import logging
 import os
 import pwd
 import shlex
+from contextlib import suppress
 from functools import partial
 from pathlib import Path
-from typing import Any
 
 from claude_agent_sdk._errors import CLIConnectionError, ProcessError
 from claude_agent_sdk.types import ClaudeAgentOptions
 
-from app.constants import SANDBOX_HOME_DIR, TERMINAL_TYPE
+from app.constants import SANDBOX_HOME_DIR
 from app.core.config import get_settings
 from app.services.transports.base import BaseSandboxTransport
 
@@ -34,46 +33,35 @@ class HostSandboxTransport(BaseSandboxTransport):
         if workspace_path:
             self._sandbox_dir = Path(workspace_path).expanduser().resolve()
         else:
-            host_base_dir = settings.get_host_sandbox_base_dir()
-            self._sandbox_dir = Path(host_base_dir).expanduser().resolve() / sandbox_id
-
-    def _get_logger(self) -> Any:
-        return logger
+            self._sandbox_dir = (
+                Path(settings.get_host_sandbox_base_dir()).expanduser().resolve()
+                / sandbox_id
+            )
 
     def _resolve_cwd(self, cwd: str) -> Path:
-        sandbox_dir = self._sandbox_dir
         if cwd == SANDBOX_HOME_DIR:
-            return sandbox_dir
+            return self._sandbox_dir
 
-        home_prefix = f"{SANDBOX_HOME_DIR}/"
-        if cwd.startswith(home_prefix):
-            return (sandbox_dir / cwd[len(home_prefix) :]).resolve()
+        relative = cwd.removeprefix(f"{SANDBOX_HOME_DIR}/")
+        if relative != cwd:
+            return (self._sandbox_dir / relative).resolve()
 
         path = Path(cwd)
         if path.is_absolute():
             return path
-        return (sandbox_dir / path).resolve()
+        return (self._sandbox_dir / path).resolve()
 
     def _resolve_run_user(self, requested_user: str) -> tuple[int, int] | None:
         if os.geteuid() != 0:
             return None
 
-        candidates = [requested_user, "appuser", "nobody"]
-        seen: set[str] = set()
-        for candidate in candidates:
-            if not candidate or candidate in seen:
-                continue
-            seen.add(candidate)
+        for candidate in [requested_user, "appuser", "nobody"]:
             try:
                 user_info = pwd.getpwnam(candidate)
                 return user_info.pw_uid, user_info.pw_gid
             except KeyError:
                 continue
         return None
-
-    @staticmethod
-    def _preexec_drop_privileges(uid: int, gid: int) -> Any:
-        return partial(HostSandboxTransport._set_process_ids, uid, gid)
 
     @staticmethod
     def _set_process_ids(uid: int, gid: int) -> None:
@@ -90,29 +78,26 @@ class HostSandboxTransport(BaseSandboxTransport):
                 f"Host sandbox {self._sandbox_id} not found at {self._sandbox_dir}"
             )
 
-        command_line = self._build_command()
-        command_args = shlex.split(command_line)
+        command_args = shlex.split(self._build_command())
         envs, cwd, requested_user = self._prepare_environment()
-        env = os.environ.copy()
-        env.update(envs)
-        env["HOME"] = str(self._sandbox_dir)
-        env["USER"] = requested_user or env.get("USER", "user")
-        env["TERM"] = TERMINAL_TYPE
-        resolved_cwd = self._resolve_cwd(cwd)
+        env = {
+            **os.environ,
+            **envs,
+            "HOME": str(self._sandbox_dir),
+            "USER": requested_user,
+        }
         run_user = self._resolve_run_user(requested_user)
 
         try:
             self._process = await asyncio.create_subprocess_exec(
                 *command_args,
-                cwd=str(resolved_cwd),
+                cwd=str(self._resolve_cwd(cwd)),
                 env=env,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 preexec_fn=(
-                    self._preexec_drop_privileges(run_user[0], run_user[1])
-                    if run_user
-                    else None
+                    partial(self._set_process_ids, *run_user) if run_user else None
                 ),
             )
         except Exception as exc:
@@ -135,10 +120,10 @@ class HostSandboxTransport(BaseSandboxTransport):
 
         if self._process and self._process.returncode is None:
             self._process.terminate()
-            with contextlib.suppress(Exception):
+            with suppress(Exception):
                 await asyncio.wait_for(self._process.wait(), timeout=2)
             if self._process.returncode is None:
-                with contextlib.suppress(Exception):
+                with suppress(Exception):
                     self._process.kill()
                     await self._process.wait()
         self._process = None
@@ -177,10 +162,9 @@ class HostSandboxTransport(BaseSandboxTransport):
                 chunk = await self._process.stderr.read(4096)
                 if not chunk:
                     break
-                text = chunk.decode("utf-8", errors="replace")
                 if self._options.stderr:
                     try:
-                        self._options.stderr(text)
+                        self._options.stderr(chunk.decode("utf-8", errors="replace"))
                     except Exception:
                         pass
         except asyncio.CancelledError:

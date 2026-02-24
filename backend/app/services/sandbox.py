@@ -9,15 +9,12 @@ import secrets
 import shlex
 import uuid
 import zipfile
-from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
-from fastapi import WebSocket
 from app.constants import (
     ANTHROPIC_BRIDGE_HOST,
     ANTHROPIC_BRIDGE_PORT,
-    PTY_OUTPUT_QUEUE_SIZE,
     SANDBOX_CLAUDE_DIR,
     SANDBOX_CLAUDE_JSON_PATH,
     SANDBOX_GIT_ASKPASS_PATH,
@@ -39,6 +36,7 @@ from app.services.command import CommandService
 from app.services.db import SessionFactoryType
 from app.services.exceptions import SandboxException, UserException
 from app.services.sandbox_providers import (
+    PtyDataCallbackType,
     PtySize,
     SandboxProvider,
 )
@@ -46,12 +44,12 @@ from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.sandbox_providers.types import CommandResult
 from app.services.skill import SkillService
 from app.services.user import UserService
-from app.utils.queue import drain_queue, put_with_overflow
 
 logger = logging.getLogger(__name__)
 
 OPENVSCODE_PORT = 8765
 MIN_SIGNATURE_LENGTH = 100
+
 OPENVSCODE_DEFAULT_SETTINGS: dict[str, object] = {
     "workbench.colorTheme": "Default Dark Modern",
     "window.autoDetectColorScheme": True,
@@ -72,7 +70,6 @@ class SandboxService:
     ) -> None:
         self.provider = provider
         self.session_factory = session_factory
-        self._active_pty_sessions: dict[str, dict[str, Any]] = {}
         self._ide_tokens: dict[str, str] = {}
 
     @staticmethod
@@ -83,17 +80,6 @@ class SandboxService:
             raise SandboxException(f"Invalid message_id format: {message_id}")
 
     async def cleanup(self) -> None:
-        for sandbox_id in list(self._active_pty_sessions.keys()):
-            for session_id in list(self._active_pty_sessions[sandbox_id].keys()):
-                try:
-                    await self.cleanup_pty_session(sandbox_id, session_id)
-                except Exception as e:
-                    logger.warning(
-                        "Failed to cleanup PTY session %s for sandbox %s: %s",
-                        session_id,
-                        sandbox_id,
-                        e,
-                    )
         await self.provider.cleanup()
 
     @classmethod
@@ -223,41 +209,18 @@ class SandboxService:
         rows: int,
         cols: int,
         tmux_session: str,
-    ) -> dict[str, Any]:
-        output_queue: "asyncio.Queue[str]" = asyncio.Queue(
-            maxsize=PTY_OUTPUT_QUEUE_SIZE
-        )
-
+        on_data: PtyDataCallbackType,
+    ) -> str:
         pty_session = await self.provider.create_pty(
-            sandbox_id,
-            rows,
-            cols,
-            tmux_session,
-            on_data=partial(self._enqueue_pty_output, output_queue=output_queue),
+            sandbox_id, rows, cols, tmux_session, on_data=on_data,
         )
-
-        if sandbox_id not in self._active_pty_sessions:
-            self._active_pty_sessions[sandbox_id] = {}
-
-        self._active_pty_sessions[sandbox_id][pty_session.id] = {
-            "pty_id": pty_session.id,
-            "output_queue": output_queue,
-            "size": {"rows": rows, "cols": cols},
-        }
-
-        return {"id": pty_session.id, "rows": rows, "cols": cols}
+        return pty_session.id
 
     async def send_pty_input(
-        self, sandbox_id: str, pty_session_id: str, data: str | bytes
+        self, sandbox_id: str, pty_session_id: str, data: bytes
     ) -> None:
-        session = self._get_pty_session_data(sandbox_id, pty_session_id)
-        if not session:
-            return
-
-        data_bytes = data.encode() if isinstance(data, str) else data
-
         try:
-            await self.provider.send_pty_input(sandbox_id, pty_session_id, data_bytes)
+            await self.provider.send_pty_input(sandbox_id, pty_session_id, data)
         except Exception as e:
             logger.error("Failed to send PTY input: %s", e)
             await self.cleanup_pty_session(sandbox_id, pty_session_id)
@@ -265,61 +228,19 @@ class SandboxService:
     async def resize_pty_session(
         self, sandbox_id: str, pty_session_id: str, rows: int, cols: int
     ) -> None:
-        session = self._get_pty_session_data(sandbox_id, pty_session_id)
-        if not session:
-            return
-
         try:
             await self.provider.resize_pty(
                 sandbox_id, pty_session_id, PtySize(rows=rows, cols=cols)
             )
-            session["size"] = {"rows": rows, "cols": cols}
         except Exception as e:
             logger.error(
                 "Failed to resize PTY for sandbox %s: %s", sandbox_id, e, exc_info=True
             )
 
-    async def forward_pty_output(
-        self, sandbox_id: str, pty_session_id: str, websocket: WebSocket
-    ) -> None:
-        session = self._get_pty_session_data(sandbox_id, pty_session_id)
-        if not session:
-            return
-
-        output_queue = session["output_queue"]
-
-        try:
-            while True:
-                buffer = await drain_queue(output_queue)
-                payload = json.dumps({"type": "stdout", "data": "".join(buffer)})
-                await websocket.send_text(payload)
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            logger.error(
-                "Error forwarding PTY output for sandbox %s: %s",
-                sandbox_id,
-                e,
-                exc_info=True,
-            )
-
     async def cleanup_pty_session(self, sandbox_id: str, pty_session_id: str) -> None:
-        session = self._get_pty_session_data(sandbox_id, pty_session_id)
-        if not session:
-            return
-
-        try:
-            del self._active_pty_sessions[sandbox_id][pty_session_id]
-            if not self._active_pty_sessions[sandbox_id]:
-                del self._active_pty_sessions[sandbox_id]
-        except Exception as e:
-            logger.error(
-                "Error cleaning up PTY session %s: %s", pty_session_id, e, exc_info=True
-            )
-
         try:
             await self.provider.kill_pty(sandbox_id, pty_session_id)
-        except Exception as e:
+        except OSError as e:
             logger.error(
                 "Error killing PTY process for session %s: %s",
                 pty_session_id,
@@ -822,20 +743,6 @@ class SandboxService:
             {"message_id": c.message_id, "created_at": c.created_at}
             for c in checkpoints
         ]
-
-    async def _enqueue_pty_output(
-        self, data: bytes, output_queue: "asyncio.Queue[str]"
-    ) -> None:
-        try:
-            decoded = data.decode("utf-8", errors="replace")
-            put_with_overflow(output_queue, decoded)
-        except Exception as e:
-            logger.error("Error handling PTY output: %s", e, exc_info=True)
-
-    def _get_pty_session_data(
-        self, sandbox_id: str, session_id: str
-    ) -> dict[str, Any] | None:
-        return self._active_pty_sessions.get(sandbox_id, {}).get(session_id)
 
     async def clean_session_thinking_blocks(
         self, sandbox_id: str, session_id: str

@@ -230,7 +230,8 @@ class LocalDockerProvider(SandboxProvider):
 
     async def _is_container_running(self, container: Any) -> bool:
         info = await container.show()
-        return info.get("State", {}).get("Status") == DOCKER_STATUS_RUNNING
+        status: str = info.get("State", {}).get("Status", "")
+        return status == DOCKER_STATUS_RUNNING
 
     async def _get_container_by_id(self, sandbox_id: str) -> Any | None:
         docker = await self._get_docker()

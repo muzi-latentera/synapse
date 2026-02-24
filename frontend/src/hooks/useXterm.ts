@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import type { Terminal as XTerm, ITerminalInitOnlyOptions, ITerminalOptions } from 'xterm';
+import type { Terminal as XTerm } from 'xterm';
 import type { FitAddon as FitAddonType } from 'xterm-addon-fit';
 
-import { buildTerminalTheme, createTerminalOptions } from '@/utils/terminal';
+import { buildTerminalTheme } from '@/utils/terminal';
 import type { TerminalSize } from '@/types/sandbox.types';
+
+type XTermCore = {
+  _core?: {
+    _renderService?: {
+      _renderer?: { value?: unknown };
+    };
+  };
+};
+
+function hasRenderer(terminal: XTerm): boolean {
+  return !!(terminal as unknown as XTermCore)._core?._renderService?._renderer?.value;
+}
 
 interface UseXtermOptions {
   disableStdin?: boolean;
@@ -35,44 +47,23 @@ export const useXterm = ({
   const [isReady, setIsReady] = useState(false);
   const [initAttempt, setInitAttempt] = useState(0);
 
-  const initialModeRef = useRef(mode);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const hasInitializedRef = useRef(false);
   const shouldInitialize = hasInitializedRef.current || isVisible;
 
-  // Fits terminal to container size. Accesses internal xterm.js APIs to check
-  // if the renderer is ready - FitAddon crashes if called before initialization.
-  // This internal API access is necessary because xterm.js doesn't expose
-  // a public "ready" state for the renderer.
   const fitTerminal = useCallback((): TerminalSize | null => {
     const fitAddon = fitAddonRef.current;
     const terminal = terminalRef.current;
 
-    if (!fitAddon || !terminal) {
-      return null;
-    }
-
-    // Check internal renderer state to avoid FitAddon errors.
-    // FitAddon.fit() throws if called before renderer is initialized.
-    const terminalCore = (
-      terminal as unknown as {
-        _core?: {
-          _renderService?: {
-            _renderer?: { value?: unknown };
-          };
-        };
-      }
-    )._core;
-    const renderService = terminalCore?._renderService;
-    const renderer = renderService?._renderer?.value;
-
-    if (!renderer) {
+    if (!fitAddon || !terminal || !hasRenderer(terminal)) {
       return null;
     }
 
     try {
       fitAddon.fit();
     } catch (error) {
-      if (error instanceof TypeError && `${error.message}`.includes('dimensions')) {
+      if (error instanceof TypeError && error.message.includes('dimensions')) {
         return null;
       }
       throw error;
@@ -125,11 +116,12 @@ export const useXterm = ({
 
       if (cancelled) return;
 
-      const theme = buildTerminalTheme(initialModeRef.current);
-      const baseOptions = createTerminalOptions(theme);
-
       xterm = new Terminal({
-        ...baseOptions,
+        scrollback: 1000,
+        fontSize: 12,
+        fontFamily: 'monospace',
+        convertEol: true,
+        theme: buildTerminalTheme(modeRef.current),
         disableStdin,
       });
       const fitAddon = new FitAddon();
@@ -195,35 +187,13 @@ export const useXterm = ({
 
   useEffect(() => {
     const terminal = terminalRef.current;
-    if (!terminal) {
+    if (!terminal || !hasRenderer(terminal)) {
       return;
     }
-
-    const terminalCore = (
-      terminal as unknown as {
-        _core?: {
-          _renderService?: {
-            _renderer?: { value?: unknown };
-          };
-        };
-      }
-    )._core;
-    const renderer = terminalCore?._renderService?._renderer?.value;
-    if (!renderer) {
-      return;
-    }
-
-    const { cols, rows, ...mutableOptions } = terminal.options as ITerminalOptions &
-      ITerminalInitOnlyOptions;
-    void cols;
-    void rows;
 
     try {
-      terminal.options = {
-        ...(mutableOptions as ITerminalOptions),
-        disableStdin,
-        theme: buildTerminalTheme(mode),
-      };
+      terminal.options.disableStdin = disableStdin;
+      terminal.options.theme = buildTerminalTheme(mode);
     } catch {
       return;
     }
@@ -239,45 +209,36 @@ export const useXterm = ({
   }, [mode, disableStdin, isReady, isVisible, fitTerminal]);
 
   useEffect(() => {
-    if (!isReady || !isVisible) {
+    const container = wrapperRef.current;
+    if (!container || !isReady) {
       return undefined;
     }
 
     let frame: number | null = null;
-    let timeoutShort: number | null = null;
-    let timeoutLong: number | null = null;
     let cancelled = false;
 
-    const scheduleFit = (delayMs?: number) => {
-      if (delayMs === undefined) {
-        frame = requestAnimationFrame(() => {
-          if (!cancelled) {
-            fitTerminal();
-          }
-        });
-        return;
+    const scheduleFit = () => {
+      if (frame) {
+        cancelAnimationFrame(frame);
       }
-
-      const timeoutId = window.setTimeout(() => {
+      frame = requestAnimationFrame(() => {
         if (!cancelled) {
           fitTerminal();
         }
-      }, delayMs);
-
-      if (delayMs <= 50) {
-        timeoutShort = timeoutId;
-      } else {
-        timeoutLong = timeoutId;
-      }
+      });
     };
 
-    scheduleFit();
-    scheduleFit(50);
-    scheduleFit(250);
+    const resizeObserver = new ResizeObserver(() => {
+      if (isVisible) {
+        scheduleFit();
+      }
+    });
 
-    const fonts = document.fonts;
-    if (fonts?.ready) {
-      fonts.ready.then(() => {
+    resizeObserver.observe(container);
+
+    if (isVisible) {
+      scheduleFit();
+      document.fonts?.ready.then(() => {
         if (!cancelled) {
           fitTerminal();
         }
@@ -286,51 +247,6 @@ export const useXterm = ({
 
     return () => {
       cancelled = true;
-      if (frame) {
-        cancelAnimationFrame(frame);
-      }
-      if (timeoutShort) {
-        clearTimeout(timeoutShort);
-      }
-      if (timeoutLong) {
-        clearTimeout(timeoutLong);
-      }
-    };
-  }, [isReady, isVisible, fitTerminal]);
-
-  // Handles container resize events with requestAnimationFrame debouncing.
-  // Only fits when visible to avoid unnecessary work for hidden terminals.
-  useEffect(() => {
-    const container = wrapperRef.current;
-    if (!container || !isReady) {
-      return undefined;
-    }
-
-    let frame: number | null = null;
-
-    // Debounce resize events to avoid excessive fit() calls during drag resize
-    const resizeObserver = new ResizeObserver(() => {
-      if (!isVisible) {
-        return;
-      }
-      if (frame) {
-        cancelAnimationFrame(frame);
-      }
-      frame = requestAnimationFrame(() => {
-        fitTerminal();
-      });
-    });
-
-    resizeObserver.observe(container);
-
-    // Initial fit when terminal becomes visible
-    if (isVisible) {
-      frame = requestAnimationFrame(() => {
-        fitTerminal();
-      });
-    }
-
-    return () => {
       if (frame) {
         cancelAnimationFrame(frame);
       }

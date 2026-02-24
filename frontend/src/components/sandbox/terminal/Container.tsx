@@ -24,63 +24,48 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
   ]);
   const [activeTerminalId, setActiveTerminalId] = useState<string>(defaultTerminalId);
   const [closingTerminalIds, setClosingTerminalIds] = useState<Set<string>>(() => new Set());
-  const readyToSave = useRef(false);
+  const isRestoringRef = useRef(true);
 
   useEffect(() => {
-    readyToSave.current = false;
+    isRestoringRef.current = true;
+    const defaultTerminals = [{ id: defaultTerminalId, label: 'Terminal 1' }];
 
-    if (!storageKey) {
-      setTerminals([{ id: defaultTerminalId, label: 'Terminal 1' }]);
-      setActiveTerminalId(defaultTerminalId);
-      Promise.resolve().then(() => {
-        readyToSave.current = true;
-      });
-      return;
+    let nextTerminals = defaultTerminals;
+    let nextActiveId = defaultTerminalId;
+
+    if (storageKey) {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as {
+            terminals?: TerminalInstance[];
+            activeTerminalId?: string;
+          };
+          const valid = parsed.terminals?.filter((terminal) => terminal.id && terminal.label) ?? [];
+          if (valid.length > 0) {
+            nextTerminals = valid;
+            nextActiveId =
+              parsed.activeTerminalId &&
+              valid.some((terminal) => terminal.id === parsed.activeTerminalId)
+                ? parsed.activeTerminalId
+                : (valid[0]?.id ?? defaultTerminalId);
+          }
+        } catch {
+          // corrupt storage, use defaults
+        }
+      }
     }
 
-    const stored = localStorage.getItem(storageKey);
-    if (!stored) {
-      setTerminals([{ id: defaultTerminalId, label: 'Terminal 1' }]);
-      setActiveTerminalId(defaultTerminalId);
-      Promise.resolve().then(() => {
-        readyToSave.current = true;
-      });
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as {
-        terminals?: TerminalInstance[];
-        activeTerminalId?: string;
-      };
-      const parsedTerminals =
-        parsed.terminals?.filter((terminal) => terminal.id && terminal.label) ?? [];
-      const nextTerminals =
-        parsedTerminals.length > 0
-          ? parsedTerminals
-          : [{ id: defaultTerminalId, label: 'Terminal 1' }];
-      const nextActiveId =
-        parsed.activeTerminalId &&
-        nextTerminals.some((terminal) => terminal.id === parsed.activeTerminalId)
-          ? parsed.activeTerminalId
-          : (nextTerminals[0]?.id ?? defaultTerminalId);
-      setTerminals(nextTerminals);
-      setActiveTerminalId(nextActiveId);
-    } catch {
-      setTerminals([{ id: defaultTerminalId, label: 'Terminal 1' }]);
-      setActiveTerminalId(defaultTerminalId);
-    }
-    Promise.resolve().then(() => {
-      readyToSave.current = true;
-    });
-  }, [chatId, storageKey, defaultTerminalId]);
+    setTerminals(nextTerminals);
+    setActiveTerminalId(nextActiveId);
+    isRestoringRef.current = false;
+  }, [storageKey, defaultTerminalId]);
 
   useEffect(() => {
-    if (!storageKey || !readyToSave.current) {
+    if (!storageKey || isRestoringRef.current) {
       return;
     }
-    const payload = JSON.stringify({ terminals, activeTerminalId });
-    localStorage.setItem(storageKey, payload);
+    localStorage.setItem(storageKey, JSON.stringify({ terminals, activeTerminalId }));
   }, [storageKey, terminals, activeTerminalId]);
 
   const addTerminal = useCallback(() => {
@@ -140,7 +125,7 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
   );
 
   return (
-    <div className="flex h-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
+    <div className="flex h-full w-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
       <div
         className="flex h-9 items-center border-b border-border/50 dark:border-border-dark/50"
         role="tablist"
