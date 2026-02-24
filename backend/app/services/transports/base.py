@@ -284,6 +284,8 @@ class BaseSandboxTransport(Transport, ABC):
 
             if chunk is self._SENTINEL:
                 break
+            if not isinstance(chunk, str):
+                continue
 
             clean_chunk = ANSI_ESCAPE_RE.sub("", chunk).replace("\r", "")
 

@@ -109,7 +109,8 @@ class DockerSandboxTransport(BaseSandboxTransport):
         if not self._exec:
             return None
         try:
-            return await self._exec.inspect()
+            result: dict[str, Any] = await self._exec.inspect()
+            return result
         except Exception as e:
             logger.warning("exec_inspect failed: %s", e)
             return None
