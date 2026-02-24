@@ -16,6 +16,7 @@ export interface TextareaProps {
   setMessage: (value: string) => void;
   placeholder: string;
   isLoading: boolean;
+  disabled?: boolean;
   onKeyDown: (e: React.KeyboardEvent) => void;
   onCursorPositionChange?: (position: number) => void;
   compact?: boolean;
@@ -29,6 +30,7 @@ export function Textarea({
   setMessage,
   placeholder,
   isLoading,
+  disabled = false,
   onKeyDown,
   onCursorPositionChange,
   compact,
@@ -114,7 +116,7 @@ export function Textarea({
       onSelect={handleCursorChange}
       onFocus={scrollIntoViewOnMobile}
       placeholder={placeholder}
-      disabled={isLoading}
+      disabled={isLoading || disabled}
       rows={1}
       className={`max-h-[180px] w-full resize-none overflow-y-auto bg-transparent py-1.5 pr-14 text-xs leading-normal text-text-primary outline-none transition-all duration-200 placeholder:text-text-quaternary focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50 dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary ${isMobile && compact ? 'min-h-[28px]' : 'min-h-[80px]'}`}
       style={THIN_SCROLLBAR_STYLE}

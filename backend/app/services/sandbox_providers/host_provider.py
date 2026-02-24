@@ -1,6 +1,8 @@
 import asyncio
 import contextlib
 import fcntl
+import fnmatch
+import logging
 import os
 import pty
 import re
@@ -10,27 +12,42 @@ import signal
 import subprocess
 import termios
 import uuid
+from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
 from typing import Any
+from urllib.parse import quote
 
 from app.constants import (
+    CHECKPOINT_BASE_DIR,
     EXCLUDED_PREVIEW_PORTS,
     OPENVSCODE_PORT,
+    SANDBOX_BASHRC_PATH,
+    SANDBOX_BINARY_EXTENSIONS,
     SANDBOX_DEFAULT_COMMAND_TIMEOUT,
+    SANDBOX_EXCLUDED_PATHS,
     SANDBOX_HOME_DIR,
     TERMINAL_TYPE,
     VNC_WEBSOCKET_PORT,
 )
 from app.services.exceptions import SandboxException
-from app.services.sandbox_providers.base import LISTENING_PORTS_COMMAND, SandboxProvider
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.sandbox_providers.types import (
+    CheckpointInfo,
     CommandResult,
     FileContent,
+    FileMetadata,
     PreviewLink,
     PtyDataCallbackType,
     PtySession,
     PtySize,
+)
+
+logger = logging.getLogger(__name__)
+
+MACOS_LISTENING_PORTS_COMMAND = (
+    "lsof -iTCP -sTCP:LISTEN -nP"
+    " | awk 'NR>1 {split($9,a,\":\"); print a[length(a)]}'"
+    " | grep -E '^[0-9]+$' | sort -u"
 )
 
 
@@ -43,6 +60,9 @@ class LocalHostProvider(SandboxProvider):
         self._preview_base_url = preview_base_url.rstrip("/")
         self._sandboxes: dict[str, Path] = {}
         self._pty_sessions: dict[str, dict[str, Any]] = {}
+
+    def bind_workspace(self, sandbox_id: str, workspace_path: str) -> None:
+        self._sandboxes[sandbox_id] = Path(workspace_path).expanduser().resolve()
 
     def _resolve_sandbox_dir(self, sandbox_id: str) -> Path:
         sandbox_dir = self._sandboxes.get(sandbox_id)
@@ -87,8 +107,12 @@ class LocalHostProvider(SandboxProvider):
         pattern = rf"(?:(?<=^)|(?<=[\s\"'=(])){re.escape(SANDBOX_HOME_DIR)}(?=(?:/|$|[\s\"')]))"
         return re.sub(pattern, sandbox_dir, command)
 
-    async def create_sandbox(self) -> str:
+    async def create_sandbox(self, workspace_path: str | None = None) -> str:
         sandbox_id = str(uuid.uuid4())[:12]
+        if workspace_path:
+            self._sandboxes[sandbox_id] = Path(workspace_path).expanduser().resolve()
+            return sandbox_id
+
         sandbox_dir = (self._base_dir / sandbox_id).resolve()
         sandbox_dir.mkdir(parents=True, exist_ok=True)
         bashrc_content = f'export PS1="user@{sandbox_id}:\\w$ "\n'
@@ -119,7 +143,7 @@ class LocalHostProvider(SandboxProvider):
             if candidate.exists() and candidate.is_dir():
                 sandbox_dir = candidate
 
-        if sandbox_dir:
+        if sandbox_dir and sandbox_dir.is_relative_to(self._base_dir):
             await asyncio.to_thread(self._remove_dir, sandbox_dir)
 
     async def is_running(self, sandbox_id: str) -> bool:
@@ -223,6 +247,56 @@ class LocalHostProvider(SandboxProvider):
         content, is_binary = self._encode_file_content(path, content_bytes)
         return FileContent(path=path, content=content, type="file", is_binary=is_binary)
 
+    @staticmethod
+    def _walk_files(sandbox_dir: Path, patterns: list[str]) -> list[FileMetadata]:
+        items: list[FileMetadata] = []
+        for entry in sandbox_dir.rglob("*"):
+            rel = str(entry.relative_to(sandbox_dir))
+            full = f"{SANDBOX_HOME_DIR}/{rel}"
+            if any(
+                fnmatch.fnmatch(full, p)
+                or fnmatch.fnmatch(rel, p)
+                or fnmatch.fnmatch(entry.name, p)
+                for p in patterns
+            ):
+                continue
+            try:
+                stat = entry.stat()
+            except OSError:
+                continue
+            if entry.is_file():
+                ext = entry.suffix.lstrip(".").lower()
+                is_binary = ext in SANDBOX_BINARY_EXTENSIONS
+                items.append(
+                    FileMetadata(
+                        path=rel,
+                        type="file",
+                        is_binary=is_binary,
+                        size=stat.st_size,
+                        modified=stat.st_mtime,
+                    )
+                )
+            elif entry.is_dir():
+                items.append(
+                    FileMetadata(
+                        path=rel,
+                        type="directory",
+                        size=0,
+                        modified=stat.st_mtime,
+                    )
+                )
+        return items
+
+    async def list_files(
+        self,
+        sandbox_id: str,
+        path: str = SANDBOX_HOME_DIR,
+        excluded_patterns: list[str] | None = None,
+    ) -> list[FileMetadata]:
+        sandbox_dir = self._resolve_sandbox_dir(sandbox_id)
+        patterns = excluded_patterns or SANDBOX_EXCLUDED_PATHS
+        return await asyncio.to_thread(self._walk_files, sandbox_dir, patterns)
+
     def _resize_fd(self, fd: int, rows: int, cols: int) -> None:
         size = rows.to_bytes(2, "little") + cols.to_bytes(2, "little") + b"\x00" * 4
         fcntl.ioctl(fd, termios.TIOCSWINSZ, size)
@@ -250,7 +324,6 @@ class LocalHostProvider(SandboxProvider):
             "command -v tmux >/dev/null && "
             f"tmux new -A -s {shlex.quote(tmux_session)} \\; set -g status off || exec bash"
         )
-
         process = await asyncio.to_thread(
             subprocess.Popen,
             ["bash", "-lc", cmd],
@@ -298,14 +371,8 @@ class LocalHostProvider(SandboxProvider):
                 await on_data(chunk)
         except asyncio.CancelledError:
             pass
-        except OSError:
-            pass
-        finally:
-            self._cleanup_pty_session_tracking(sandbox_id, session_id)
-            try:
-                os.close(master_fd)
-            except OSError:
-                pass
+        except OSError as e:
+            logger.error("PTY reader error for session %s: %s", session_id, e)
 
     async def send_pty_input(
         self,
@@ -370,9 +437,47 @@ class LocalHostProvider(SandboxProvider):
 
         self._cleanup_pty_session_tracking(sandbox_id, pty_id)
 
+    @staticmethod
+    def _scan_checkpoints(
+        checkpoint_base: Path,
+    ) -> list[CheckpointInfo]:
+        if not checkpoint_base.is_dir():
+            return []
+        items: list[CheckpointInfo] = []
+        for entry in checkpoint_base.iterdir():
+            if not entry.is_dir():
+                continue
+            ts = int(entry.stat().st_mtime)
+            created = datetime.fromtimestamp(ts).isoformat()
+            items.append(
+                CheckpointInfo(
+                    message_id=entry.name,
+                    created_at=created,
+                )
+            )
+        items.sort(key=lambda x: x.created_at, reverse=True)
+        return items
+
+    async def list_checkpoints(self, sandbox_id: str) -> list[CheckpointInfo]:
+        sandbox_dir = self._resolve_sandbox_dir(sandbox_id)
+        relative = Path(CHECKPOINT_BASE_DIR).relative_to(SANDBOX_HOME_DIR)
+        checkpoint_base = sandbox_dir / relative
+        return await asyncio.to_thread(self._scan_checkpoints, checkpoint_base)
+
+    async def delete_secret(
+        self,
+        sandbox_id: str,
+        key: str,
+    ) -> None:
+        escaped_key = key.replace(".", r"\.").replace("*", r"\*")
+        await self.execute_command(
+            sandbox_id,
+            f"sed -i '' '/^export {escaped_key}=/d' {SANDBOX_BASHRC_PATH}",
+        )
+
     async def get_preview_links(self, sandbox_id: str) -> list[PreviewLink]:
         result = await self.execute_command(
-            sandbox_id, LISTENING_PORTS_COMMAND, timeout=5
+            sandbox_id, MACOS_LISTENING_PORTS_COMMAND, timeout=5
         )
         listening_ports = self._parse_listening_ports(result.stdout)
         return self._build_preview_links(

@@ -6,12 +6,9 @@ services:
     container_name: claudex-postgres-web
     restart: always
     command: -c max_connections=600
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    env_file: .env
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +22,7 @@ services:
     container_name: claudex-redis-web
     restart: always
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -40,7 +37,7 @@ services:
     restart: "no"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: sh -c "docker pull ${DOCKER_IMAGE:-ghcr.io/mng-dev-ai/claudex-sandbox:latest}"
+    command: sh -c "docker pull ${DOCKER_IMAGE}"
 
   api:
     build:
@@ -61,23 +58,16 @@ services:
       sandbox-setup:
         condition: service_completed_successfully
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
-      - "${VNC_PORT:-5900}:5900"
-      - "${VNC_WS_PORT:-6080}:6080"
-      - "${OPENVSCODE_PORT:-8765}:8765"
+      - "${BACKEND_PORT}:8080"
+      - "${VNC_PORT}:5900"
+      - "${VNC_WS_PORT}:6080"
+      - "${OPENVSCODE_PORT}:8765"
     volumes:
       - ./backend:/app
       - ./storage:/app/storage
       - /app/__pycache__
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY:-claudex_default_secret_key_for_development_only}
-      - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - HOST_PERMISSION_API_URL=http://api:8080
-      - DOCKER_PERMISSION_API_URL=http://claudex-api-web:8080
+    env_file: .env
     networks:
       - default
       - sandbox
@@ -91,13 +81,11 @@ services:
     depends_on:
       - api
     ports:
-      - "${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT}:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      - VITE_API_BASE_URL=/api/v1
-      - VITE_WS_URL=/api/v1/ws
+    env_file: .env
 
 networks:
   sandbox:

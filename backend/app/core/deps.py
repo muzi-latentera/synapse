@@ -1,5 +1,6 @@
 import logging
 from collections.abc import AsyncIterator
+from typing import cast
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -19,7 +20,7 @@ from app.services.plugin_installer import PluginInstallerService
 from app.services.provider import ProviderService
 from app.services.refresh_token import RefreshTokenService
 from app.services.sandbox import SandboxService
-from app.services.sandbox_providers import SandboxProviderType
+from app.services.sandbox_providers import LocalHostProvider, SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.scheduler import SchedulerService
 from app.services.skill import SkillService
@@ -120,7 +121,7 @@ async def get_sandbox_service(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authentication required",
             )
-        query = select(Chat.sandbox_provider).where(
+        query = select(Chat.sandbox_provider, Chat.workspace_path).where(
             Chat.sandbox_id == sandbox_id,
             Chat.user_id == user.id,
             Chat.deleted_at.is_(None),
@@ -133,8 +134,10 @@ async def get_sandbox_service(
                 detail="Sandbox not found",
             )
         sandbox_provider = row.sandbox_provider
+        sandbox_workspace_path = row.workspace_path
     else:
         sandbox_provider = None
+        sandbox_workspace_path = None
 
     if user:
         try:
@@ -161,6 +164,15 @@ async def get_sandbox_service(
         provider_type=provider_type,
         api_key=api_key,
     )
+    if (
+        sandbox_id
+        and provider_type == SandboxProviderType.HOST
+        and sandbox_workspace_path
+    ):
+        host_provider = cast(LocalHostProvider, provider)
+        host_provider.bind_workspace(
+            sandbox_id=sandbox_id, workspace_path=sandbox_workspace_path
+        )
     try:
         yield SandboxService(provider)
     finally:

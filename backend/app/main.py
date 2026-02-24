@@ -29,10 +29,7 @@ from app.api.endpoints import settings as settings_router
 from app.api.endpoints import skills, websocket
 from app.core.config import get_settings
 from app.core.middleware import setup_middleware
-from app.db.base_class import Base
 from app.db.session import SessionLocal, engine
-from app.models.db_models import chat as chat_model
-from app.models.db_models import refresh_token, scheduled_tasks, user
 from app.services.claude_session_registry import session_registry
 from app.services.maintenance import MaintenanceService
 from app.services.streaming.runtime import ChatStreamRuntime
@@ -51,8 +48,6 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    if settings.DESKTOP_MODE:
-        await _create_sqlite_tables()
     maintenance_service = MaintenanceService()
     await maintenance_service.start()
     try:
@@ -62,14 +57,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await ChatStreamRuntime.stop_background_chats()
         await session_registry.terminate_all()
         await engine.dispose()
-
-
-async def _create_sqlite_tables() -> None:
-    _ = (chat_model, refresh_token, scheduled_tasks, user)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("SQLite tables created via metadata.create_all()")
 
 
 async def _check_database_ready() -> tuple[bool, str | None]:

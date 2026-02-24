@@ -32,6 +32,7 @@ export interface InputProps {
   compact?: boolean;
   chatId?: string;
   showLoadingSpinner?: boolean;
+  disabled?: boolean;
 }
 
 export const Input = memo(function Input(props: InputProps) {
@@ -85,6 +86,7 @@ function InputLayout() {
             setMessage={actions.setMessage}
             placeholder={state.placeholder}
             isLoading={state.isLoading}
+            disabled={state.isDisabled}
             onKeyDown={actions.handleKeyDown}
             onCursorPositionChange={actions.setCursorPosition}
             compact={state.compact}
@@ -98,6 +100,7 @@ function InputLayout() {
 
             <div className="absolute bottom-2.5 right-3 flex items-center gap-1">
               <AttachButton
+                disabled={state.isDisabled}
                 onAttach={() => {
                   actions.resetDragState();
                   actions.setShowFileUpload(true);
@@ -107,7 +110,9 @@ function InputLayout() {
                 isLoading={state.isLoading}
                 isStreaming={state.isStreaming}
                 disabled={
-                  (!state.isLoading && !state.isStreaming && !state.hasMessage) || state.isEnhancing
+                  (!state.isLoading && !state.isStreaming && !state.hasMessage) ||
+                  state.isEnhancing ||
+                  state.isDisabled
                 }
                 onClick={actions.handleSendClick}
                 type="button"

@@ -24,14 +24,18 @@ class HostSandboxTransport(BaseSandboxTransport):
         self,
         *,
         sandbox_id: str,
+        workspace_path: str | None,
         options: ClaudeAgentOptions,
     ) -> None:
         super().__init__(sandbox_id=sandbox_id, options=options)
         self._process: asyncio.subprocess.Process | None = None
         self._stdout_task: asyncio.Task[None] | None = None
         self._stderr_task: asyncio.Task[None] | None = None
-        host_base_dir = settings.get_host_sandbox_base_dir()
-        self._sandbox_dir = Path(host_base_dir).expanduser().resolve() / sandbox_id
+        if workspace_path:
+            self._sandbox_dir = Path(workspace_path).expanduser().resolve()
+        else:
+            host_base_dir = settings.get_host_sandbox_base_dir()
+            self._sandbox_dir = Path(host_base_dir).expanduser().resolve() / sandbox_id
 
     def _get_logger(self) -> Any:
         return logger

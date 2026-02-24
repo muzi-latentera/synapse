@@ -44,6 +44,8 @@ from app.models.schemas.chat import (
     MessageEvent,
     PermissionRespondResponse,
     RestoreRequest,
+    WorkspaceBootstrapRequest,
+    WorkspaceBootstrapResponse,
 )
 from app.models.schemas.pagination import (
     CursorPaginatedResponse,
@@ -62,6 +64,7 @@ from app.services.exceptions import (
 )
 from app.services.permission_manager import PermissionManager
 from app.services.queue import QueueService
+from app.services.workspace import WorkspaceService
 from app.services.claude_session_registry import session_registry
 from app.services.streaming.runtime import ChatStreamRuntime
 from app.utils.cache import CacheError, cache_connection
@@ -146,6 +149,36 @@ async def create_chat(
         _raise_database_http_exception(e, "creating chat")
     except CacheError as e:
         _raise_cache_http_exception(e, "creating chat")
+
+
+@router.post(
+    "/workspaces/bootstrap",
+    response_model=WorkspaceBootstrapResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def bootstrap_workspace(
+    payload: WorkspaceBootstrapRequest,
+    current_user: User = Depends(get_current_user),
+) -> WorkspaceBootstrapResponse:
+    workspace_service = WorkspaceService()
+    try:
+        workspace_path = await workspace_service.bootstrap_workspace(
+            user_id=current_user.id,
+            source_type=payload.source_type,
+            git_url=payload.git_url,
+        )
+        return WorkspaceBootstrapResponse(
+            source_type=payload.source_type,
+            workspace_path=workspace_path,
+        )
+    except ChatException as e:
+        _raise_chat_http_exception(e)
+    except OSError as e:
+        logger.error("Workspace bootstrap failed: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to initialize workspace",
+        ) from e
 
 
 @router.post("/chat", response_model=ChatCompletionResponse)

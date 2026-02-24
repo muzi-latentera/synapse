@@ -20,6 +20,7 @@ from app.constants import (
     TERMINAL_TYPE,
     VNC_WEBSOCKET_PORT,
 )
+from app.core.config import get_settings
 from app.services.exceptions import SandboxException
 from app.services.sandbox_providers.base import LISTENING_PORTS_COMMAND, SandboxProvider
 from app.services.sandbox_providers.types import (
@@ -33,6 +34,7 @@ from app.services.sandbox_providers.types import (
 )
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 DOCKER_SANDBOX_CONTAINER_PREFIX = "claudex-sandbox-"
 
@@ -117,7 +119,24 @@ class LocalDockerProvider(SandboxProvider):
             return int(mem_str[:-1]) * multipliers[mem_str[-1]]
         return int(mem_str)
 
-    async def _create_container(self, sandbox_id: str, image: str | None = None) -> Any:
+    @staticmethod
+    def _resolve_host_path(workspace_dir: Path) -> Path:
+        host_storage = settings.HOST_STORAGE_PATH
+        if not host_storage:
+            return workspace_dir
+        storage = Path(settings.STORAGE_PATH).resolve()
+        try:
+            relative = workspace_dir.relative_to(storage)
+        except ValueError:
+            return workspace_dir
+        return Path(host_storage).resolve() / relative
+
+    async def _create_container(
+        self,
+        sandbox_id: str,
+        image: str | None = None,
+        workspace_path: str | None = None,
+    ) -> Any:
         docker = await self._get_docker()
         labels = self._build_traefik_labels(sandbox_id)
         network = self.config.traefik_network or self.config.network
@@ -149,12 +168,19 @@ class LocalDockerProvider(SandboxProvider):
         if self.config.pids_limit > 0:
             host_config["PidsLimit"] = self.config.pids_limit
 
+        container_workspace = self.config.user_home
+        workspace_mount_dir = f"{self.config.user_home}/workspace"
+        if workspace_path:
+            workspace_dir = Path(workspace_path).expanduser().resolve()
+            bind_source = self._resolve_host_path(workspace_dir)
+            host_config["Binds"] = [f"{bind_source}:{workspace_mount_dir}"]
+
         config: dict[str, Any] = {
             "Image": image or self.config.image,
             "Cmd": ["/bin/bash"],
             "Hostname": "sandbox",
             "User": "user",
-            "WorkingDir": self.config.user_home,
+            "WorkingDir": container_workspace,
             "OpenStdin": True,
             "Tty": True,
             "Labels": labels,
@@ -173,11 +199,13 @@ class LocalDockerProvider(SandboxProvider):
         await container.start()
         return container
 
-    async def create_sandbox(self) -> str:
+    async def create_sandbox(self, workspace_path: str | None = None) -> str:
         sandbox_id = str(uuid.uuid4())[:12]
 
         try:
-            container = await self._create_container(sandbox_id)
+            container = await self._create_container(
+                sandbox_id, workspace_path=workspace_path
+            )
             self._containers[sandbox_id] = container
 
             port_map = await self._extract_port_mappings(container)

@@ -36,6 +36,7 @@ class Chat(Base):
         GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     sandbox_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    workspace_path: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     sandbox_provider: Mapped[str] = mapped_column(
         String(32), default="docker", server_default="docker", nullable=False
     )
@@ -71,6 +72,8 @@ class Chat(Base):
             user_id=UUID(str(data["user_id"])),
             title=str(data["title"]),
             sandbox_id=data.get("sandbox_id"),
+            workspace_path=data.get("workspace_path"),
+            sandbox_provider=str(data.get("sandbox_provider", "docker")),
             session_id=data.get("session_id"),
         )
 

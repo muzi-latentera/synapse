@@ -39,8 +39,11 @@
 - Do not optimize for no regressions or long-term resilience unless explicitly requested — favor simple, direct changes over defensive scaffolding
 - Do not build elaborate rollback/state-restoration logic for failure paths — in a single-user app, a simple log + best-effort recovery (e.g., re-queue the item) is sufficient; do not save/restore every field, delete orphaned rows, or revert intermediate state changes
 - Do not add pre-flight compatibility checks that gate an operation when a natural fallback already exists — if the operation can't proceed, let it fall through to the existing path (e.g., normal queue processing) instead of adding branching to detect and re-route
+- Validate at the boundary, not at every layer — if a value is validated on entry (e.g., API endpoint checks that a path exists), do not re-validate the same condition in downstream functions that receive the already-validated value
 - Prefer the simplest collection operation that achieves the goal — use `list.insert(0, item)` instead of a sorted-insertion loop when ordering doesn't meaningfully matter
 - Keep `try/except` blocks narrow — only wrap the code that needs the specific recovery action (e.g., requeue after a pop), not the entire function body; code that can safely propagate exceptions should stay outside the `try`
+- Narrow `except` clauses to specific exception types — never `except Exception` when the actual failure modes are known (e.g., `except (KeyError, SomeLibError)` not `except Exception`)
+- Do not translate exceptions across boundaries just to change the type — if an upstream function already raises a meaningful error, let it propagate; only catch-and-wrap when the caller genuinely needs a different status code or error shape that the original doesn't provide
 - Do not handle hypothetical input shapes — if you have evidence of the actual data format (logs, tests, type definitions), write code for that format only; do not add branches for types or structures you have not observed
 - Don't add comments or docstrings for self-explanatory code
 - Let the code speak for itself - use clear variable/function names instead of comments
@@ -49,12 +52,15 @@
 - If a wrapper exists, it must add concrete value (validation, transformation, error handling, compatibility boundary, or stable public API surface)
 - Prefer direct imports/calls over indirection when behavior is unchanged
 - Do not call private methods (`_method`) from outside the file where they are defined; if cross-file usage is needed, make the method public and rename it accordingly
+- When a caller passes a value to a function that already stores/registers it internally, do not call a second function to store/register the same value again — one code path, one registration
 - Do not use inline imports; only allow inline imports when required to avoid circular imports and no cleaner module-level import structure exists
 - Strong typing only: do not use `# type: ignore`, `# pyright: ignore`, `# noqa` to silence typing/import issues; fix the types/usages directly (if absolutely unavoidable, document why in the PR description)
 - Do not define nested/inline functions; use module-level functions for standalone functions (e.g., endpoints) and class methods for classes — if a helper is only used by a class, it must be a method (or static method) on that class, not a module-level function
 - Do not add backward compatibility paths, fallback paths, or legacy shims unless explicitly requested
 - Do not create type aliases that add no semantic value (e.g., `StreamKind = str`) — use the base type directly
 - Module-level constants must be placed at the top of the file, immediately after imports and logger/settings initialization — never between classes or functions
+- Prefer simple env-var/config-based solutions over runtime introspection — e.g., use a `HOST_STORAGE_PATH` env var to map container paths to host paths instead of inspecting Docker container mounts at runtime
+- When two methods in the same class share the same lifecycle (one always calls the other), do not duplicate work in the caller that the callee already performs — let the callee handle it once
 
 ## Naming Conventions
 
@@ -68,7 +74,7 @@
 
 - Keep logic in the module where it belongs — factory methods go on the class they construct (e.g., `Chat.from_dict`, `SandboxService.create_for_user`), not in unrelated callers
 - Group related free functions into a class with static methods rather than leaving them as loose module-level functions (e.g., `StreamEnvelope.build()` + `StreamEnvelope.sanitize_payload()` instead of separate `build_envelope()` + `redact_for_audit()`)
-- Prefer one data structure over two when one can serve both purposes — don't add a second dict/set to handle an edge case that can be folded into the primary structure
+- Prefer one data structure over two when one can serve both purposes — don't add a second dict/set to handle an edge case that can be folded into the primary structure; if a property can be derived from existing data (e.g., checking `path.is_relative_to(base_dir)` instead of tracking a separate `managed` set), derive it
 - Do not create multiple overlapping data containers for the same concept — if fields are shared across dataclasses, consolidate into one
 
 ## Frontend Component Architecture

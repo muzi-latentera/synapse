@@ -10,7 +10,7 @@ from alembic import context
 from app.db.base_class import Base
 from app.models.db_models import chat, refresh_token, scheduled_tasks, user  # noqa: F401
 from app.core.config import get_settings
-from app.db.types import GUID
+from app.db.types import GUID, EncryptedString, EncryptedJSON
 
 config = context.config
 
@@ -24,11 +24,37 @@ database_url = settings.DATABASE_URL
 if database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
 
+_SERVER_DEFAULT_MAP = {
+    "gen_random_uuid()": "uuid_server_default()",
+    "now()": "now_server_default()",
+}
+
+_HELPERS_IMPORT = "from app.db.migration_helpers import uuid_server_default, now_server_default"
+
 
 def render_item(type_, obj, autogen_context):
-    if type_ == "type" and isinstance(obj, GUID):
-        autogen_context.imports.add("from app.db.types import GUID")
-        return "GUID()"
+    if type_ == "type":
+        if isinstance(obj, GUID):
+            autogen_context.imports.add("from app.db.types import GUID")
+            return "GUID()"
+        if isinstance(obj, EncryptedString):
+            autogen_context.imports.add("from app.db.types import EncryptedString")
+            return "EncryptedString()"
+        if isinstance(obj, EncryptedJSON):
+            autogen_context.imports.add("from app.db.types import EncryptedJSON")
+            return "EncryptedJSON()"
+
+    if type_ == "server_default":
+        arg = getattr(obj, "arg", obj)
+        if isinstance(arg, sa.sql.elements.TextClause):
+            replacement = _SERVER_DEFAULT_MAP.get(str(arg.text))
+            if replacement:
+                autogen_context.imports.add(_HELPERS_IMPORT)
+                return replacement
+        if isinstance(arg, sa.sql.functions.Function) and arg.name == "now":
+            autogen_context.imports.add(_HELPERS_IMPORT)
+            return "now_server_default()"
+
     return False
 
 
@@ -87,7 +113,16 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    url = config.get_main_option("sqlalchemy.url", "")
+    if url.startswith("sqlite"):
+        from sqlalchemy import create_engine
+
+        engine = create_engine(url, poolclass=pool.NullPool)
+        with engine.connect() as connection:
+            do_run_migrations(connection)
+        engine.dispose()
+    else:
+        asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

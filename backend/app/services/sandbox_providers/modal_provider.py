@@ -66,7 +66,7 @@ class ModalSandboxProvider(SandboxProvider):
             )
         return self._app
 
-    async def create_sandbox(self) -> str:
+    async def create_sandbox(self, workspace_path: str | None = None) -> str:
         try:
             app = await self._get_app()
             image = modal.Image.from_registry(settings.DOCKER_IMAGE)

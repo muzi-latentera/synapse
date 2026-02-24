@@ -7,6 +7,7 @@ from calendar import monthrange
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from functools import partial
+
 from typing import Any, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -722,6 +723,7 @@ class SchedulerService(BaseDbService[ScheduledTask]):
                 "user_id": str(user_id),
                 "title": chat_title,
                 "sandbox_id": sandbox_id,
+                "sandbox_provider": sandbox_provider,
                 "session_id": None,
             }
 

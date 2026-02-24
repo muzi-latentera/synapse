@@ -56,6 +56,7 @@ export interface Chat {
   created_at: string;
   updated_at: string;
   sandbox_id?: string;
+  workspace_path?: string | null;
   context_token_usage?: number;
   pinned_at?: string | null;
 }
@@ -78,6 +79,7 @@ export interface ChatRequest {
 export interface CreateChatRequest {
   title: string;
   model_id: string;
+  workspace_path?: string;
 }
 
 export interface PreviewLinksResponse {

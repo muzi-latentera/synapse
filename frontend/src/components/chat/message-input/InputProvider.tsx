@@ -40,6 +40,7 @@ export function InputProvider({
   compact = true,
   chatId,
   showLoadingSpinner = false,
+  disabled = false,
   children,
 }: InputProps & { children: ReactNode }) {
   const { fileStructure, customAgents, customSlashCommands, customPrompts } = useChatContext();
@@ -165,12 +166,13 @@ export function InputProvider({
   const handleSubmit = useCallback(
     (event: React.FormEvent) => {
       event.preventDefault();
+      if (disabled) return;
       if (!hasMessage) return;
 
       setPreviewDismissed(true);
       onSubmit(event);
     },
-    [hasMessage, onSubmit],
+    [disabled, hasMessage, onSubmit],
   );
 
   const submitOrStop = useCallback(() => {
@@ -178,6 +180,8 @@ export function InputProvider({
       onStopStream?.();
       return;
     }
+
+    if (disabled) return;
 
     if (isStreaming && hasMessage && chatId) {
       const { permissionMode, thinkingMode } = useUIStore.getState();
@@ -218,6 +222,7 @@ export function InputProvider({
     }) as unknown as React.FormEvent;
     onSubmit(formEvent);
   }, [
+    disabled,
     hasMessage,
     isLoading,
     isStreaming,
@@ -267,6 +272,7 @@ export function InputProvider({
       message,
       cursorPosition,
       isLoading,
+      isDisabled: disabled,
       isStreaming,
       isEnhancing,
       hasMessage,
@@ -298,6 +304,7 @@ export function InputProvider({
       message,
       cursorPosition,
       isLoading,
+      disabled,
       isStreaming,
       isEnhancing,
       hasMessage,

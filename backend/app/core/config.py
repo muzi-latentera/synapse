@@ -187,6 +187,7 @@ class Settings(BaseSettings):
     DOCKER_PIDS_LIMIT: int = 512
 
     # Host Sandbox configuration
+    HOST_STORAGE_PATH: str | None = None
     HOST_SANDBOX_BASE_DIR: str | None = None
     HOST_PREVIEW_BASE_URL: str = "http://localhost"
     # Override URL for host provider permission-server callbacks.

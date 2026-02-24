@@ -4,6 +4,7 @@ import logging
 import math
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -114,7 +115,41 @@ class ChatService(BaseDbService[Chat]):
         user_settings = await self.user_service.get_user_settings(user.id)
         self._validate_api_keys(user_settings, chat_data.model_id)
 
-        sandbox_id = await self.sandbox_service.provider.create_sandbox()
+        workspace_path = (chat_data.workspace_path or "").strip() or None
+
+        if workspace_path and user_settings.sandbox_provider not in (
+            SandboxProviderType.DOCKER.value,
+            SandboxProviderType.HOST.value,
+        ):
+            raise ChatException(
+                "workspace selection is only supported for Docker and Host providers",
+                error_code=ErrorCode.VALIDATION_ERROR,
+                status_code=400,
+            )
+
+        if workspace_path:
+            resolved_workspace = Path(workspace_path).expanduser().resolve()
+            if not settings.DESKTOP_MODE:
+                workspaces_root = (
+                    Path(settings.STORAGE_PATH) / "workspaces" / str(user.id)
+                ).resolve()
+                if not resolved_workspace.is_relative_to(workspaces_root):
+                    raise ChatException(
+                        "workspace_path must be under the managed workspaces directory",
+                        error_code=ErrorCode.VALIDATION_ERROR,
+                        status_code=400,
+                    )
+            if not resolved_workspace.exists() or not resolved_workspace.is_dir():
+                raise ChatException(
+                    "workspace_path must be an existing directory",
+                    error_code=ErrorCode.VALIDATION_ERROR,
+                    status_code=400,
+                )
+            workspace_path = str(resolved_workspace)
+
+        sandbox_id = await self.sandbox_service.provider.create_sandbox(
+            workspace_path=workspace_path,
+        )
 
         await self.sandbox_service.initialize_sandbox(
             sandbox_id=sandbox_id,
@@ -136,6 +171,7 @@ class ChatService(BaseDbService[Chat]):
                 title=self._truncate_title(chat_data.title),
                 user_id=user.id,
                 sandbox_id=sandbox_id,
+                workspace_path=workspace_path,
                 sandbox_provider=user_settings.sandbox_provider,
             )
 
@@ -874,6 +910,8 @@ class ChatService(BaseDbService[Chat]):
                 "user_id": str(chat.user_id),
                 "title": chat.title,
                 "sandbox_id": chat.sandbox_id,
+                "workspace_path": chat.workspace_path,
+                "sandbox_provider": chat.sandbox_provider,
                 "session_id": chat.session_id,
             },
             permission_mode=permission_mode,

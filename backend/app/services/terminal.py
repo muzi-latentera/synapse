@@ -3,13 +3,13 @@ import logging
 import shlex
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from fastapi import WebSocket
 
 from app.constants import PTY_INPUT_QUEUE_SIZE
 from app.services.sandbox import SandboxService
-from app.services.sandbox_providers import SandboxProviderType
+from app.services.sandbox_providers import LocalHostProvider, SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.utils.queue import drain_queue, put_with_overflow
 
@@ -29,8 +29,9 @@ class TerminalSessionRecord:
     input_task: asyncio.Task[None] | None = None
     input_queue: asyncio.Queue[bytes] | None = None
     active_websocket: WebSocket | None = None
+    tmux_session_name: str | None = None
 
-    async def ensure_started(self, rows: int, cols: int) -> dict[str, int]:
+    async def ensure_started(self, rows: int, cols: int) -> bool:
         if self.pty_id is None:
             tmux_session = self._get_tmux_session_name()
             pty_session = await self.sandbox_service.create_pty_session(
@@ -41,11 +42,10 @@ class TerminalSessionRecord:
             self.input_queue = asyncio.Queue(maxsize=PTY_INPUT_QUEUE_SIZE)
             self.input_task = asyncio.create_task(self._input_worker(self.pty_id))
             self.input_task.add_done_callback(self._handle_input_task_done)
-            return self.size
+            return False
 
-        if self.size and (self.size["rows"] != rows or self.size["cols"] != cols):
-            await self.resize(rows, cols)
-        return self.size or {"rows": rows, "cols": cols}
+        await self.resize(rows, cols)
+        return True
 
     def enqueue_input(self, data: Any) -> None:
         if not self.input_queue or not isinstance(data, (bytes, bytearray)):
@@ -85,14 +85,14 @@ class TerminalSessionRecord:
         )
 
     async def detach(self) -> None:
+        self.active_websocket = None
         if self.output_task:
             self.output_task.cancel()
             self.output_task = None
 
-        self.active_websocket = None
-        await self.close()
-
     async def close(self) -> None:
+        self.active_websocket = None
+
         if self.output_task:
             self.output_task.cancel()
             self.output_task = None
@@ -115,6 +115,10 @@ class TerminalSessionRecord:
 
         self.on_close()
 
+    async def terminate(self) -> None:
+        await self.kill_tmux_session()
+        await self.close()
+
     async def kill_tmux_session(self) -> None:
         session_name = self._get_tmux_session_name()
         try:
@@ -125,11 +129,11 @@ class TerminalSessionRecord:
             pass
 
     def _get_tmux_session_name(self) -> str:
-        safe_terminal = "".join(
-            char if char.isalnum() or char in ("-", "_") else "_"
-            for char in self.terminal_id
-        )
-        return f"claudex_{safe_terminal}"
+        if self.tmux_session_name is None:
+            safe_terminal = self.terminal_id.replace("-", "_")
+            safe_sandbox = self.sandbox_id.replace("-", "_")
+            self.tmux_session_name = f"claudex_{safe_sandbox}_{safe_terminal}"
+        return self.tmux_session_name
 
     async def _input_worker(self, session_id: str) -> None:
         if self.input_queue is None:
@@ -169,6 +173,7 @@ class TerminalSessionRegistry:
         terminal_id: str,
         provider_type: SandboxProviderType,
         api_key: str | None,
+        workspace_path: str | None,
     ) -> TerminalSessionRecord:
         key = self.build_session_key(user_id, sandbox_id, terminal_id)
         async with self._lock:
@@ -177,6 +182,12 @@ class TerminalSessionRegistry:
                 return existing
 
             provider = SandboxProviderFactory.create(provider_type, api_key)
+            if provider_type == SandboxProviderType.HOST and workspace_path:
+                host_provider = cast(LocalHostProvider, provider)
+                host_provider.bind_workspace(
+                    sandbox_id=sandbox_id,
+                    workspace_path=workspace_path,
+                )
             service = SandboxService(provider)
 
             record = TerminalSessionRecord(
@@ -191,6 +202,17 @@ class TerminalSessionRegistry:
 
     def _remove(self, key: str) -> None:
         self._sessions.pop(key, None)
+
+    async def terminate_all(self) -> None:
+        async with self._lock:
+            sessions = list(self._sessions.values())
+            self._sessions.clear()
+
+        for session in sessions:
+            try:
+                await session.terminate()
+            except Exception as exc:
+                logger.error("Failed to terminate terminal session: %s", exc)
 
 
 terminal_session_registry = TerminalSessionRegistry()

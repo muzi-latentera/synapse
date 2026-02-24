@@ -182,7 +182,7 @@ class SandboxProvider(ABC):
                 return await operation(*args, **kwargs)
 
     @abstractmethod
-    async def create_sandbox(self) -> str:
+    async def create_sandbox(self, workspace_path: str | None = None) -> str:
         pass
 
     @abstractmethod

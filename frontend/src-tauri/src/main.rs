@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::{BufRead, BufReader};
+use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -103,6 +104,37 @@ fn check_port_available() {
     }
 }
 
+fn terminate_backend_process(backend: &Arc<Mutex<Option<Child>>>) {
+    if let Ok(mut guard) = backend.lock() {
+        if let Some(ref mut child) = *guard {
+            let pid = child.id() as libc::pid_t;
+
+            unsafe {
+                libc::kill(-pid, libc::SIGTERM);
+            }
+
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            loop {
+                match child.try_wait() {
+                    Ok(Some(_)) => break,
+                    Ok(None) if std::time::Instant::now() < deadline => {
+                        std::thread::sleep(Duration::from_millis(100));
+                    }
+                    _ => {
+                        unsafe {
+                            libc::kill(-pid, libc::SIGKILL);
+                        }
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        break;
+                    }
+                }
+            }
+        }
+        *guard = None;
+    }
+}
+
 fn main() {
     let secret_key = ensure_secret_key();
     let data_dir = app_data_dir();
@@ -114,6 +146,7 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             let app_handle = app.handle().clone();
             let backend_bin = resolve_backend_binary(&app_handle);
@@ -123,7 +156,8 @@ fn main() {
                 .to_string_lossy()
                 .replace('\\', "/");
 
-            let mut child = Command::new(&backend_bin)
+            let mut command = Command::new(&backend_bin);
+            command
                 .env("DESKTOP_MODE", "true")
                 .env("SECRET_KEY", &secret_key)
                 .env("BASE_URL", format!("http://127.0.0.1:{BACKEND_PORT}"))
@@ -133,7 +167,16 @@ fn main() {
                     data_dir.join("storage").to_string_lossy().to_string(),
                 )
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
+                .stderr(Stdio::piped());
+            unsafe {
+                command.pre_exec(|| {
+                    if libc::setpgid(0, 0) != 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+            let mut child = command
                 .spawn()
                 .expect("failed to spawn backend process");
 
@@ -186,28 +229,11 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(move |_app, event| {
-            if let tauri::RunEvent::Exit = event {
-                if let Ok(mut guard) = backend_for_exit.lock() {
-                    if let Some(ref mut child) = *guard {
-                        unsafe {
-                            libc::kill(child.id() as libc::pid_t, libc::SIGTERM);
-                        }
-                        let deadline = std::time::Instant::now() + Duration::from_secs(5);
-                        loop {
-                            match child.try_wait() {
-                                Ok(Some(_)) => break,
-                                Ok(None) if std::time::Instant::now() < deadline => {
-                                    std::thread::sleep(Duration::from_millis(100));
-                                }
-                                _ => {
-                                    let _ = child.kill();
-                                    let _ = child.wait();
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
+                terminate_backend_process(&backend_for_exit);
             }
         });
 }

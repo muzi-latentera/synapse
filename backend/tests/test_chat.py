@@ -30,7 +30,11 @@ class TestCreateChat:
     ) -> None:
         response = await async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Test Chat", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Test Chat",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=auth_headers,
         )
 
@@ -42,6 +46,48 @@ class TestCreateChat:
         assert data["user_id"] == str(integration_user_fixture.id)
         assert "sandbox_id" in data
         assert "created_at" in data
+
+    async def test_create_chat_without_workspace(
+        self,
+        async_client: AsyncClient,
+        integration_user_fixture: User,
+        auth_headers: dict[str, str],
+    ) -> None:
+        response = await async_client.post(
+            "/api/v1/chat/chats",
+            json={
+                "title": "No Workspace Chat",
+                "model_id": "anthropic:claude-haiku-4-5",
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["title"] == "No Workspace Chat"
+        assert data.get("workspace_path") is None
+
+    async def test_create_chat_with_invalid_workspace_path(
+        self,
+        async_client: AsyncClient,
+        integration_user_fixture: User,
+        auth_headers: dict[str, str],
+    ) -> None:
+        response = await async_client.post(
+            "/api/v1/chat/chats",
+            json={
+                "title": "Invalid Workspace Chat",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/path-that-does-not-exist",
+            },
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 400
+        assert (
+            "workspace_path must be under the managed workspaces directory"
+            in response.json()["detail"]
+        )
 
     async def test_create_chat_unauthorized(
         self,
@@ -213,14 +259,22 @@ class TestPinChat:
     ) -> None:
         chat1_response = await async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Chat 1", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Chat 1",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=auth_headers,
         )
         chat1_id = chat1_response.json()["id"]
 
         await async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Chat 2", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Chat 2",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=auth_headers,
         )
 
@@ -270,7 +324,11 @@ class TestDeleteChat:
     ) -> None:
         create_response = await async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Chat to Delete", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Chat to Delete",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=auth_headers,
         )
         chat_id = create_response.json()["id"]
@@ -298,12 +356,20 @@ class TestDeleteAllChats:
     ) -> None:
         await async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Chat 1", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Chat 1",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=auth_headers,
         )
         await async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Chat 2", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Chat 2",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=auth_headers,
         )
 
@@ -846,6 +912,7 @@ class TestForkChat:
             title="Other chat",
             user_id=docker_integration_user_fixture.id,
             sandbox_id="other-sandbox",
+            workspace_path="/tmp/test-chat-workspace",
         )
         db_session.add(other_chat)
         await db_session.flush()
@@ -883,6 +950,7 @@ class TestForkChat:
             title="Another user's chat",
             user_id=another_user.id,
             sandbox_id="another-sandbox",
+            workspace_path="/tmp/test-chat-workspace",
         )
         db_session.add(another_users_chat)
         await db_session.flush()
@@ -938,6 +1006,7 @@ class TestChatCreationSandboxState:
             json={
                 "title": "Auto Compact Test Chat",
                 "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
             },
             headers=docker_auth_headers,
         )
@@ -984,7 +1053,11 @@ You are a chat test agent."""
 
         response = await docker_async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Agent Test Chat", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Agent Test Chat",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=docker_auth_headers,
         )
         assert response.status_code == 201
@@ -1022,6 +1095,7 @@ You are a chat test agent."""
             json={
                 "title": "Env Vars Test Chat",
                 "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
             },
             headers=docker_auth_headers,
         )
@@ -1070,7 +1144,11 @@ This is a test skill for chat creation."""
 
         response = await docker_async_client.post(
             "/api/v1/chat/chats",
-            json={"title": "Skill Test Chat", "model_id": "anthropic:claude-haiku-4-5"},
+            json={
+                "title": "Skill Test Chat",
+                "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
+            },
             headers=docker_auth_headers,
         )
         assert response.status_code == 201
@@ -1125,6 +1203,7 @@ Execute the chat test command."""
             json={
                 "title": "Command Test Chat",
                 "model_id": "anthropic:claude-haiku-4-5",
+                "workspace_path": "/tmp/test-chat-workspace",
             },
             headers=docker_auth_headers,
         )

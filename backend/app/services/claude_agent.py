@@ -1,6 +1,8 @@
 import logging
 from collections.abc import AsyncIterator, Callable
 from functools import partial
+from pathlib import Path
+import sys
 from typing import Any, Literal, NamedTuple
 
 from claude_agent_sdk import (
@@ -101,6 +103,7 @@ class ClaudeAgentService:
         self,
         sandbox_provider: str,
         sandbox_id: str,
+        workspace_path: str | None,
         options: ClaudeAgentOptions,
         user_settings: UserSettings,
     ) -> (
@@ -123,6 +126,7 @@ class ClaudeAgentService:
         if sandbox_provider == SandboxProviderType.HOST.value:
             return HostSandboxTransport(
                 sandbox_id=sandbox_id,
+                workspace_path=workspace_path,
                 options=options,
             )
 
@@ -167,14 +171,16 @@ class ClaudeAgentService:
             session_factory=self.session_factory
         ).get_user_settings(user.id)
 
-        sandbox_provider = (
-            user_settings.sandbox_provider or SandboxProviderType.DOCKER.value
-        )
+        sandbox_provider = chat.sandbox_provider or SandboxProviderType.DOCKER.value
         sandbox_id = chat.sandbox_id
         if not sandbox_id:
             raise ClaudeAgentException(
                 "Chat does not have an associated sandbox environment"
             )
+        workspace_path = chat.workspace_path
+        claude_cwd = SANDBOX_HOME_DIR
+        if workspace_path and sandbox_provider == SandboxProviderType.DOCKER.value:
+            claude_cwd = f"{SANDBOX_HOME_DIR}/workspace"
         sandbox_id_str = str(sandbox_id)
 
         options = await self._build_claude_options(
@@ -187,12 +193,15 @@ class ClaudeAgentService:
             thinking_mode=thinking_mode,
             chat_id=chat_id,
             is_custom_prompt=is_custom_prompt,
+            cwd=claude_cwd,
+            sandbox_provider=sandbox_provider,
         )
 
         transport_factory = partial(
             self._create_sandbox_transport,
             sandbox_provider=sandbox_provider,
             sandbox_id=sandbox_id_str,
+            workspace_path=workspace_path,
             options=options,
             user_settings=user_settings,
         )
@@ -341,8 +350,14 @@ class ClaudeAgentService:
         self, permission_mode: str, chat_id: str, sandbox_provider: str = "docker"
     ) -> dict[str, Any]:
         chat_token = create_chat_scoped_token(chat_id)
+        permission_server_command = "python3"
+        permission_server_script = "/usr/local/bin/permission_server.py"
 
         if sandbox_provider == SandboxProviderType.HOST.value:
+            permission_server_command = sys.executable
+            permission_server_script = str(
+                Path(__file__).resolve().parents[2] / "permission_server.py"
+            )
             api_base_url = (
                 settings.HOST_PERMISSION_API_URL.rstrip("/")
                 if settings.HOST_PERMISSION_API_URL
@@ -365,8 +380,8 @@ class ClaudeAgentService:
             api_base_url = f"http://host.docker.internal:{port}"
 
         return {
-            "command": "python3",
-            "args": ["-u", "/usr/local/bin/permission_server.py"],
+            "command": permission_server_command,
+            "args": ["-u", permission_server_script],
             "env": {
                 "PYTHONUNBUFFERED": "1",
                 "PERMISSION_MODE": permission_mode,
@@ -401,12 +416,12 @@ class ClaudeAgentService:
         user: User,
         permission_mode: str,
         chat_id: str,
+        sandbox_provider: str,
     ) -> dict[str, Any]:
         user_settings = await UserService(
             session_factory=self.session_factory
         ).get_user_settings(user.id)
 
-        sandbox_provider = user_settings.sandbox_provider
         servers: dict[str, Any] = {}
         servers["permission"] = self._build_permission_server(
             permission_mode, chat_id, sandbox_provider
@@ -470,6 +485,8 @@ class ClaudeAgentService:
         thinking_mode: str | None,
         chat_id: str,
         is_custom_prompt: bool = False,
+        cwd: str = SANDBOX_HOME_DIR,
+        sandbox_provider: str = "docker",
     ) -> ClaudeAgentOptions:
         env, provider_type = self._build_auth_env(model_id, user_settings)
 
@@ -516,8 +533,9 @@ class ClaudeAgentService:
                 user,
                 permission_mode,
                 chat_id,
+                sandbox_provider,
             ),
-            cwd=SANDBOX_HOME_DIR,
+            cwd=cwd,
             user="user",
             resume=session_id,
             env=env,

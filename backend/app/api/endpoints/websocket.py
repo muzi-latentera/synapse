@@ -120,7 +120,7 @@ async def terminal_websocket(
         return
 
     async with SessionLocal() as db:
-        query = select(Chat.sandbox_provider).where(
+        query = select(Chat.sandbox_provider, Chat.workspace_path).where(
             Chat.sandbox_id == sandbox_id,
             Chat.user_id == user.id,
             Chat.deleted_at.is_(None),
@@ -133,6 +133,7 @@ async def terminal_websocket(
             )
             return
         sandbox_provider_type = row.sandbox_provider or user_sandbox_provider
+        workspace_path = row.workspace_path
 
     try:
         provider_type = SandboxProviderType(sandbox_provider_type)
@@ -168,6 +169,7 @@ async def terminal_websocket(
         terminal_id=terminal_id,
         provider_type=provider_type,
         api_key=api_key,
+        workspace_path=workspace_path,
     )
 
     try:
@@ -211,9 +213,10 @@ async def terminal_websocket(
                     max_value=500,
                 )
 
-                size = await session.ensure_started(rows, cols)
+                is_reattach = await session.ensure_started(rows, cols)
                 await session.attach(websocket)
 
+                size = session.size or {"rows": rows, "cols": cols}
                 await websocket.send_text(
                     json.dumps(
                         {
@@ -224,6 +227,11 @@ async def terminal_websocket(
                         }
                     )
                 )
+
+                if is_reattach and session.pty_id:
+                    await session.sandbox_service.send_pty_input(
+                        session.sandbox_id, session.pty_id, b" \x0c"
+                    )
 
             elif data_type == WS_MSG_RESIZE:
                 rows = _parse_dimension(
@@ -241,16 +249,14 @@ async def terminal_websocket(
                 if rows > 0 and cols > 0:
                     await session.resize(rows, cols)
             elif data_type == WS_MSG_CLOSE:
-                await session.kill_tmux_session()
-                await session.close()
+                await session.terminate()
                 break
             elif data_type == WS_MSG_DETACH:
-                await session.detach()
                 break
     except WebSocketDisconnect:
-        await session.detach()
+        pass
     finally:
-        if session.active_websocket is websocket and session.pty_id:
+        if session.active_websocket is websocket:
             await session.detach()
         try:
             await websocket.close()

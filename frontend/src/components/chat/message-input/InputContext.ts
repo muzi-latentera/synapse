@@ -6,6 +6,7 @@ export interface InputState {
   message: string;
   cursorPosition: number;
   isLoading: boolean;
+  isDisabled: boolean;
   isStreaming: boolean;
   isEnhancing: boolean;
   hasMessage: boolean;

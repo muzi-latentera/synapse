@@ -154,6 +154,16 @@ function copySource() {
       return !rel.includes('__pycache__') && !src.endsWith('.pyc');
     },
   });
+  cpSync(join(backendDir, 'migrations'), join(sidecarDir, 'migrations'), {
+    recursive: true,
+    filter: (src) => {
+      const rel = src.replace(join(backendDir, 'migrations'), '');
+      return !rel.includes('__pycache__') && !src.endsWith('.pyc');
+    },
+  });
+  copyFileSync(join(backendDir, 'alembic.ini'), join(sidecarDir, 'alembic.ini'));
+  copyFileSync(join(backendDir, 'migrate.py'), join(sidecarDir, 'migrate.py'));
+  copyFileSync(join(backendDir, 'permission_server.py'), join(sidecarDir, 'permission_server.py'));
   copyFileSync(join(dir, 'entry.py'), join(sidecarDir, 'entry.py'));
 }
 

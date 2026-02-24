@@ -53,6 +53,7 @@ wheels/
 
 # Env
 *.env
+!.env
 
 .agents/
 .claude/

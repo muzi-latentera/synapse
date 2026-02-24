@@ -824,6 +824,8 @@ class ChatStreamRuntime:
                 "user_id": str(chat.user_id),
                 "title": chat.title,
                 "sandbox_id": chat.sandbox_id,
+                "workspace_path": chat.workspace_path,
+                "sandbox_provider": chat.sandbox_provider,
                 "session_id": chat.session_id,
             },
             permission_mode=queued_msg.get("permission_mode", "auto"),

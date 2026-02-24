@@ -241,6 +241,8 @@ async def sample_chat(db_session: AsyncSession, sample_user: User) -> Chat:
         id=uuid.uuid4(),
         title="Test Chat",
         user_id=sample_user.id,
+        sandbox_id="test-sandbox",
+        workspace_path="/tmp/test-workspace",
         context_token_usage=0,
     )
     db_session.add(chat)
@@ -509,6 +511,7 @@ async def docker_integration_chat_fixture(
         title="Docker Integration Test Chat",
         user_id=user.id,
         sandbox_id=sandbox_id,
+        workspace_path="/home/user",
     )
     db_session.add(chat)
     await db_session.flush()
@@ -639,6 +642,7 @@ async def sandbox_test_context(
         title="Sandbox Test Chat (Docker)",
         user_id=user.id,
         sandbox_id=sandbox_id,
+        workspace_path="/home/user",
     )
     db_session.add(chat)
     await db_session.flush()

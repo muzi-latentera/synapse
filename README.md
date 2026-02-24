@@ -211,6 +211,10 @@ This is the main value of using Claude Code as the harness while changing infere
 
 Apache 2.0. See [LICENSE](LICENSE).
 
+## Contributing
+
+Contributions are welcome. Please open an issue first to discuss what you would like to change, then submit a pull request.
+
 ## References
 
 - Anthropic Claude Code SDK: [docs.anthropic.com/s/claude-code-sdk](https://docs.anthropic.com/s/claude-code-sdk)

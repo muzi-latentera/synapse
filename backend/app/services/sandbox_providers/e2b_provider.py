@@ -53,7 +53,7 @@ class E2BSandboxProvider(SandboxProvider):
     def _get_system_variables(self) -> list[str]:
         return E2B_SYSTEM_VARIABLES
 
-    async def create_sandbox(self) -> str:
+    async def create_sandbox(self, workspace_path: str | None = None) -> str:
         try:
             sandbox = await self._retry_operation(
                 AsyncSandbox.create,
