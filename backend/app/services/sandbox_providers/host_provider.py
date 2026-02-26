@@ -266,24 +266,59 @@ class LocalHostProvider(SandboxProvider):
         return FileContent(path=path, content=content, type="file", is_binary=is_binary)
 
     @staticmethod
+    def _is_excluded_path(rel_path: str, name: str, patterns: list[str]) -> bool:
+        full_path = f"{SANDBOX_HOME_DIR}/{rel_path}"
+        return any(
+            fnmatch.fnmatch(full_path, pattern)
+            or fnmatch.fnmatch(rel_path, pattern)
+            or fnmatch.fnmatch(name, pattern)
+            for pattern in patterns
+        )
+
+    @staticmethod
     def _walk_files(sandbox_dir: Path, patterns: list[str]) -> list[FileMetadata]:
         items: list[FileMetadata] = []
-        for entry in sandbox_dir.rglob("*"):
-            rel = str(entry.relative_to(sandbox_dir))
-            full = f"{SANDBOX_HOME_DIR}/{rel}"
-            if any(
-                fnmatch.fnmatch(full, p)
-                or fnmatch.fnmatch(rel, p)
-                or fnmatch.fnmatch(entry.name, p)
-                for p in patterns
-            ):
-                continue
-            try:
-                stat = entry.stat()
-            except OSError:
-                continue
-            if entry.is_file():
-                ext = entry.suffix.lstrip(".").lower()
+        for root, dirnames, filenames in os.walk(sandbox_dir, topdown=True):
+            root_path = Path(root)
+            root_rel_path = root_path.relative_to(sandbox_dir)
+            root_rel = "" if root_rel_path == Path(".") else str(root_rel_path)
+
+            kept_dirnames: list[str] = []
+            for dirname in dirnames:
+                rel = f"{root_rel}/{dirname}" if root_rel else dirname
+                if LocalHostProvider._is_excluded_path(rel, dirname, patterns):
+                    continue
+
+                dir_path = root_path / dirname
+                try:
+                    stat = dir_path.stat()
+                except OSError:
+                    continue
+
+                items.append(
+                    FileMetadata(
+                        path=rel,
+                        type="directory",
+                        size=0,
+                        modified=stat.st_mtime,
+                    )
+                )
+                kept_dirnames.append(dirname)
+
+            dirnames[:] = kept_dirnames
+
+            for filename in filenames:
+                rel = f"{root_rel}/{filename}" if root_rel else filename
+                if LocalHostProvider._is_excluded_path(rel, filename, patterns):
+                    continue
+
+                file_path = root_path / filename
+                try:
+                    stat = file_path.stat()
+                except OSError:
+                    continue
+
+                ext = file_path.suffix.lstrip(".").lower()
                 is_binary = ext in SANDBOX_BINARY_EXTENSIONS
                 items.append(
                     FileMetadata(
@@ -291,15 +326,6 @@ class LocalHostProvider(SandboxProvider):
                         type="file",
                         is_binary=is_binary,
                         size=stat.st_size,
-                        modified=stat.st_mtime,
-                    )
-                )
-            elif entry.is_dir():
-                items.append(
-                    FileMetadata(
-                        path=rel,
-                        type="directory",
-                        size=0,
                         modified=stat.st_mtime,
                     )
                 )

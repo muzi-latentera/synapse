@@ -230,14 +230,19 @@ class SandboxProvider(ABC):
         patterns = list(dict.fromkeys(patterns))
 
         if patterns:
-            exclude_conditions = [
-                f"-not -name '{p}'" if p.startswith("*.") else f"-not -path '{p}'"
+            prune_conditions = [
+                f"-name {shlex.quote(p)}"
+                if p.startswith("*.")
+                else f"-path {shlex.quote(p)}"
                 for p in patterns
             ]
-            exclude_args = " ".join(exclude_conditions)
-            find_command = f"find {path} {exclude_args} -printf '%p\t%y\t%s\t%T@\n'"
+            prune_expr = " -o ".join(prune_conditions)
+            find_command = (
+                f"find {shlex.quote(path)} "
+                f"\\( {prune_expr} \\) -prune -o -printf '%p\\t%y\\t%s\\t%T@\\n'"
+            )
         else:
-            find_command = f"find {path} -printf '%p\t%y\t%s\t%T@\n'"
+            find_command = f"find {shlex.quote(path)} -printf '%p\\t%y\\t%s\\t%T@\\n'"
 
         result = await self.execute_command(sandbox_id, find_command, timeout=30)
 
