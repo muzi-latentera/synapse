@@ -89,6 +89,10 @@ SANDBOX_RESTORE_EXCLUDE_PATTERNS: Final[list[str]] = [
 SANDBOX_EXCLUDED_PATHS: Final[list[str]] = [
     "*/node_modules/*",
     "*/node_modules",
+    "*/target/*",
+    "*/target",
+    "target/*",
+    "target",
     "*/.*",
     "*/__pycache__/*",
     "*/__pycache__",
