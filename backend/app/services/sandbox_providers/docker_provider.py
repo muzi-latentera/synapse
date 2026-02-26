@@ -27,6 +27,7 @@ from app.services.sandbox_providers.types import (
     CommandResult,
     DockerConfig,
     FileContent,
+    FileMetadata,
     PreviewLink,
     PtyDataCallbackType,
     PtySession,
@@ -278,6 +279,22 @@ class LocalDockerProvider(SandboxProvider):
         self._port_mappings.pop(sandbox_id, None)
 
         logger.info("Successfully deleted Docker sandbox %s", sandbox_id)
+
+    async def list_files(
+        self,
+        sandbox_id: str,
+        path: str = SANDBOX_HOME_DIR,
+        excluded_patterns: list[str] | None = None,
+    ) -> list[FileMetadata]:
+        target_path = path
+        if path == SANDBOX_HOME_DIR:
+            container = await self._get_container(sandbox_id)
+            workspace_mount_dir = f"{self.config.user_home}/workspace"
+            info = await container.show()
+            mounts = info.get("Mounts", []) or []
+            if any(mount.get("Destination") == workspace_mount_dir for mount in mounts):
+                target_path = workspace_mount_dir
+        return await super().list_files(sandbox_id, target_path, excluded_patterns)
 
     async def is_running(self, sandbox_id: str) -> bool:
         await self._get_docker()
