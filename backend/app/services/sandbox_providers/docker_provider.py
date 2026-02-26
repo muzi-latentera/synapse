@@ -308,16 +308,7 @@ class LocalDockerProvider(SandboxProvider):
             if item.path == "workspace":
                 continue
             if item.path.startswith("workspace/"):
-                flattened_items.append(
-                    FileMetadata(
-                        path=item.path[len("workspace/") :],
-                        type=item.type,
-                        size=item.size,
-                        modified=item.modified,
-                        is_binary=item.is_binary,
-                    )
-                )
-                continue
+                item.path = item.path[len("workspace/") :]
             flattened_items.append(item)
         return flattened_items
 
