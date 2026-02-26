@@ -20,6 +20,7 @@ from urllib.parse import quote
 
 from app.constants import (
     CHECKPOINT_BASE_DIR,
+    DOCKER_AVAILABLE_PORTS,
     EXCLUDED_PREVIEW_PORTS,
     OPENVSCODE_PORT,
     SANDBOX_BASHRC_PATH,
@@ -46,6 +47,9 @@ from app.services.sandbox_providers.types import (
 logger = logging.getLogger(__name__)
 
 CHECKPOINT_RELATIVE_DIR = Path(CHECKPOINT_BASE_DIR).relative_to(SANDBOX_HOME_DIR)
+HOST_ALLOWED_PREVIEW_PORTS: set[int] = (
+    set(DOCKER_AVAILABLE_PORTS) - EXCLUDED_PREVIEW_PORTS
+)
 
 VIRTUAL_PATH_PATTERN = re.compile(
     rf"(?:(?<=^)|(?<=[\s\"'=(])){re.escape(SANDBOX_HOME_DIR)}(?=(?:/|$|[\s\"')]))"
@@ -500,19 +504,30 @@ class LocalHostProvider(SandboxProvider):
             sandbox_id, LISTENING_PORTS_COMMAND, timeout=5
         )
         listening_ports = self._parse_listening_ports(result.stdout)
+        allowed_ports = listening_ports & HOST_ALLOWED_PREVIEW_PORTS
         return self._build_preview_links(
-            listening_ports=listening_ports,
+            listening_ports=allowed_ports,
             url_builder=lambda port: f"{self._preview_base_url}:{port}",
             excluded_ports=EXCLUDED_PREVIEW_PORTS,
         )
 
+    async def _is_port_listening(self, sandbox_id: str, port: int) -> bool:
+        result = await self.execute_command(
+            sandbox_id, LISTENING_PORTS_COMMAND, timeout=5
+        )
+        return port in self._parse_listening_ports(result.stdout)
+
     async def get_ide_url(self, sandbox_id: str) -> str | None:
         sandbox_dir = self._resolve_sandbox_dir(sandbox_id)
+        if not await self._is_port_listening(sandbox_id, OPENVSCODE_PORT):
+            return None
         folder = quote(str(sandbox_dir), safe="/")
         return f"{self._preview_base_url}:{OPENVSCODE_PORT}/?folder={folder}"
 
     async def get_vnc_url(self, sandbox_id: str) -> str | None:
         self._resolve_sandbox_dir(sandbox_id)
+        if not await self._is_port_listening(sandbox_id, VNC_WEBSOCKET_PORT):
+            return None
         base_url = self._preview_base_url.replace("http://", "ws://", 1).replace(
             "https://", "wss://", 1
         )

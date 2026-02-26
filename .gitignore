@@ -74,3 +74,12 @@ backend/desktop/.pyinstaller/
 backend/desktop/build/
 # Runtime scheduler state file
 backend/*beat-schedule*
+
+# Host environment artifacts
+.bashrc
+.claude.json
+.codex/
+.ide_connection_token
+.npm/
+.openvscode-server/
+Library/
