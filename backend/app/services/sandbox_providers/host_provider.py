@@ -340,7 +340,7 @@ class LocalHostProvider(SandboxProvider):
     ) -> list[FileMetadata]:
         sandbox_dir = self._resolve_sandbox_dir(sandbox_id)
         patterns = list(excluded_patterns or [])
-        patterns.extend(await self._get_gitignore_patterns(sandbox_id))
+        patterns.extend(await self._get_gitignore_patterns(sandbox_id, str(sandbox_dir)))
         patterns = list(dict.fromkeys(patterns))
         return await asyncio.to_thread(self._walk_files, sandbox_dir, patterns)
 
