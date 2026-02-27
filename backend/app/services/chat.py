@@ -50,7 +50,6 @@ from app.utils.validators import APIKeyValidationError, validate_model_api_keys
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-CHAT_TITLE_MAX_LENGTH = 50
 TERMINAL_STREAM_EVENT_TYPES = {"cancelled", "complete", "error"}
 
 
@@ -168,7 +167,7 @@ class ChatService(BaseDbService[Chat]):
 
         async with self.session_factory() as db:
             chat = Chat(
-                title=self._truncate_title(chat_data.title),
+                title=chat_data.title,
                 user_id=user.id,
                 sandbox_id=sandbox_id,
                 workspace_path=workspace_path,
@@ -210,7 +209,7 @@ class ChatService(BaseDbService[Chat]):
                 )
 
             if chat_update.title is not None:
-                chat.title = self._truncate_title(chat_update.title)
+                chat.title = chat_update.title
 
             if chat_update.pinned is not None:
                 chat.pinned_at = (
@@ -782,7 +781,7 @@ class ChatService(BaseDbService[Chat]):
 
             async with self.session_factory() as db:
                 new_chat = Chat(
-                    title=self._truncate_title(f"Fork of {source_chat.title}"),
+                    title=f"Fork of {source_chat.title}"[:255],
                     user_id=user.id,
                     sandbox_id=new_sandbox_id,
                     sandbox_provider=SandboxProviderType.DOCKER.value,
@@ -860,11 +859,6 @@ class ChatService(BaseDbService[Chat]):
             )
             result = await db.execute(query)
             return bool(result.scalar())
-
-    def _truncate_title(self, title: str) -> str:
-        if len(title) <= CHAT_TITLE_MAX_LENGTH:
-            return title
-        return title[:CHAT_TITLE_MAX_LENGTH] + "..."
 
     def _validate_api_keys(self, user_settings: UserSettings, model_id: str) -> None:
         try:

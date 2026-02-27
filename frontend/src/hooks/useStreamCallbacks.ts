@@ -315,24 +315,39 @@ export function useStreamCallbacks({
         return;
       }
 
-      if (envelope.kind === 'system' && onContextUsageUpdate) {
+      if (envelope.kind === 'system') {
         const payload = envelope.payload as Record<string, unknown>;
         const nestedData =
           payload.data && typeof payload.data === 'object'
             ? (payload.data as Record<string, unknown>)
             : undefined;
-        const contextUsage =
-          (payload.context_usage as ContextUsage | undefined) ??
-          (nestedData?.context_usage as ContextUsage | undefined);
-        if (contextUsage) {
-          const eventChatId =
-            typeof payload.chat_id === 'string'
-              ? payload.chat_id
-              : typeof nestedData?.chat_id === 'string'
-                ? nestedData.chat_id
-                : undefined;
-          onContextUsageUpdate(contextUsage, eventChatId);
+
+        const eventChatId =
+          typeof payload.chat_id === 'string'
+            ? payload.chat_id
+            : typeof nestedData?.chat_id === 'string'
+              ? nestedData.chat_id
+              : undefined;
+
+        if (onContextUsageUpdate) {
+          const contextUsage =
+            (payload.context_usage as ContextUsage | undefined) ??
+            (nestedData?.context_usage as ContextUsage | undefined);
+          if (contextUsage) {
+            onContextUsageUpdate(contextUsage, eventChatId);
+          }
         }
+
+        const chatTitle =
+          (payload.chat_title as string | undefined) ??
+          (nestedData?.chat_title as string | undefined);
+        if (chatTitle && eventChatId) {
+          queryClient.setQueryData<Chat>(queryKeys.chat(eventChatId), (old) =>
+            old ? { ...old, title: chatTitle } : old,
+          );
+          queryClient.invalidateQueries({ queryKey: [queryKeys.chats] });
+        }
+
         return;
       }
 

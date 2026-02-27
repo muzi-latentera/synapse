@@ -9,29 +9,23 @@ from functools import partial
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from claude_agent_sdk import ClaudeSDKClient, CLIConnectionError, CLIJSONDecodeError
+from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.constants import (
-    REDIS_KEY_CHAT_CONTEXT_USAGE,
-    REDIS_KEY_CHAT_STREAM_LIVE,
-)
-from claude_agent_sdk import ClaudeSDKClient
-
-from app.services.transports import SandboxTransport
+from app.constants import REDIS_KEY_CHAT_CONTEXT_USAGE, REDIS_KEY_CHAT_STREAM_LIVE
 from app.core.config import get_settings
-from app.utils.cache import CacheError, CacheStore, cache_connection
 from app.db.session import SessionLocal
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.enums import MessageRole, MessageStreamStatus
 from app.models.db_models.user import User, UserSettings
 from app.prompts.system_prompt import build_system_prompt_for_chat
-from claude_agent_sdk import CLIConnectionError, CLIJSONDecodeError
 from app.services.claude_agent import (
-    ClaudeAgentService,
     SDK_PERMISSION_MODE_MAP,
+    ClaudeAgentService,
     SessionParams,
 )
+from app.services.claude_session_registry import session_registry
 from app.services.db import SessionFactoryType
 from app.services.exceptions import ClaudeAgentException
 from app.services.message import MessageService
@@ -43,8 +37,9 @@ from app.services.streaming.types import (
     StreamEvent,
     StreamSnapshotAccumulator,
 )
-from app.services.claude_session_registry import session_registry
+from app.services.transports import SandboxTransport
 from app.services.user import UserService
+from app.utils.cache import CacheError, CacheStore, cache_connection
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -141,6 +136,8 @@ class ChatStreamRuntime:
         self.session_container: dict[str, Any] = {"session_id": request.session_id}
         self.assistant_message_id = request.assistant_message_id
         self.model_id = request.model_id
+        self.prompt = request.prompt
+        self._is_new_chat = request.session_id is None
         self.custom_instructions = request.custom_instructions
         self.sandbox_service = sandbox_service
         self.session_factory = session_factory
@@ -391,6 +388,7 @@ class ChatStreamRuntime:
 
         if status == MessageStreamStatus.COMPLETED:
             await self._create_checkpoint()
+            await self._generate_title()
             queue_processed = await self._process_next_queued()
             if not queue_processed:
                 await self._emit_context_usage(ai_service)
@@ -699,6 +697,28 @@ class ChatStreamRuntime:
             logger.debug(
                 "Context usage update failed for chat %s: %s", self.chat_id, exc
             )
+
+    async def _generate_title(self) -> None:
+        if not self.prompt or not self._is_new_chat:
+            return
+
+        ai_service = ClaudeAgentService(session_factory=self.session_factory)
+        user = User(id=self.chat.user_id)
+        title = await ai_service.generate_title(self.prompt, user)
+        if not title:
+            return
+
+        async with self.session_factory() as db:
+            await db.execute(
+                update(Chat).where(Chat.id == self.chat.id).values(title=title)
+            )
+            await db.commit()
+
+        await self.emit_event(
+            "system",
+            {"chat_title": title, "chat_id": self.chat_id},
+            apply_snapshot=False,
+        )
 
     @classmethod
     async def stop_background_chats(cls) -> None:

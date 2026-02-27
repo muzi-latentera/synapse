@@ -54,7 +54,7 @@ class Message(MessageBase):
 
 
 class ChatBase(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
+    title: str = Field(..., min_length=1, max_length=255)
 
 
 class ChatCreate(ChatBase):
@@ -73,7 +73,7 @@ class WorkspaceBootstrapResponse(BaseModel):
 
 
 class ChatUpdate(BaseModel):
-    title: str | None = Field(None, min_length=1, max_length=200)
+    title: str | None = Field(None, min_length=1, max_length=255)
     pinned: bool | None = None
 
 

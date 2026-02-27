@@ -318,6 +318,38 @@ class ClaudeAgentService:
         except ClaudeSDKError as e:
             raise ClaudeAgentException(f"Failed to enhance prompt: {str(e)}")
 
+    async def generate_title(self, prompt: str, user: User) -> str | None:
+        user_settings = await UserService(
+            session_factory=self.session_factory
+        ).get_user_settings(user.id)
+
+        # Build auth env for the default Anthropic provider (Haiku)
+        env, _ = self._build_auth_env("claude-haiku-4-5-20251001", user_settings)
+
+        options = ClaudeAgentOptions(
+            system_prompt=(
+                "Generate a short conversation title (3-8 words) for the "
+                "user's message. Reply with ONLY the title, nothing else."
+            ),
+            permission_mode="default",
+            model="haiku",
+            max_turns=1,
+            env=env,
+        )
+
+        try:
+            title = ""
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(prompt)
+                async for message in client.receive_response():
+                    if isinstance(message, ResultMessage) and message.result:
+                        title = message.result.strip().strip('"')
+
+            return title or None
+        except ClaudeSDKError:
+            logger.debug("Title generation SDK call failed for user %s", user.id)
+            return None
+
     def _build_permission_server(
         self, permission_mode: str, chat_id: str, sandbox_provider: str = "docker"
     ) -> dict[str, Any]:
