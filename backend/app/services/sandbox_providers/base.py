@@ -3,6 +3,7 @@ import base64
 import logging
 import posixpath
 import shlex
+import subprocess
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path, PurePosixPath
@@ -34,15 +35,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 LISTENING_PORTS_COMMAND = "ss -tuln | grep LISTEN | awk '{print $5}' | sed 's/.*://g' | grep -E '^[0-9]+$' | sort -u"
-GITIGNORE_CMD = (
-    '{ base_home="${HOST_HOME:-$HOME}";'
-    " [ -f .gitignore ] && cat .gitignore && echo;"
-    ' p=$(HOME="$base_home" git config --global core.excludesFile 2>/dev/null);'
-    ' [ -z "$p" ] && p="${XDG_CONFIG_HOME:-$base_home/.config}/git/ignore";'
-    ' [ -n "$p" ] && p="${p/#~/$base_home}"'
-    ' && case "$p" in /*) ;; *) p="$base_home/$p" ;; esac'
-    ' && [ -f "$p" ] && cat "$p"; } 2>/dev/null'
-)
+GITIGNORE_CMD = "cat .gitignore 2>/dev/null"
 
 
 class SandboxProvider(ABC):
@@ -167,15 +160,49 @@ class SandboxProvider(ABC):
 
         return list(dict.fromkeys(patterns))
 
-    async def _get_gitignore_patterns(self, sandbox_id: str) -> list[str]:
+    @staticmethod
+    def _read_global_gitignore() -> str:
+        # Read from the API host, not the sandbox — sandbox containers
+        # don't have the user's global git config, so this is the only
+        # way to pick up global excludes like ~/.gitignore_global.
+        try:
+            result = subprocess.run(
+                ["git", "config", "--global", "core.excludesFile"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            p = result.stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            p = ""
+        # Fall back to XDG default location when core.excludesFile is not set
+        if not p:
+            p = str(Path.home() / ".config" / "git" / "ignore")
+        # Expand ~ and resolve relative paths against $HOME (matching git behavior)
+        path = Path(p).expanduser()
+        if not path.is_absolute():
+            path = Path.home() / path
+        try:
+            return path.read_text() if path.is_file() else ""
+        except (OSError, UnicodeDecodeError):
+            return ""
+
+    async def _get_gitignore_patterns(
+        self, sandbox_id: str, path: str = SANDBOX_HOME_DIR
+    ) -> list[str]:
+        cmd = f"cd {shlex.quote(path)} && {GITIGNORE_CMD}"
         result = await self.execute_command(
             sandbox_id,
-            GITIGNORE_CMD,
+            cmd,
             timeout=5,
         )
-        if not result.stdout:
+        parts = result.stdout or ""
+        global_ignore = await asyncio.to_thread(self._read_global_gitignore)
+        if global_ignore:
+            parts = f"{parts}\n{global_ignore}"
+        if not parts.strip():
             return []
-        return self._build_gitignore_patterns(result.stdout)
+        return self._build_gitignore_patterns(parts)
 
     @abstractmethod
     async def create_sandbox(self, workspace_path: str | None = None) -> str:
@@ -235,7 +262,7 @@ class SandboxProvider(ABC):
         excluded_patterns: list[str] | None = None,
     ) -> list[FileMetadata]:
         patterns = list(excluded_patterns or [])
-        patterns.extend(await self._get_gitignore_patterns(sandbox_id))
+        patterns.extend(await self._get_gitignore_patterns(sandbox_id, path))
         patterns = list(dict.fromkeys(patterns))
 
         if patterns:

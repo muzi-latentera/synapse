@@ -46,9 +46,12 @@
 - Narrow `except` clauses to specific exception types — never `except Exception` when the actual failure modes are known (e.g., `except (KeyError, SomeLibError)` not `except Exception`)
 - Do not translate exceptions across boundaries just to change the type — if an upstream function already raises a meaningful error, let it propagate; only catch-and-wrap when the caller genuinely needs a different status code or error shape that the original doesn't provide
 - Do not handle hypothetical input shapes — if you have evidence of the actual data format (logs, tests, type definitions), write code for that format only; do not add branches for types or structures you have not observed
-- Don't add comments or docstrings for self-explanatory code
+- Don't add comments or docstrings for self-explanatory code — but do add inline comments for non-obvious logic, implicit conventions, or design decisions that aren't clear from the code alone
+- Do not delete existing comments without asking first — they may capture context that isn't obvious from the code
 - Let the code speak for itself - use clear variable/function names instead of comments
 - Do not use decorative section comments (e.g., `# ── Section ──────`) — code structure should be self-evident from class/method organization
+- Example — no comment needed (self-explanatory): `user_dir.mkdir(parents=True, exist_ok=True)`
+- Example — comment needed (non-obvious why): `# Read from the API host, not the sandbox — sandbox containers don't have the user's global git config`
 - Avoid no-op pass-through wrappers (e.g., a function that only calls another function with identical args/return)
 - If a wrapper exists, it must add concrete value (validation, transformation, error handling, compatibility boundary, or stable public API surface)
 - Prefer direct imports/calls over indirection when behavior is unchanged
