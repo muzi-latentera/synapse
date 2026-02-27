@@ -9,29 +9,23 @@ from functools import partial
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from claude_agent_sdk import ClaudeSDKClient, CLIConnectionError, CLIJSONDecodeError
+from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.constants import (
-    REDIS_KEY_CHAT_CONTEXT_USAGE,
-    REDIS_KEY_CHAT_STREAM_LIVE,
-)
-from claude_agent_sdk import ClaudeSDKClient
-
-from app.services.transports import SandboxTransport
+from app.constants import REDIS_KEY_CHAT_CONTEXT_USAGE, REDIS_KEY_CHAT_STREAM_LIVE
 from app.core.config import get_settings
-from app.utils.cache import CacheError, CacheStore, cache_connection
 from app.db.session import SessionLocal
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.enums import MessageRole, MessageStreamStatus
 from app.models.db_models.user import User, UserSettings
 from app.prompts.system_prompt import build_system_prompt_for_chat
-from claude_agent_sdk import CLIConnectionError, CLIJSONDecodeError
 from app.services.claude_agent import (
-    ClaudeAgentService,
     SDK_PERMISSION_MODE_MAP,
+    ClaudeAgentService,
     SessionParams,
 )
+from app.services.claude_session_registry import session_registry
 from app.services.db import SessionFactoryType
 from app.services.exceptions import ClaudeAgentException
 from app.services.message import MessageService
@@ -43,8 +37,9 @@ from app.services.streaming.types import (
     StreamEvent,
     StreamSnapshotAccumulator,
 )
-from app.services.claude_session_registry import session_registry
+from app.services.transports import SandboxTransport
 from app.services.user import UserService
+from app.utils.cache import CacheError, CacheStore, cache_connection
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -713,12 +708,11 @@ class ChatStreamRuntime:
         if not title:
             return
 
-        # Inline import to avoid circular: chat.py imports streaming.runtime
-        from app.services.chat import ChatService
-
-        chat_service = ChatService(session_factory=self.session_factory)
-        if not await chat_service.set_title(self.chat.id, title):
-            return
+        async with self.session_factory() as db:
+            await db.execute(
+                update(Chat).where(Chat.id == self.chat.id).values(title=title)
+            )
+            await db.commit()
 
         await self.emit_event(
             "system",
