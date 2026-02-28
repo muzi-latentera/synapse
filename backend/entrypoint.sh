@@ -23,7 +23,7 @@ start-vnc.sh &
 echo "Starting API server..."
 if [ -S /var/run/docker.sock ]; then
     echo "Docker socket detected, running as current user for Docker access..."
-    exec sh -c "ulimit -s 65536 && exec granian --interface asgi app.main:app --host 0.0.0.0 --port ${PORT:-8080}"
+    exec sh -c "ulimit -s 65536 && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1 --log-level info --no-proxy-headers"
 else
-    exec gosu appuser sh -c "ulimit -s 65536 && exec granian --interface asgi app.main:app --host 0.0.0.0 --port ${PORT:-8080}"
+    exec gosu appuser sh -c "ulimit -s 65536 && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1 --log-level info --no-proxy-headers"
 fi

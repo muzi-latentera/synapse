@@ -97,7 +97,7 @@ module = [
     "sqladmin.*",
     "sse_starlette.*",
     "prometheus_fastapi_instrumentator.*",
-    "granian.*",
+    "uvicorn.*",
     "claude_agent_sdk.*",
     "yaml",
     "fastapi_users.*",

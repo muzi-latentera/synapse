@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
-from granian import Granian
+import uvicorn
 from migrate import check_and_run_migrations
 
 
@@ -15,14 +15,14 @@ def main() -> None:
     parsed = urlparse(base_url)
     port = parsed.port or 8081
 
-    server = Granian(
-        target="app.main:app",
-        address="127.0.0.1",
+    uvicorn.run(
+        "app.main:app",
+        host="127.0.0.1",
         port=port,
-        interface="asgi",
         workers=1,
+        log_level="info",
+        proxy_headers=False,
     )
-    server.serve()
 
 
 if __name__ == "__main__":

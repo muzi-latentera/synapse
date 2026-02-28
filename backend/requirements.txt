@@ -11,7 +11,7 @@ alembic
 python-jose[cryptography]
 cryptography
 bcrypt
-granian
+uvicorn[standard]
 jinja2>=3.1.3,<4.0
 markupsafe
 python-multipart

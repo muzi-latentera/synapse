@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import FastAPI, Response, status
 from fastapi.staticfiles import StaticFiles
-from granian.utils.proxies import wrap_asgi_with_proxy_headers
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from sqlalchemy import text
 
 from app.api.docs import custom_openapi
@@ -244,4 +244,4 @@ if not settings.DESKTOP_MODE and _instrumentator_available:
     Instrumentator().instrument(app).expose(app)
 
 if not settings.DISABLE_PROXY_HEADERS:
-    app = wrap_asgi_with_proxy_headers(app, trusted_hosts=settings.TRUSTED_PROXY_HOSTS)
+    app = ProxyHeadersMiddleware(app, trusted_hosts=settings.TRUSTED_PROXY_HOSTS)
