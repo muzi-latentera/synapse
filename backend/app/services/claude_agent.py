@@ -296,8 +296,9 @@ class ClaudeAgentService:
 
         options = ClaudeAgentOptions(
             system_prompt=(
-                "Generate a short conversation title (3-8 words) for the "
-                "user's message. Reply with ONLY the title, nothing else."
+                "Generate a short conversation title (3-8 words, max 255 characters) for the "
+                "user's message. Reply with ONLY the title, nothing else. "
+                "Do not explain, analyze, or comment on the message."
             ),
             permission_mode="default",
             model=actual_model_id,

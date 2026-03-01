@@ -713,6 +713,7 @@ class ChatStreamRuntime:
         title = await ai_service.generate_title(self.prompt, user)
         if not title:
             return
+        title = title[:255]
 
         async with self.session_factory() as db:
             await db.execute(
