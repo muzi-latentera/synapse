@@ -83,6 +83,25 @@ export function findFileInStructure(
   return undefined;
 }
 
+// Tool paths are absolute (/home/user/project/src/foo.ts), tree paths are relative (src/foo.ts).
+// Try the exact path first, then progressively strip leading segments to find a match.
+export function findFileByToolPath(
+  items: FileStructure[],
+  toolPath: string,
+): FileStructure | undefined {
+  const found = findFileInStructure(items, toolPath);
+  if (found) return found;
+
+  if (!toolPath.startsWith('/')) return undefined;
+
+  const parts = toolPath.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    const candidate = findFileInStructure(items, parts.slice(i).join('/'));
+    if (candidate) return candidate;
+  }
+  return undefined;
+}
+
 export function detectLanguage(path: string): string {
   if (!path) return 'javascript';
 

@@ -338,16 +338,6 @@ export function useStreamCallbacks({
           }
         }
 
-        const chatTitle =
-          (payload.chat_title as string | undefined) ??
-          (nestedData?.chat_title as string | undefined);
-        if (chatTitle && eventChatId) {
-          queryClient.setQueryData<Chat>(queryKeys.chat(eventChatId), (old) =>
-            old ? { ...old, title: chatTitle } : old,
-          );
-          queryClient.invalidateQueries({ queryKey: [queryKeys.chats] });
-        }
-
         return;
       }
 

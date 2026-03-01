@@ -19,6 +19,7 @@ import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useWorkspacesQuery } from '@/hooks/queries/useWorkspaceQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { mergeAgents } from '@/utils/settings';
+import { findFileByToolPath } from '@/utils/file';
 import { ChatProvider } from '@/contexts/ChatContext';
 
 const Editor = lazy(() =>
@@ -137,9 +138,11 @@ export function ChatPage() {
 
   useEffect(() => {
     if (!pendingFilePath) return;
-    setSelectedFile({ path: pendingFilePath, type: 'file', content: '' });
+
+    const file = findFileByToolPath(fileStructure, pendingFilePath);
+    setSelectedFile(file ?? { path: pendingFilePath, type: 'file', content: '' });
     useUIStore.setState({ pendingFilePath: null });
-  }, [pendingFilePath, setSelectedFile]);
+  }, [pendingFilePath, setSelectedFile, fileStructure]);
 
   const handleChatSelect = useCallback(
     (selectedChatId: string) => {
