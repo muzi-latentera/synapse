@@ -45,6 +45,11 @@ const SLASH_COMMANDS: SlashCommand[] = [
     label: 'Insights',
     description: 'Generate a report analyzing your Claude code sessions',
   },
+  {
+    value: '/simplify',
+    label: 'Simplify',
+    description: 'Review changed code for reuse, quality and efficiency, then fix any issues found',
+  },
 ];
 
 interface UseSlashCommandOptions {

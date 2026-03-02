@@ -54,6 +54,7 @@ ALLOWED_SLASH_COMMANDS = [
     "/debug",
     "/security-review",
     "/insights",
+    "/simplify",
 ]
 SDK_PERMISSION_MODE_MAP: dict[
     str, Literal["default", "acceptEdits", "plan", "bypassPermissions"]
