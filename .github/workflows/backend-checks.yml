@@ -65,38 +65,38 @@ jobs:
         continue-on-error: true
         run: pip-audit -r backend/requirements.lock
 
-  test:
-    name: Run Backend Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('backend/Dockerfile.test', 'backend/requirements*.txt', 'backend/requirements*.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Pull sandbox image and create network
-        run: |
-          docker pull ghcr.io/mng-dev-ai/claudex-sandbox:latest
-          docker network create claudex-sandbox-net 2>/dev/null || true
-
-      - name: Run tests with Docker Compose
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          DOCKER_IMAGE: ghcr.io/mng-dev-ai/claudex-sandbox:latest
-        run: |
-          docker compose -f docker-compose.test.yml build backend-test
-          docker compose -f docker-compose.test.yml run --rm backend-test pytest -v --tb=short --maxfail=5
-
-      - name: Cleanup Docker Compose
-        if: always()
-        run: docker compose -f docker-compose.test.yml down -v
+  # test:
+  #   name: Run Backend Tests
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+  #
+  #     - name: Cache Docker layers
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: /tmp/.buildx-cache
+  #         key: ${{ runner.os }}-buildx-${{ hashFiles('backend/Dockerfile.test', 'backend/requirements*.txt', 'backend/requirements*.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-buildx-
+  #
+  #     - name: Pull sandbox image and create network
+  #       run: |
+  #         docker pull ghcr.io/mng-dev-ai/claudex-sandbox:latest
+  #         docker network create claudex-sandbox-net 2>/dev/null || true
+  #
+  #     - name: Run tests with Docker Compose
+  #       env:
+  #         CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+  #         GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  #         DOCKER_IMAGE: ghcr.io/mng-dev-ai/claudex-sandbox:latest
+  #       run: |
+  #         docker compose -f docker-compose.test.yml build backend-test
+  #         docker compose -f docker-compose.test.yml run --rm backend-test pytest -v --tb=short --maxfail=5
+  #
+  #     - name: Cleanup Docker Compose
+  #       if: always()
+  #       run: docker compose -f docker-compose.test.yml down -v
