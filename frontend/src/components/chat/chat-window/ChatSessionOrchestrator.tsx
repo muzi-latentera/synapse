@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChatSessionProvider } from '@/contexts/ChatSessionContext';
@@ -88,16 +88,8 @@ export function ChatSessionOrchestrator({
     onPermissionRequest: handlePermissionRequest,
   });
 
-  const {
-    messages,
-    sendMessage,
-    isLoading,
-    isStreaming,
-    error,
-    wasAborted,
-    setWasAborted,
-    setMessages,
-  } = streamingState;
+  const { messages, sendMessage, isLoading, isStreaming, error, wasAborted, setMessages } =
+    streamingState;
 
   useMessageInitialization({
     fetchedMessages,
@@ -166,14 +158,6 @@ export function ChatSessionOrchestrator({
     setInitialPromptSent(false);
   }, [chatId, setInitialPromptSent]);
 
-  const handleRestoreSuccess = useCallback(() => {
-    setWasAborted(false);
-    messagesQuery.refetch();
-    if (currentChat?.sandbox_id) {
-      refetchFilesMetadata();
-    }
-  }, [setWasAborted, messagesQuery, currentChat?.sandbox_id, refetchFilesMetadata]);
-
   const chatSessionState = useMemo<ChatSessionState>(
     () => ({
       messages,
@@ -221,7 +205,6 @@ export function ChatSessionOrchestrator({
       onModelChange: selectModel,
       onDismissError: streamingState.handleDismissError,
       fetchNextPage: messagesQuery.fetchNextPage,
-      onRestoreSuccess: handleRestoreSuccess,
       onPermissionApprove: handleApprove,
       onPermissionReject: handleReject,
     }),
@@ -233,7 +216,6 @@ export function ChatSessionOrchestrator({
       streamingState.handleDismissError,
       selectModel,
       messagesQuery.fetchNextPage,
-      handleRestoreSuccess,
       handleApprove,
       handleReject,
     ],

@@ -49,12 +49,6 @@ class PtySize:
 
 
 @dataclass
-class CheckpointInfo:
-    message_id: str
-    created_at: str
-
-
-@dataclass
 class PreviewLink:
     preview_url: str
     port: int

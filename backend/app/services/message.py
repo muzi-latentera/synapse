@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import case, select, delete, update, or_, and_, insert
+from sqlalchemy import case, select, update, or_, and_, insert
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -371,15 +371,6 @@ class MessageService(BaseDbService[Message]):
             result = await db.execute(query)
             return list(result.scalars().all())
 
-    async def delete_messages_after(self, chat_id: UUID, message: Message) -> int:
-        async with self.session_factory() as db:
-            delete_stmt = delete(Message).filter(
-                Message.chat_id == chat_id, Message.created_at > message.created_at
-            )
-            result = await db.execute(delete_stmt)
-            await db.commit()
-            return int(getattr(result, "rowcount", 0))
-
     async def get_attachment(
         self, attachment_id: UUID, db: AsyncSession
     ) -> MessageAttachment | None:
@@ -401,42 +392,3 @@ class MessageService(BaseDbService[Message]):
             result = await db.execute(stmt)
             await db.commit()
             return int(getattr(result, "rowcount", 0)) > 0
-
-    async def get_messages_up_to(
-        self, chat_id: UUID, message_id: UUID
-    ) -> list[Message]:
-        async with self.session_factory() as db:
-            target_query = select(Message).filter(
-                Message.id == message_id,
-                Message.chat_id == chat_id,
-                Message.deleted_at.is_(None),
-            )
-            target_result = await db.execute(target_query)
-            target_message = target_result.scalar_one_or_none()
-
-            if target_message is None:
-                raise MessageException(
-                    "Message not found in this chat",
-                    error_code=ErrorCode.MESSAGE_NOT_FOUND,
-                    details={"message_id": str(message_id), "chat_id": str(chat_id)},
-                    status_code=404,
-                )
-
-            query = (
-                select(Message)
-                .options(selectinload(Message.attachments))
-                .filter(
-                    Message.chat_id == chat_id,
-                    Message.deleted_at.is_(None),
-                    or_(
-                        Message.created_at < target_message.created_at,
-                        and_(
-                            Message.created_at == target_message.created_at,
-                            Message.id <= target_message.id,
-                        ),
-                    ),
-                )
-                .order_by(Message.created_at.asc(), Message.id.asc())
-            )
-            result = await db.execute(query)
-            return list(result.scalars().all())

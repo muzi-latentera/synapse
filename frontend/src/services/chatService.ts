@@ -3,13 +3,7 @@ import { ensureResponse, serviceCall, buildQueryString } from '@/services/base/B
 import { authService } from '@/services/authService';
 import { validateRequired, validateId } from '@/utils/validation';
 import { chatStorage } from '@/utils/storage';
-import type {
-  ChatRequest,
-  Chat,
-  CreateChatRequest,
-  ContextUsage,
-  ForkChatResponse,
-} from '@/types/chat.types';
+import type { ChatRequest, Chat, CreateChatRequest, ContextUsage } from '@/types/chat.types';
 import type {
   PaginationParams,
   CursorPaginationParams,
@@ -180,29 +174,6 @@ async function deleteAllChats(): Promise<void> {
   });
 }
 
-async function restoreToCheckpoint(chatId: string, messageId: string): Promise<void> {
-  validateId(chatId, 'Chat ID');
-  validateId(messageId, 'Message ID');
-
-  await serviceCall(async () => {
-    await apiClient.post(`/chat/chats/${chatId}/restore`, {
-      message_id: messageId,
-    });
-  });
-}
-
-async function forkChat(chatId: string, messageId: string): Promise<ForkChatResponse> {
-  validateId(chatId, 'Chat ID');
-  validateId(messageId, 'Message ID');
-
-  return serviceCall(async () => {
-    const response = await apiClient.post<ForkChatResponse>(`/chat/chats/${chatId}/fork`, {
-      message_id: messageId,
-    });
-    return ensureResponse(response, 'Failed to fork chat');
-  });
-}
-
 async function getContextUsage(chatId: string): Promise<ContextUsage> {
   validateId(chatId, 'Chat ID');
 
@@ -316,8 +287,6 @@ export const chatService = {
   updateChat,
   deleteChat,
   deleteAllChats,
-  restoreToCheckpoint,
-  forkChat,
   getContextUsage,
   enhancePrompt,
   pinChat,

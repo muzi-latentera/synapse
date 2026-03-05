@@ -333,7 +333,6 @@ export const Chat = memo(function Chat() {
               isStreaming={messageIsStreaming}
               createdAt={msg.created_at}
               modelId={msg.model_id}
-              isLastBotMessageWithCommit={isLastBotMessage}
               isLastBotMessage={isLastBotMessage && !messageIsStreaming}
             />
           ) : (

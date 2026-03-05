@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.constants import REDIS_KEY_CHAT_STREAM_LIVE
 from app.core.config import get_settings
-from app.models.db_models.chat import Chat, Message, MessageAttachment
+from app.models.db_models.chat import Chat, Message
 from app.models.db_models.enums import MessageRole, MessageStreamStatus, StreamEventKind
 from app.models.db_models.user import User, UserSettings
 from app.models.db_models.workspace import Workspace
@@ -33,13 +33,11 @@ from app.services.exceptions import ChatException, ErrorCode
 from app.services.message import MessageService
 from app.services.provider import ProviderService
 from app.services.sandbox import SandboxService
-from app.services.sandbox_providers import LocalDockerProvider, SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.storage import StorageService
 from app.services.streaming.runtime import ChatStreamRuntime
 from app.services.streaming.types import ChatStreamRequest, StreamEnvelope
 from app.services.user import UserService
-from app.utils.attachment_urls import AttachmentURL
 from app.utils.cache import CachePubSub, cache_connection, cache_pubsub
 from app.utils.validators import APIKeyValidationError, validate_model_api_keys
 
@@ -63,7 +61,7 @@ class ChatService(BaseDbService[Chat]):
     @staticmethod
     def sandbox_for_workspace(workspace: Workspace) -> SandboxService:
         # Create a short-lived SandboxService bound to the workspace's
-        # provider and container — used for file ops, checkpoints, and cleanup.
+        # provider and container — used for file ops and cleanup.
         provider = SandboxProviderFactory.create_bound(
             workspace.sandbox_provider,
             sandbox_id=workspace.sandbox_id,
@@ -705,183 +703,6 @@ class ChatService(BaseDbService[Chat]):
             "chat_id": str(chat_id),
             "last_seq": int(chat.last_event_seq or 0),
         }
-
-    async def restore_to_checkpoint(
-        self, chat_id: UUID, message_id: UUID, current_user: User
-    ) -> None:
-        # Roll back a chat to a previous state: restore the sandbox filesystem
-        # from the checkpoint, delete all messages after the target, and reset
-        # the session_id so the next completion resumes from that point.
-        chat = await self.get_chat(chat_id, current_user)
-        sandbox_id = chat.workspace.sandbox_id
-
-        async with self.session_factory() as db:
-            result = await db.execute(select(Message).filter(Message.id == message_id))
-            message = result.scalar_one_or_none()
-
-            if not message or message.chat_id != chat_id:
-                raise ChatException(
-                    "Message not found for this chat",
-                    error_code=ErrorCode.MESSAGE_NOT_FOUND,
-                    details={"message_id": str(message_id), "chat_id": str(chat_id)},
-                    status_code=404,
-                )
-
-            if sandbox_id and message.checkpoint_id:
-                ws_sandbox = self.sandbox_for_workspace(chat.workspace)
-                await ws_sandbox.restore_checkpoint(sandbox_id, str(message.id))
-
-            await self.message_service.delete_messages_after(chat_id, message)
-
-            update_stmt = (
-                update(Chat)
-                .where(Chat.id == chat_id)
-                .values(session_id=message.session_id)
-            )
-            await db.execute(update_stmt)
-            await db.commit()
-
-    async def fork_chat(
-        self, source_chat_id: UUID, message_id: UUID, user: User
-    ) -> tuple[Chat, int]:
-        # Create an independent copy of a chat at a specific message: clones the
-        # sandbox container from the checkpoint, duplicates the workspace/chat/
-        # messages/attachments in a single transaction, and cleans up on failure.
-        source_chat = await self.get_chat(source_chat_id, user)
-        source_workspace = source_chat.workspace
-
-        if source_workspace.sandbox_provider != SandboxProviderType.DOCKER.value:
-            raise ChatException(
-                "Fork is only supported with Docker sandbox provider",
-                error_code=ErrorCode.VALIDATION_ERROR,
-                status_code=400,
-            )
-
-        if not source_workspace.sandbox_id:
-            raise ChatException(
-                "Source chat has no sandbox",
-                error_code=ErrorCode.VALIDATION_ERROR,
-                status_code=400,
-            )
-
-        messages = await self.message_service.get_messages_up_to(
-            source_chat_id, message_id
-        )
-        if not messages:
-            raise ChatException(
-                "No messages to fork",
-                error_code=ErrorCode.VALIDATION_ERROR,
-                status_code=400,
-            )
-
-        target_message = messages[-1]
-
-        user_settings = await self._user_service.get_user_settings(user.id)
-
-        provider = LocalDockerProvider(
-            config=SandboxProviderFactory.create_docker_config()
-        )
-        fork_sandbox_service = SandboxService(provider)
-
-        new_sandbox_id: str | None = None
-        try:
-            new_sandbox_id = await fork_sandbox_service.provider.clone_sandbox(
-                source_workspace.sandbox_id,
-                checkpoint_id=target_message.checkpoint_id,
-            )
-
-            await fork_sandbox_service.initialize_sandbox(
-                sandbox_id=new_sandbox_id,
-                custom_providers=user_settings.custom_providers,
-                is_fork=True,
-            )
-
-            async with self.session_factory() as db:
-                # Create a new workspace for the fork
-                new_workspace = Workspace(
-                    name=f"Fork of {source_workspace.name}"[:255],
-                    user_id=user.id,
-                    sandbox_id=new_sandbox_id,
-                    sandbox_provider=SandboxProviderType.DOCKER.value,
-                    workspace_path=source_workspace.workspace_path,
-                    source_type=source_workspace.source_type,
-                    source_url=source_workspace.source_url,
-                )
-                db.add(new_workspace)
-                await db.flush()
-
-                new_chat = Chat(
-                    title=f"Fork of {source_chat.title}"[:255],
-                    user_id=user.id,
-                    workspace_id=new_workspace.id,
-                    session_id=target_message.session_id,
-                )
-                db.add(new_chat)
-                await db.flush()
-
-                new_messages: list[Message] = []
-                msg_to_attachments: list[tuple[Message, list[MessageAttachment]]] = []
-                for msg in messages:
-                    new_message = Message(
-                        chat_id=new_chat.id,
-                        content_text=msg.content_text,
-                        content_render=msg.content_render,
-                        last_seq=0,
-                        active_stream_id=None,
-                        role=msg.role,
-                        model_id=msg.model_id,
-                        session_id=msg.session_id,
-                        checkpoint_id=msg.checkpoint_id,
-                        stream_status=msg.stream_status,
-                        total_cost_usd=msg.total_cost_usd,
-                    )
-                    new_messages.append(new_message)
-                    msg_to_attachments.append((new_message, list(msg.attachments)))
-
-                db.add_all(new_messages)
-                await db.flush()
-
-                all_attachments: list[MessageAttachment] = []
-                for new_message, orig_attachments in msg_to_attachments:
-                    for att in orig_attachments:
-                        new_attachment = MessageAttachment(
-                            message_id=new_message.id,
-                            file_url="",
-                            file_path=att.file_path,
-                            file_type=att.file_type,
-                            filename=att.filename,
-                        )
-                        all_attachments.append(new_attachment)
-
-                if all_attachments:
-                    db.add_all(all_attachments)
-                    await db.flush()
-                    for att in all_attachments:
-                        att.file_url = AttachmentURL.build_preview_url(att.id)
-
-                await db.commit()
-
-                result = await db.execute(
-                    select(Chat)
-                    .options(selectinload(Chat.workspace))
-                    .filter(Chat.id == new_chat.id)
-                )
-                loaded_chat = result.scalar_one()
-
-            return (loaded_chat, len(messages))
-        except Exception:
-            if new_sandbox_id:
-                try:
-                    await fork_sandbox_service.delete_sandbox(new_sandbox_id)
-                except Exception as cleanup_exc:
-                    logger.warning(
-                        "Failed to cleanup fork sandbox %s after error: %s",
-                        new_sandbox_id,
-                        cleanup_exc,
-                    )
-            raise
-        finally:
-            await provider.cleanup()
 
     async def _enqueue_chat_task(
         # Package the chat state into a ChatStreamRequest and kick off the

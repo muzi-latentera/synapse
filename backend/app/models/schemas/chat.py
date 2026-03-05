@@ -95,19 +95,6 @@ class PreviewLinksResponse(BaseModel):
     links: list[PortPreviewLink]
 
 
-class RestoreRequest(BaseModel):
-    message_id: UUID
-
-
-class ForkChatRequest(BaseModel):
-    message_id: UUID
-
-
-class ForkChatResponse(BaseModel):
-    chat: Chat
-    messages_copied: int
-
-
 class ChatCompletionResponse(BaseModel):
     chat_id: UUID
     message_id: UUID

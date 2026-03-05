@@ -6,21 +6,16 @@ import posixpath
 import shlex
 import subprocess
 from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Awaitable, Callable, TypeVar
 
 from app.constants import (
-    CHECKPOINT_BASE_DIR,
-    MAX_CHECKPOINTS_PER_SANDBOX,
     SANDBOX_BASHRC_PATH,
     SANDBOX_BINARY_EXTENSIONS,
     SANDBOX_HOME_DIR,
-    SANDBOX_RESTORE_EXCLUDE_PATTERNS,
     SANDBOX_SYSTEM_VARIABLES,
 )
 from app.services.sandbox_providers.types import (
-    CheckpointInfo,
     CommandResult,
     FileContent,
     FileMetadata,
@@ -37,15 +32,10 @@ T = TypeVar("T")
 
 LISTENING_PORTS_COMMAND = "ss -tuln | grep LISTEN | awk '{print $5}' | sed 's/.*://g' | grep -E '^[0-9]+$' | sort -u"
 GITIGNORE_CMD = "cat .gitignore 2>/dev/null"
-RSYNC_EXCLUDE_ARGS = " ".join(
-    f"--exclude={shlex.quote(pattern)}" for pattern in SANDBOX_RESTORE_EXCLUDE_PATTERNS
-)
 
 
 class SandboxProvider(ABC):
     _pty_sessions: dict[str, dict[str, Any]]
-    _checkpoint_create_extra_rsync_flags: str = ""
-    _checkpoint_restore_extra_rsync_flags: str = ""
 
     @staticmethod
     def normalize_path(file_path: str, base: str = SANDBOX_HOME_DIR) -> str:
@@ -103,21 +93,6 @@ class SandboxProvider(ABC):
             for port in listening_ports
             if port not in excluded
         ]
-
-    async def _get_latest_checkpoint_dir(self, sandbox_id: str) -> str | None:
-        checkpoints = await self.list_checkpoints(sandbox_id)
-        if not checkpoints:
-            return None
-        return f"{CHECKPOINT_BASE_DIR}/{checkpoints[0].message_id}"
-
-    async def _cleanup_old_checkpoints(self, sandbox_id: str) -> None:
-        checkpoints = await self.list_checkpoints(sandbox_id)
-
-        for checkpoint in checkpoints[MAX_CHECKPOINTS_PER_SANDBOX:]:
-            checkpoint_dir = f"{CHECKPOINT_BASE_DIR}/{checkpoint.message_id}"
-            await self.execute_command(
-                sandbox_id, f"rm -rf {shlex.quote(checkpoint_dir)}"
-            )
 
     def _get_pty_session(
         self, sandbox_id: str, session_id: str
@@ -275,13 +250,6 @@ class SandboxProvider(ABC):
     @abstractmethod
     async def delete_sandbox(self, sandbox_id: str) -> None:
         pass
-
-    async def clone_sandbox(
-        self, source_sandbox_id: str, checkpoint_id: str | None = None
-    ) -> str:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support sandbox cloning"
-        )
 
     @abstractmethod
     async def is_running(self, sandbox_id: str) -> bool:
@@ -448,125 +416,6 @@ class SandboxProvider(ABC):
     @abstractmethod
     async def get_preview_links(self, sandbox_id: str) -> list[PreviewLink]:
         pass
-
-    async def create_checkpoint(
-        self,
-        sandbox_id: str,
-        checkpoint_id: str,
-    ) -> str:
-        checkpoint_dir = f"{CHECKPOINT_BASE_DIR}/{checkpoint_id}"
-
-        await self.execute_command(
-            sandbox_id, f"mkdir -p {shlex.quote(CHECKPOINT_BASE_DIR)}"
-        )
-
-        prev_checkpoint = await self._get_latest_checkpoint_dir(sandbox_id)
-
-        link_dest = (
-            f"--link-dest={shlex.quote(prev_checkpoint)} " if prev_checkpoint else ""
-        )
-        extra = (
-            f"{self._checkpoint_create_extra_rsync_flags} "
-            if self._checkpoint_create_extra_rsync_flags
-            else ""
-        )
-        rsync_cmd = (
-            f"rsync -a --delete {extra}"
-            f"{link_dest}"
-            f"{RSYNC_EXCLUDE_ARGS} "
-            f"{SANDBOX_HOME_DIR}/ {shlex.quote(checkpoint_dir)}/"
-        )
-
-        try:
-            await self.execute_command(sandbox_id, rsync_cmd)
-        except Exception as e:
-            logger.error("Checkpoint creation failed for %s: %s", checkpoint_id, e)
-            try:
-                await self.execute_command(
-                    sandbox_id, f"rm -rf {shlex.quote(checkpoint_dir)}"
-                )
-            except Exception:
-                pass
-            raise
-
-        await self._cleanup_old_checkpoints(sandbox_id)
-        return checkpoint_id
-
-    async def restore_checkpoint(
-        self,
-        sandbox_id: str,
-        checkpoint_id: str,
-    ) -> bool:
-        checkpoint_dir = f"{CHECKPOINT_BASE_DIR}/{checkpoint_id}"
-
-        check_result = await self.execute_command(
-            sandbox_id, f'[ -d {shlex.quote(checkpoint_dir)} ] && echo "1" || echo "0"'
-        )
-
-        if check_result.stdout.strip() != "1":
-            raise FileNotFoundError(f"Checkpoint {checkpoint_id} not found")
-
-        extra = (
-            f"{self._checkpoint_restore_extra_rsync_flags} "
-            if self._checkpoint_restore_extra_rsync_flags
-            else ""
-        )
-        rsync_cmd = (
-            f"rsync -a --delete {extra}"
-            f"{RSYNC_EXCLUDE_ARGS} "
-            f"--stats "
-            f"{shlex.quote(checkpoint_dir)}/ {SANDBOX_HOME_DIR}/"
-        )
-
-        await self.execute_command(sandbox_id, rsync_cmd)
-        return True
-
-    async def list_checkpoints(self, sandbox_id: str) -> list[CheckpointInfo]:
-        check_result = await self.execute_command(
-            sandbox_id,
-            f'[ -d {shlex.quote(CHECKPOINT_BASE_DIR)} ] && echo "1" || echo "0"',
-        )
-
-        if check_result.stdout.strip() != "1":
-            return []
-
-        list_cmd = (
-            f"cd {shlex.quote(CHECKPOINT_BASE_DIR)} && "
-            f"for dir in */; do "
-            f'if [ -d "$dir" ]; then '
-            f'echo "${{dir%/}}|$(stat -c %Y "$dir")"; '
-            f"fi; "
-            f"done"
-        )
-
-        result = await self.execute_command(sandbox_id, list_cmd)
-        output = result.stdout.strip()
-
-        if not output:
-            return []
-
-        checkpoints = []
-        for line in output.split("\n"):
-            if "|" not in line:
-                continue
-            parts = line.split("|")
-            if len(parts) != 2:
-                continue
-
-            message_id, timestamp = parts
-            try:
-                ts = int(timestamp)
-            except ValueError:
-                continue
-            checkpoints.append(
-                CheckpointInfo(
-                    message_id=message_id,
-                    created_at=datetime.fromtimestamp(ts).isoformat(),
-                )
-            )
-
-        checkpoints.sort(key=lambda x: x.created_at, reverse=True)
-        return checkpoints
 
     async def get_secrets(self, sandbox_id: str) -> list[SecretEntry]:
         result = await self.execute_command(

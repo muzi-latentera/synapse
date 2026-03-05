@@ -749,7 +749,6 @@ class SchedulerService(BaseDbService[ScheduledTask]):
                     attachments=None,
                     is_custom_prompt=False,
                 ),
-                sandbox_service=sandbox_service,
                 session_factory=self.session_factory,
             )
 

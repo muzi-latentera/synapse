@@ -54,7 +54,6 @@ export interface AssistantMessageProps extends SharedContentProps {
   id: string;
   createdAt?: string;
   modelId?: string;
-  isLastBotMessageWithCommit?: boolean;
   isLastBotMessage?: boolean;
 }
 
@@ -66,7 +65,6 @@ export const AssistantMessage = memo(function AssistantMessage({
   isStreaming,
   createdAt,
   modelId,
-  isLastBotMessageWithCommit,
   isLastBotMessage,
 }: AssistantMessageProps) {
   const { chatId } = useChatContext();
@@ -100,11 +98,7 @@ export const AssistantMessage = memo(function AssistantMessage({
 
           {contentText.trim() && !isStreaming && (
             <div className="mt-2 flex items-center justify-between">
-              <MessageActions
-                messageId={id}
-                contentText={contentText}
-                isLastBotMessageWithCommit={isLastBotMessageWithCommit}
-              />
+              <MessageActions messageId={id} contentText={contentText} />
 
               <div className="flex items-center gap-1.5 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
                 {modelName && <span>{modelName}</span>}

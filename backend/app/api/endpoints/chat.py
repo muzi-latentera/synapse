@@ -38,12 +38,9 @@ from app.models.schemas.chat import (
     ChatRequest,
     ContextUsage,
     EnhancePromptResponse,
-    ForkChatRequest,
-    ForkChatResponse,
     Message as MessageSchema,
     MessageEvent,
     PermissionRespondResponse,
-    RestoreRequest,
 )
 from app.models.schemas.pagination import (
     CursorPaginatedResponse,
@@ -57,8 +54,6 @@ from app.services.claude_agent import ClaudeAgentService
 from app.services.exceptions import (
     ChatException,
     ClaudeAgentException,
-    MessageException,
-    SandboxException,
 )
 from app.services.permission_manager import PermissionManager
 from app.services.queue import QueueService
@@ -314,53 +309,6 @@ async def get_chat_messages(
     return await chat_service.get_chat_messages(
         chat_id, current_user, pagination.cursor, pagination.limit
     )
-
-
-@router.post("/chats/{chat_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
-async def restore_chat(
-    chat_id: UUID,
-    request: RestoreRequest,
-    current_user: User = Depends(get_current_user),
-    chat_service: ChatService = Depends(get_chat_service),
-) -> None:
-    try:
-        await chat_service.restore_to_checkpoint(
-            chat_id, request.message_id, current_user
-        )
-    except ChatException as e:
-        _raise_chat_http_exception(e)
-    except SQLAlchemyError as e:
-        _raise_database_http_exception(e, "restoring chat")
-
-
-@router.post(
-    "/chats/{chat_id}/fork",
-    response_model=ForkChatResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def fork_chat(
-    chat_id: UUID,
-    request: ForkChatRequest,
-    current_user: User = Depends(get_current_user),
-    chat_service: ChatService = Depends(get_chat_service),
-) -> ForkChatResponse:
-    try:
-        new_chat, messages_copied = await chat_service.fork_chat(
-            chat_id, request.message_id, current_user
-        )
-        return ForkChatResponse(chat=new_chat, messages_copied=messages_copied)
-    except (ChatException, MessageException, SandboxException) as e:
-        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
-    except SQLAlchemyError as e:
-        _raise_database_http_exception(e, "forking chat")
-    except FileNotFoundError as e:
-        logger.error(
-            "Checkpoint not found forking chat %s: %s", chat_id, e, exc_info=True
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Checkpoint not found",
-        ) from e
 
 
 @router.get("/chats/{chat_id}/stream")

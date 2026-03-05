@@ -63,7 +63,6 @@ For Anthropic providers, Claudex uses your Claude auth token directly. For custo
 - Workspace-based project organization with per-workspace sandboxes
 - Multi-sandbox runtime (Docker/Host)
 - MCP + custom skills/agents/commands + plugin marketplace
-- Checkpoint restore and chat forking from any prior message state
 - Streaming architecture with resumable SSE events and explicit cancellation
 - Built-in recurring task scheduler (in-process async, no worker service)
 
