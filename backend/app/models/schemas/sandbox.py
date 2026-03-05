@@ -74,3 +74,19 @@ class GitDiffResponse(BaseModel):
     has_changes: bool
     is_git_repo: bool
     error: str | None = None
+
+
+class GitBranchesResponse(BaseModel):
+    branches: list[str]
+    current_branch: str
+    is_git_repo: bool
+
+
+class GitCheckoutRequest(BaseModel):
+    branch: str = Field(..., min_length=1, max_length=256)
+
+
+class GitCheckoutResponse(BaseModel):
+    success: bool
+    current_branch: str
+    error: str | None = None

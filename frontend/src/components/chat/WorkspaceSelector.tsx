@@ -1,6 +1,18 @@
 import { useState, useCallback, useEffect, useMemo, memo } from 'react';
 import toast from 'react-hot-toast';
-import { FolderOpen, Search, GitBranch, Plus, Box, HardDrive, Lock, Loader2 } from 'lucide-react';
+import {
+  FolderOpen,
+  Search,
+  GitBranch,
+  Plus,
+  Box,
+  HardDrive,
+  Lock,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Check,
+} from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { ModalHeader } from '@/components/ui/shared/ModalHeader';
@@ -10,6 +22,7 @@ import {
 } from '@/hooks/queries/useWorkspaceQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { useGitHubReposQuery } from '@/hooks/queries/useGitHubQueries';
+import { useGitBranchesQuery, useCheckoutBranchMutation } from '@/hooks/queries/useSandboxQueries';
 import type { Workspace } from '@/types/workspace.types';
 import type { GitHubRepo } from '@/types/github.types';
 import { formatRelativeTime } from '@/utils/date';
@@ -64,6 +77,191 @@ function sourceIcon(sourceType: string | null | undefined) {
     default:
       return <Box className={cls} />;
   }
+}
+
+function WorkspaceItem({
+  ws,
+  isSelected,
+  chatCount,
+  isModalOpen,
+  onSelect,
+}: {
+  ws: Workspace;
+  isSelected: boolean;
+  chatCount: number;
+  isModalOpen: boolean;
+  onSelect: (ws: Workspace) => void;
+}) {
+  const [branchesExpanded, setBranchesExpanded] = useState(false);
+  const [branchSearch, setBranchSearch] = useState('');
+  const hasSandbox = !!ws.sandbox_id;
+
+  const { data: branchesData, isLoading: branchesLoading } = useGitBranchesQuery(
+    ws.sandbox_id ?? '',
+    isModalOpen && hasSandbox,
+  );
+  const checkoutBranch = useCheckoutBranchMutation();
+
+  const showBranchSelector = branchesData?.is_git_repo === true;
+  const branches = branchesData?.branches ?? [];
+  const filteredBranches = branchSearch
+    ? branches.filter((b) => b.toLowerCase().includes(branchSearch.toLowerCase()))
+    : branches;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          setBranchesExpanded(false);
+          setBranchSearch('');
+          onSelect(ws);
+        }}
+        className={cn(
+          'flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-200',
+          isSelected
+            ? 'bg-surface-active dark:bg-surface-dark-active'
+            : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+        )}
+      >
+        {sourceIcon(ws.source_type)}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-xs text-text-primary dark:text-text-dark-primary">
+              {ws.name}
+            </span>
+            <span className="shrink-0 rounded-full bg-surface-tertiary px-1.5 py-0.5 text-2xs text-text-tertiary dark:bg-surface-dark-tertiary dark:text-text-dark-tertiary">
+              {ws.source_type ?? 'empty'}
+            </span>
+            <span className="shrink-0 rounded-full bg-surface-tertiary px-1.5 py-0.5 text-2xs text-text-tertiary dark:bg-surface-dark-tertiary dark:text-text-dark-tertiary">
+              {ws.sandbox_provider === 'host' ? 'host' : 'docker'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+            <span>{formatRelativeTime(ws.updated_at)}</span>
+            {chatCount > 0 && (
+              <>
+                <span>·</span>
+                <span>
+                  {chatCount} {chatCount === 1 ? 'chat' : 'chats'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </button>
+      {showBranchSelector && (
+        <div className="ml-6 mt-0.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (branchesExpanded) setBranchSearch('');
+              setBranchesExpanded(!branchesExpanded);
+            }}
+            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
+          >
+            {branchesExpanded ? (
+              <ChevronDown className="h-3 w-3 shrink-0 text-text-quaternary dark:text-text-dark-quaternary" />
+            ) : (
+              <ChevronRight className="h-3 w-3 shrink-0 text-text-quaternary dark:text-text-dark-quaternary" />
+            )}
+            <GitBranch className="h-3 w-3 shrink-0 text-text-quaternary dark:text-text-dark-quaternary" />
+            <span className="truncate font-mono text-2xs text-text-secondary dark:text-text-dark-secondary">
+              {branchesData?.current_branch || '…'}
+            </span>
+          </button>
+          {branchesExpanded && (
+            <div className="mt-0.5 overflow-hidden rounded-md border border-border/50 dark:border-border-dark/50">
+              {branchesLoading ? (
+                <div className="flex items-center justify-center gap-1.5 px-2 py-3">
+                  <Loader2 className="h-3 w-3 animate-spin text-text-quaternary dark:text-text-dark-quaternary" />
+                  <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+                    Loading branches…
+                  </span>
+                </div>
+              ) : !branches.length ? (
+                <p className="px-2 py-3 text-center text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+                  No branches found
+                </p>
+              ) : (
+                <>
+                  {branches.length >= 6 && (
+                    <div className="border-b border-border/50 px-2 py-1 dark:border-border-dark/50">
+                      <input
+                        type="text"
+                        value={branchSearch}
+                        onChange={(e) => setBranchSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Search branches…"
+                        className="w-full bg-transparent text-2xs text-text-primary outline-none placeholder:text-text-quaternary dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary"
+                      />
+                    </div>
+                  )}
+                  <div className="max-h-[10rem] overflow-y-auto">
+                    {filteredBranches.length === 0 ? (
+                      <p className="px-2 py-2 text-center text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+                        No matching branches
+                      </p>
+                    ) : (
+                      <div className="flex flex-col py-0.5">
+                        {filteredBranches.map((branch) => {
+                          const isCurrent = branch === branchesData.current_branch;
+                          return (
+                            <button
+                              key={branch}
+                              type="button"
+                              disabled={checkoutBranch.isPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isCurrent) return;
+                                checkoutBranch.mutate(
+                                  { sandboxId: ws.sandbox_id, branch },
+                                  {
+                                    onSuccess: (data) => {
+                                      if (data.success) {
+                                        toast.success(`Switched to ${branch}`);
+                                      } else {
+                                        toast.error(data.error ?? 'Failed to switch branch');
+                                      }
+                                    },
+                                    onError: (err) => {
+                                      toast.error(
+                                        err instanceof Error
+                                          ? err.message
+                                          : 'Failed to switch branch',
+                                      );
+                                    },
+                                  },
+                                );
+                              }}
+                              className={cn(
+                                'flex w-full items-center gap-1.5 px-2 py-1 text-left text-2xs transition-colors duration-200 disabled:opacity-50',
+                                isCurrent
+                                  ? 'bg-surface-active text-text-primary dark:bg-surface-dark-active dark:text-text-dark-primary'
+                                  : 'text-text-secondary hover:bg-surface-hover dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover',
+                              )}
+                            >
+                              {isCurrent ? (
+                                <Check className="h-3 w-3 shrink-0" />
+                              ) : (
+                                <span className="h-3 w-3 shrink-0" />
+                              )}
+                              <span className="truncate font-mono">{branch}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const GitHubRepoItem = memo(function GitHubRepoItem({
@@ -162,7 +360,6 @@ export function WorkspaceSelector({
   const [repoSearchQuery, setRepoSearchQuery] = useState('');
   const [debouncedRepoQuery, setDebouncedRepoQuery] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
-
   useEffect(() => {
     setSandboxProvider(defaultProvider);
   }, [defaultProvider]);
@@ -323,48 +520,16 @@ export function WorkspaceSelector({
               </p>
             ) : (
               <div className="flex flex-col gap-0.5">
-                {visibleWorkspaces.map((ws) => {
-                  const chatCount = chatCountByWorkspace?.get(ws.id) ?? 0;
-                  return (
-                    <button
-                      key={ws.id}
-                      type="button"
-                      onClick={() => selectWorkspace(ws)}
-                      className={cn(
-                        'flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors duration-200',
-                        ws.id === selectedWorkspaceId
-                          ? 'bg-surface-active dark:bg-surface-dark-active'
-                          : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-                      )}
-                    >
-                      {sourceIcon(ws.source_type)}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate text-xs text-text-primary dark:text-text-dark-primary">
-                            {ws.name}
-                          </span>
-                          <span className="shrink-0 rounded-full bg-surface-tertiary px-1.5 py-0.5 text-2xs text-text-tertiary dark:bg-surface-dark-tertiary dark:text-text-dark-tertiary">
-                            {ws.source_type ?? 'empty'}
-                          </span>
-                          <span className="shrink-0 rounded-full bg-surface-tertiary px-1.5 py-0.5 text-2xs text-text-tertiary dark:bg-surface-dark-tertiary dark:text-text-dark-tertiary">
-                            {ws.sandbox_provider === 'host' ? 'host' : 'docker'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-                          <span>{formatRelativeTime(ws.updated_at)}</span>
-                          {chatCount > 0 && (
-                            <>
-                              <span>·</span>
-                              <span>
-                                {chatCount} {chatCount === 1 ? 'chat' : 'chats'}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                {visibleWorkspaces.map((ws) => (
+                  <WorkspaceItem
+                    key={ws.id}
+                    ws={ws}
+                    isSelected={ws.id === selectedWorkspaceId}
+                    chatCount={chatCountByWorkspace?.get(ws.id) ?? 0}
+                    isModalOpen={isModalOpen}
+                    onSelect={selectWorkspace}
+                  />
+                ))}
               </div>
             )}
           </div>
