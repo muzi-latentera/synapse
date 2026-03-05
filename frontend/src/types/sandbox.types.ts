@@ -46,3 +46,15 @@ export interface GitDiffData {
   is_git_repo: boolean;
   error?: string;
 }
+
+export interface GitBranchesData {
+  branches: string[];
+  current_branch: string;
+  is_git_repo: boolean;
+}
+
+export interface GitCheckoutData {
+  success: boolean;
+  current_branch: string;
+  error?: string;
+}

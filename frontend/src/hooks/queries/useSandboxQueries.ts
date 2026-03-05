@@ -148,6 +148,37 @@ export const useDeleteSecretMutation = (
 ) =>
   useSecretMutation(({ sandboxId, key }) => sandboxService.deleteSecret(sandboxId, key), options);
 
+export const useGitBranchesQuery = (sandboxId: string, enabled: boolean) => {
+  return useQuery({
+    queryKey: queryKeys.sandbox.gitBranches(sandboxId),
+    queryFn: () => sandboxService.getGitBranches(sandboxId),
+    enabled: !!sandboxId && enabled,
+    staleTime: 30_000,
+  });
+};
+
+export const useCheckoutBranchMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sandboxId, branch }: { sandboxId: string; branch: string }) =>
+      sandboxService.checkoutGitBranch(sandboxId, branch),
+    onSuccess: (data, variables) => {
+      if (!data.success) return;
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.gitBranches(variables.sandboxId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.filesMetadata(variables.sandboxId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.gitDiffAll(variables.sandboxId),
+        }),
+      ]);
+    },
+  });
+};
+
 export const useGitDiffQuery = (
   sandboxId: string,
   mode: DiffMode = 'all',

@@ -6,6 +6,8 @@ import type {
   DiffMode,
   FileContent,
   FileMetadata,
+  GitBranchesData,
+  GitCheckoutData,
   GitDiffData,
   PortInfo,
   Secret,
@@ -227,6 +229,27 @@ async function getGitDiff(sandboxId: string, mode: DiffMode = 'all'): Promise<Gi
   });
 }
 
+async function getGitBranches(sandboxId: string): Promise<GitBranchesData> {
+  validateRequired(sandboxId, 'Sandbox ID');
+
+  return serviceCall(async () => {
+    const response = await apiClient.get<GitBranchesData>(`/sandbox/${sandboxId}/git/branches`);
+    return response ?? { branches: [], current_branch: '', is_git_repo: false };
+  });
+}
+
+async function checkoutGitBranch(sandboxId: string, branch: string): Promise<GitCheckoutData> {
+  validateRequired(sandboxId, 'Sandbox ID');
+  validateRequired(branch, 'Branch name');
+
+  return serviceCall(async () => {
+    const response = await apiClient.post<GitCheckoutData>(`/sandbox/${sandboxId}/git/checkout`, {
+      branch,
+    });
+    return ensureResponse(response, 'Checkout failed');
+  });
+}
+
 export const sandboxService = {
   getPreviewLinks,
   getSandboxFilesMetadata,
@@ -244,4 +267,6 @@ export const sandboxService = {
   stopBrowser,
   getBrowserStatus,
   getGitDiff,
+  getGitBranches,
+  checkoutGitBranch,
 };

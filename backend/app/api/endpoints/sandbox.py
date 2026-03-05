@@ -1,3 +1,5 @@
+import asyncio
+import re
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -10,6 +12,9 @@ from app.models.schemas.sandbox import (
     BrowserStatusResponse,
     FileContentResponse,
     FileMetadata,
+    GitBranchesResponse,
+    GitCheckoutRequest,
+    GitCheckoutResponse,
     GitDiffResponse,
     IDEUrlResponse,
     SandboxFilesMetadataResponse,
@@ -30,6 +35,9 @@ from app.services.sandbox import SandboxService
 
 
 router = APIRouter()
+
+GIT_CD_PREFIX = f"cd {SANDBOX_WORKSPACE_DIR} 2>/dev/null || cd {SANDBOX_HOME_DIR}; "
+BRANCH_NAME_RE = re.compile(r"^[\w./-]+$")
 
 
 @router.get("/{sandbox_id}/preview-links", response_model=PreviewLinksResponse)
@@ -260,11 +268,10 @@ async def get_git_diff(
 ) -> GitDiffResponse:
     # Workspace is mounted at /home/user/workspace in Docker containers;
     # cd there first, falling back to /home/user for non-Docker sandboxes.
-    cd_prefix = f"cd {SANDBOX_WORKSPACE_DIR} 2>/dev/null || cd {SANDBOX_HOME_DIR}; "
     try:
         check = await sandbox_service.execute_command(
             sandbox_id,
-            f"{cd_prefix}git rev-parse --is-inside-work-tree 2>/dev/null",
+            f"{GIT_CD_PREFIX}git rev-parse --is-inside-work-tree 2>/dev/null",
         )
         if check.exit_code != 0:
             return GitDiffResponse(diff="", has_changes=False, is_git_repo=False)
@@ -297,7 +304,9 @@ async def get_git_diff(
                 f"{untracked_diff}"
             )
 
-        result = await sandbox_service.execute_command(sandbox_id, f"{cd_prefix}{cmd}")
+        result = await sandbox_service.execute_command(
+            sandbox_id, f"{GIT_CD_PREFIX}{cmd}"
+        )
         if mode == "branch" and result.exit_code == 2:
             return GitDiffResponse(
                 diff="",
@@ -310,6 +319,128 @@ async def get_git_diff(
             diff=diff_output,
             has_changes=bool(diff_output.strip()),
             is_git_repo=True,
+        )
+    except SandboxException as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/{sandbox_id}/git/branches", response_model=GitBranchesResponse)
+async def get_git_branches(
+    sandbox_id: str = Depends(validate_sandbox_ownership),
+    sandbox_service: SandboxService = Depends(get_sandbox_service),
+) -> GitBranchesResponse:
+    try:
+        check = await sandbox_service.execute_command(
+            sandbox_id,
+            f"{GIT_CD_PREFIX}git rev-parse --is-inside-work-tree 2>/dev/null",
+        )
+        if check.exit_code != 0:
+            return GitBranchesResponse(
+                branches=[], current_branch="", is_git_repo=False
+            )
+
+        head_result, local_result, remote_result = await asyncio.gather(
+            sandbox_service.execute_command(
+                sandbox_id,
+                f"{GIT_CD_PREFIX}git rev-parse --abbrev-ref HEAD 2>/dev/null",
+            ),
+            sandbox_service.execute_command(
+                sandbox_id,
+                f"{GIT_CD_PREFIX}git branch --no-color 2>/dev/null",
+            ),
+            sandbox_service.execute_command(
+                sandbox_id,
+                f"{GIT_CD_PREFIX}git branch -r --no-color 2>/dev/null",
+            ),
+        )
+        current_branch = head_result.stdout.strip()
+
+        local_branches: set[str] = set()
+        for line in local_result.stdout.splitlines():
+            name = line.removeprefix("* ").strip()
+            if name:
+                local_branches.add(name)
+
+        all_branches = set(local_branches)
+        for line in remote_result.stdout.splitlines():
+            name = line.strip()
+            if not name or " -> " in name or not name.startswith("origin/"):
+                continue
+            short = name.removeprefix("origin/")
+            if short not in all_branches:
+                all_branches.add(short)
+
+        sorted_branches = sorted(all_branches)
+        return GitBranchesResponse(
+            branches=sorted_branches,
+            current_branch=current_branch,
+            is_git_repo=True,
+        )
+    except SandboxException as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post("/{sandbox_id}/git/checkout", response_model=GitCheckoutResponse)
+async def checkout_git_branch(
+    request: GitCheckoutRequest,
+    sandbox_id: str = Depends(validate_sandbox_ownership),
+    sandbox_service: SandboxService = Depends(get_sandbox_service),
+) -> GitCheckoutResponse:
+    if (
+        not BRANCH_NAME_RE.match(request.branch)
+        or ".." in request.branch
+        or request.branch.strip(".") == ""
+        or request.branch.startswith("-")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid branch name",
+        )
+
+    try:
+        result = await sandbox_service.execute_command(
+            sandbox_id,
+            f"{GIT_CD_PREFIX}git checkout '{request.branch}' 2>&1",
+        )
+        if result.exit_code != 0:
+            # Branch might only exist as a remote tracking branch
+            result = await sandbox_service.execute_command(
+                sandbox_id,
+                f"{GIT_CD_PREFIX}git checkout -b '{request.branch}' 'origin/{request.branch}' 2>&1",
+            )
+
+        if result.exit_code != 0:
+            return GitCheckoutResponse(
+                success=False,
+                current_branch="",
+                error=result.stdout.strip() or result.stderr.strip(),
+            )
+
+        head_result = await sandbox_service.execute_command(
+            sandbox_id,
+            f"{GIT_CD_PREFIX}git rev-parse --abbrev-ref HEAD 2>/dev/null",
+        )
+        current = head_result.stdout.strip()
+        if current == "HEAD":
+            # Detached HEAD — revert to previous state
+            await sandbox_service.execute_command(
+                sandbox_id,
+                f"{GIT_CD_PREFIX}git checkout - 2>/dev/null",
+            )
+            return GitCheckoutResponse(
+                success=False,
+                current_branch="",
+                error="Cannot checkout: would result in detached HEAD",
+            )
+        return GitCheckoutResponse(
+            success=True,
+            current_branch=current,
         )
     except SandboxException as e:
         raise HTTPException(

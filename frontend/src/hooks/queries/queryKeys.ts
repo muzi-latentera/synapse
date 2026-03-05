@@ -20,6 +20,8 @@ export const queryKeys = {
     browserStatus: (sandboxId: string) => ['sandbox', sandboxId, 'browser-status'] as const,
     gitDiff: (sandboxId: string, mode: DiffMode) =>
       ['sandbox', sandboxId, 'git-diff', mode] as const,
+    gitDiffAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-diff'] as const,
+    gitBranches: (sandboxId: string) => ['sandbox', sandboxId, 'git-branches'] as const,
   },
   workspaces: ['workspaces'] as const,
   models: 'models',
