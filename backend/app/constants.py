@@ -21,8 +21,6 @@ QUEUE_MESSAGE_TTL_SECONDS: Final[int] = 3600
 SANDBOX_AUTO_PAUSE_TIMEOUT: Final[int] = 3000
 SANDBOX_DEFAULT_COMMAND_TIMEOUT: Final[int] = 120
 SANDBOX_DEFAULT_TIMEOUT: Final[int] = 3600
-MAX_CHECKPOINTS_PER_SANDBOX: Final[int] = 20
-CHECKPOINT_BASE_DIR: Final[str] = "/home/user/.checkpoints"
 PTY_OUTPUT_QUEUE_SIZE: Final[int] = 512
 PTY_INPUT_QUEUE_SIZE: Final[int] = 1024
 
@@ -75,20 +73,6 @@ SANDBOX_SYSTEM_VARIABLES: Final[list[str]] = [
     "NVM_DIR",
     "NODE_VERSION",
     "TERM",
-]
-
-SANDBOX_RESTORE_EXCLUDE_PATTERNS: Final[list[str]] = [
-    ".checkpoints",
-    ".cache",
-    "__pycache__",
-    "*.pyc",
-    "*.pyo",
-    "*.log",
-    ".DS_Store",
-    "dist",
-    "build",
-    ".next",
-    ".nuxt",
 ]
 
 SANDBOX_BINARY_EXTENSIONS: Final[set[str]] = {

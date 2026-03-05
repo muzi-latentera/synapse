@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import type { UseMutationOptions, UseQueryOptions, InfiniteData } from '@tanstack/react-query';
 import { chatService } from '@/services/chatService';
 import { useMessageQueueStore } from '@/store/messageQueueStore';
-import type { Chat, ContextUsage, CreateChatRequest, ForkChatResponse } from '@/types/chat.types';
+import type { Chat, ContextUsage, CreateChatRequest } from '@/types/chat.types';
 import type { PaginatedChats } from '@/types/api.types';
 import { queryKeys } from './queryKeys';
 
@@ -229,76 +229,6 @@ export const useDeleteAllChatsMutation = (options?: UseMutationOptions<void, Err
     onSuccess: async (data, variables, context, mutation) => {
       queryClient.removeQueries({ queryKey: [queryKeys.chats] });
       queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
-      if (onSuccess) {
-        await onSuccess(data, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
-
-interface RestoreCheckpointParams {
-  chatId: string;
-  messageId: string;
-  sandboxId?: string;
-}
-
-export const useRestoreCheckpointMutation = (
-  options?: UseMutationOptions<void, Error, RestoreCheckpointParams>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: ({ chatId, messageId }) => chatService.restoreToCheckpoint(chatId, messageId),
-    onSuccess: async (data, variables, context, mutation) => {
-      const { chatId, sandboxId } = variables;
-      queryClient.invalidateQueries({ queryKey: queryKeys.messages(chatId) });
-
-      if (sandboxId) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
-        });
-      }
-      if (onSuccess) {
-        await onSuccess(data, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
-
-interface ForkChatParams {
-  chatId: string;
-  messageId: string;
-}
-
-export const useForkChatMutation = (
-  options?: UseMutationOptions<ForkChatResponse, Error, ForkChatParams>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: ({ chatId, messageId }: ForkChatParams) => chatService.forkChat(chatId, messageId),
-    onSuccess: async (data, variables, context, mutation) => {
-      queryClient.setQueryData(queryKeys.chat(data.chat.id), data.chat);
-
-      queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
-        { queryKey: [queryKeys.chats, 'infinite'] },
-        (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page, index) =>
-              index === 0
-                ? { ...page, items: [data.chat, ...page.items], total: page.total + 1 }
-                : page,
-            ),
-          };
-        },
-      );
-
       if (onSuccess) {
         await onSuccess(data, variables, context, mutation);
       }

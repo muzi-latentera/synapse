@@ -294,13 +294,9 @@ def create_e2e_application(
 
     async def override_get_chat_service():
         user_service = UserService(session_factory=session_factory)
-        extra = {}
-        if chat_service_cls is not ChatService:
-            extra["sandbox_service"] = sandbox_service
         yield chat_service_cls(
             user_service,
             session_factory=session_factory,
-            **extra,
         )
 
     def override_get_provider_service():
@@ -324,10 +320,8 @@ class TestChatService(ChatService):
         self,
         user_service,
         session_factory=None,
-        sandbox_service=None,
     ):
         super().__init__(user_service, session_factory)
-        self._test_sandbox_service = sandbox_service
         self._test_session_factory = session_factory
 
     async def _enqueue_chat_task(
@@ -369,7 +363,6 @@ class TestChatService(ChatService):
                 attachments=attachments,
                 is_custom_prompt=is_custom_prompt,
             ),
-            sandbox_service=self._test_sandbox_service,
             session_factory=self._test_session_factory,
         )
 

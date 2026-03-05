@@ -7,7 +7,6 @@ import json
 import logging
 import secrets
 import shlex
-import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Callable, Coroutine
@@ -33,17 +32,14 @@ from app.models.types import (
 from app.models.schemas.settings import ProviderType
 from app.services.agent import AgentService
 from app.services.command import CommandService
-from app.services.db import SessionFactoryType
-from app.services.exceptions import SandboxException, UserException
+from app.services.exceptions import SandboxException
 from app.services.sandbox_providers import (
     PtyDataCallbackType,
     PtySize,
     SandboxProvider,
 )
-from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.sandbox_providers.types import CommandResult
 from app.services.skill import SkillService
-from app.services.user import UserService
 
 logger = logging.getLogger(__name__)
 
@@ -72,36 +68,8 @@ class SandboxService:
         self.session_factory = session_factory
         self._ide_tokens: dict[str, str] = {}
 
-    @staticmethod
-    def _validate_message_id(message_id: str) -> None:
-        try:
-            uuid.UUID(message_id)
-        except ValueError:
-            raise SandboxException(f"Invalid message_id format: {message_id}")
-
     async def cleanup(self) -> None:
         await self.provider.cleanup()
-
-    @classmethod
-    async def create_for_user(
-        cls,
-        *,
-        user_id: uuid.UUID,
-        session_factory: SessionFactoryType,
-    ) -> SandboxService:
-        user_service = UserService(session_factory=session_factory)
-        async with session_factory() as db:
-            try:
-                user_settings = await user_service.get_user_settings(user_id, db=db)
-            except UserException:
-                raise UserException("User settings not found")
-
-            provider_type = user_settings.sandbox_provider
-
-            provider = SandboxProviderFactory.create(
-                provider_type=provider_type,
-            )
-        return cls(provider=provider, session_factory=session_factory)
 
     async def delete_sandbox(self, sandbox_id: str) -> None:
         if not sandbox_id:
@@ -465,13 +433,12 @@ class SandboxService:
         sandbox_id: str,
         openrouter_api_key: str | None = None,
         copilot_token: str | None = None,
-        skip_secret: bool = False,
     ) -> None:
-        if openrouter_api_key and not skip_secret:
+        if openrouter_api_key:
             await self.provider.add_secret(
                 sandbox_id, "OPENROUTER_API_KEY", openrouter_api_key
             )
-        if copilot_token and not skip_secret:
+        if copilot_token:
             await self.provider.add_secret(
                 sandbox_id, "GITHUB_COPILOT_TOKEN", copilot_token
             )
@@ -610,7 +577,6 @@ class SandboxService:
         auto_compact_disabled: bool = False,
         attribution_disabled: bool = False,
         custom_providers: list[CustomProviderDict] | None = None,
-        is_fork: bool = False,
         gmail_oauth_client: dict[str, Any] | None = None,
         gmail_oauth_tokens: dict[str, Any] | None = None,
     ) -> None:
@@ -618,37 +584,36 @@ class SandboxService:
             self._start_openvscode_server(sandbox_id),
         ]
 
-        if not is_fork:
+        tasks.append(
+            self._setup_claude_config(
+                sandbox_id, auto_compact_disabled, attribution_disabled
+            )
+        )
+
+        if custom_env_vars:
+            tasks.append(self._add_env_vars_parallel(sandbox_id, custom_env_vars))
+
+        has_resources = custom_skills or custom_slash_commands or custom_agents
+        if has_resources and user_id is not None:
             tasks.append(
-                self._setup_claude_config(
-                    sandbox_id, auto_compact_disabled, attribution_disabled
+                self._deploy_resources(
+                    sandbox_id,
+                    user_id,
+                    custom_skills,
+                    custom_slash_commands,
+                    custom_agents,
                 )
             )
 
-            if custom_env_vars:
-                tasks.append(self._add_env_vars_parallel(sandbox_id, custom_env_vars))
+        if github_token:
+            tasks.append(self._setup_github_token(sandbox_id, github_token))
 
-            has_resources = custom_skills or custom_slash_commands or custom_agents
-            if has_resources and user_id is not None:
-                tasks.append(
-                    self._deploy_resources(
-                        sandbox_id,
-                        user_id,
-                        custom_skills,
-                        custom_slash_commands,
-                        custom_agents,
-                    )
+        if gmail_oauth_client and gmail_oauth_tokens:
+            tasks.append(
+                self._setup_gmail_mcp(
+                    sandbox_id, gmail_oauth_client, gmail_oauth_tokens
                 )
-
-            if github_token:
-                tasks.append(self._setup_github_token(sandbox_id, github_token))
-
-            if gmail_oauth_client and gmail_oauth_tokens:
-                tasks.append(
-                    self._setup_gmail_mcp(
-                        sandbox_id, gmail_oauth_client, gmail_oauth_tokens
-                    )
-                )
+            )
 
         openai_auth = self._get_openai_auth_from_provider(custom_providers)
         if openai_auth:
@@ -663,7 +628,6 @@ class SandboxService:
                     sandbox_id,
                     openrouter_api_key=openrouter_api_key,
                     copilot_token=copilot_token,
-                    skip_secret=is_fork,
                 )
             )
 
@@ -727,21 +691,6 @@ class SandboxService:
             ):
                 return provider["auth_token"]
         return None
-
-    async def create_checkpoint(self, sandbox_id: str, message_id: str) -> str | None:
-        self._validate_message_id(message_id)
-        return await self.provider.create_checkpoint(sandbox_id, message_id)
-
-    async def restore_checkpoint(self, sandbox_id: str, message_id: str) -> bool:
-        self._validate_message_id(message_id)
-        return await self.provider.restore_checkpoint(sandbox_id, message_id)
-
-    async def list_checkpoints(self, sandbox_id: str) -> list[dict[str, Any]]:
-        checkpoints = await self.provider.list_checkpoints(sandbox_id)
-        return [
-            {"message_id": c.message_id, "created_at": c.created_at}
-            for c in checkpoints
-        ]
 
     async def clean_session_thinking_blocks(
         self, sandbox_id: str, session_id: str

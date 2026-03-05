@@ -37,7 +37,6 @@ from app.services.db import SessionFactoryType
 from app.services.exceptions import ClaudeAgentException
 from app.services.message import MessageService
 from app.services.queue import QueueService
-from app.services.sandbox import SandboxService
 from app.services.streaming.types import (
     ChatStreamRequest,
     StreamEnvelope,
@@ -133,7 +132,6 @@ class ChatStreamRuntime:
         self,
         *,
         request: ChatStreamRequest,
-        sandbox_service: SandboxService,
         session_factory: SessionFactoryType,
     ) -> None:
         chat = Chat.from_dict(request.chat_data)
@@ -146,7 +144,6 @@ class ChatStreamRuntime:
         self.prompt = request.prompt
         self._is_new_chat = request.session_id is None
         self.custom_instructions = request.custom_instructions
-        self.sandbox_service = sandbox_service
         self.session_factory = session_factory
 
         self.snapshot = StreamSnapshotAccumulator()
@@ -398,7 +395,6 @@ class ChatStreamRuntime:
                 logger.debug("Failed to clear send-now flag: %s", exc)
 
         if status == MessageStreamStatus.COMPLETED:
-            await self._create_checkpoint()
             title_task = asyncio.create_task(self._generate_title())
             title_task.add_done_callback(ChatStreamRuntime._on_title_task_done)
             queue_processed = await self._process_next_queued()
@@ -502,7 +498,6 @@ class ChatStreamRuntime:
                 active_stream_id=None,
                 stream_status=MessageStreamStatus.COMPLETED,
             )
-            await self._create_checkpoint()
 
             await self.emit_event(
                 "queue_processing",
@@ -554,31 +549,6 @@ class ChatStreamRuntime:
             self.chat_id,
         )
         return True
-
-    async def _create_checkpoint(self) -> None:
-        if not (
-            self.sandbox_service and self.chat.sandbox_id and self.assistant_message_id
-        ):
-            return
-
-        try:
-            checkpoint_id = await self.sandbox_service.create_checkpoint(
-                self.chat.sandbox_id, self.assistant_message_id
-            )
-            if not checkpoint_id:
-                return
-
-            async with self.session_factory() as db:
-                message_uuid = UUID(self.assistant_message_id)
-                query = select(Message).filter(Message.id == message_uuid)
-                result = await db.execute(query)
-                message = result.scalar_one_or_none()
-                if message:
-                    message.checkpoint_id = checkpoint_id
-                    db.add(message)
-                    await db.commit()
-        except Exception as exc:
-            logger.warning("Failed to create checkpoint: %s", exc)
 
     async def _process_next_queued(self) -> bool:
         next_msg: dict[str, Any] | None = None
@@ -991,12 +961,10 @@ class ChatStreamRuntime:
         cls,
         *,
         request: ChatStreamRequest,
-        sandbox_service: SandboxService,
         session_factory: SessionFactoryType,
     ) -> str:
         runtime = cls(
             request=request,
-            sandbox_service=sandbox_service,
             session_factory=session_factory,
         )
         try:
@@ -1102,32 +1070,11 @@ class ChatStreamRuntime:
         request: ChatStreamRequest,
     ) -> str:
         session_factory = SessionLocal
-        try:
-            sandbox_service = await SandboxService.create_for_user(
-                user_id=UUID(str(request.chat_data["user_id"])),
-                session_factory=session_factory,
-            )
-        except asyncio.CancelledError:
-            await cls._mark_message_failed(
-                assistant_message_id=request.assistant_message_id,
-                session_factory=session_factory,
-                stream_status=MessageStreamStatus.INTERRUPTED,
-            )
-            raise
-        except Exception:
-            await cls._mark_message_failed(
-                assistant_message_id=request.assistant_message_id,
-                session_factory=session_factory,
-                stream_status=MessageStreamStatus.FAILED,
-            )
-            raise
         chat_id = str(request.chat_data["id"])
         try:
             return await cls.execute_chat(
                 request=request,
-                sandbox_service=sandbox_service,
                 session_factory=session_factory,
             )
         finally:
             session_registry.consume_pending_cancel(chat_id)
-            await sandbox_service.cleanup()

@@ -61,11 +61,6 @@ export interface Chat {
   pinned_at?: string | null;
 }
 
-export interface ForkChatResponse {
-  chat: Chat;
-  messages_copied: number;
-}
-
 export interface ChatRequest {
   prompt: string;
   chat_id?: string;

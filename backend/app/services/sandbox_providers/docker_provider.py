@@ -635,46 +635,6 @@ class LocalDockerProvider(SandboxProvider):
         )
         return f"{base_url}:{host_port}"
 
-    async def clone_sandbox(
-        self, source_sandbox_id: str, checkpoint_id: str | None = None
-    ) -> str:
-        docker = await self._get_docker()
-        source_container = await self._get_container(source_sandbox_id)
-
-        commit_result = await source_container.commit()
-        temp_image_id = commit_result["Id"]
-
-        new_sandbox_id = str(uuid.uuid4())[:12]
-        new_container: Any = None
-
-        try:
-            new_container = await self._create_container(
-                new_sandbox_id, image=temp_image_id
-            )
-            self._containers[new_sandbox_id] = new_container
-
-            port_map = await self._extract_port_mappings(new_container)
-            self._port_mappings[new_sandbox_id] = port_map
-
-            if checkpoint_id:
-                await self.restore_checkpoint(new_sandbox_id, checkpoint_id)
-
-            return new_sandbox_id
-        except Exception:
-            self._containers.pop(new_sandbox_id, None)
-            self._port_mappings.pop(new_sandbox_id, None)
-            if new_container is not None:
-                try:
-                    await new_container.delete(force=True)
-                except Exception:
-                    pass
-            raise
-        finally:
-            try:
-                await docker.images.delete(temp_image_id, force=True)
-            except Exception:
-                pass
-
     async def cleanup(self) -> None:
         await super().cleanup()
         if self._docker:

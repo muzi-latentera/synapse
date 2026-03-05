@@ -14,13 +14,11 @@ import sys
 import termios
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from app.constants import (
-    CHECKPOINT_BASE_DIR,
     DOCKER_AVAILABLE_PORTS,
     EXCLUDED_PREVIEW_PORTS,
     HOST_REQUIRED_PATH_PREFIX,
@@ -36,7 +34,6 @@ from app.constants import (
 from app.services.exceptions import SandboxException
 from app.services.sandbox_providers.base import SandboxProvider
 from app.services.sandbox_providers.types import (
-    CheckpointInfo,
     CommandResult,
     FileContent,
     FileMetadata,
@@ -48,7 +45,6 @@ from app.services.sandbox_providers.types import (
 
 logger = logging.getLogger(__name__)
 
-CHECKPOINT_RELATIVE_DIR = Path(CHECKPOINT_BASE_DIR).relative_to(SANDBOX_HOME_DIR)
 HOST_ALLOWED_PREVIEW_PORTS: set[int] = (
     set(DOCKER_AVAILABLE_PORTS) - EXCLUDED_PREVIEW_PORTS
 )
@@ -86,10 +82,6 @@ LISTENING_PORTS_COMMAND = (
 
 
 class LocalHostProvider(SandboxProvider):
-    # Follow workspace symlink during checkpoint backup; sync into it during restore
-    _checkpoint_create_extra_rsync_flags = "--copy-dirlinks"
-    _checkpoint_restore_extra_rsync_flags = "--keep-dirlinks"
-
     def __init__(
         self, base_dir: str, preview_base_url: str = "http://localhost"
     ) -> None:
@@ -648,32 +640,6 @@ class LocalHostProvider(SandboxProvider):
                 os.close(master_fd)
 
         self._cleanup_pty_session_tracking(sandbox_id, pty_id)
-
-    @staticmethod
-    def _scan_checkpoints(
-        checkpoint_base: Path,
-    ) -> list[CheckpointInfo]:
-        if not checkpoint_base.is_dir():
-            return []
-        items: list[CheckpointInfo] = []
-        for entry in checkpoint_base.iterdir():
-            if not entry.is_dir():
-                continue
-            ts = int(entry.stat().st_mtime)
-            created = datetime.fromtimestamp(ts).isoformat()
-            items.append(
-                CheckpointInfo(
-                    message_id=entry.name,
-                    created_at=created,
-                )
-            )
-        items.sort(key=lambda x: x.created_at, reverse=True)
-        return items
-
-    async def list_checkpoints(self, sandbox_id: str) -> list[CheckpointInfo]:
-        sandbox_dir = self._resolve_sandbox_dir(sandbox_id)
-        checkpoint_base = sandbox_dir / CHECKPOINT_RELATIVE_DIR
-        return await asyncio.to_thread(self._scan_checkpoints, checkpoint_base)
 
     async def delete_secret(
         self,

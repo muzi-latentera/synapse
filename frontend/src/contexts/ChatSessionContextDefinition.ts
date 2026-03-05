@@ -28,7 +28,6 @@ export interface ChatSessionActions {
   onModelChange: (modelId: string) => void;
   onDismissError: () => void;
   fetchNextPage: () => void;
-  onRestoreSuccess: () => void;
   onPermissionApprove: () => void;
   onPermissionReject: (alternativeInstruction?: string) => void;
 }
