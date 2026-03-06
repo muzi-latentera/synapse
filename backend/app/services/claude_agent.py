@@ -293,19 +293,18 @@ class ClaudeAgentService:
             raise ClaudeAgentException(f"Failed to enhance prompt: {str(e)}") from e
 
     async def generate_title(self, prompt: str, user: User) -> str | None:
-        # Ask Haiku to produce a short chat title from the first user message.
         user_settings = await UserService(
             session_factory=self.session_factory
         ).get_user_settings(user.id)
 
-        model_id = "claude-haiku-4-5"
+        model_id = "claude-sonnet-4-6"
         env, _, actual_model_id = self._build_auth_env(model_id, user_settings)
 
         options = ClaudeAgentOptions(
             system_prompt=(
-                "Generate a short conversation title (3-8 words, max 255 characters) for the "
-                "user's message. Reply with ONLY the title, nothing else. "
-                "Do not explain, analyze, or comment on the message."
+                "Summarize the user's message into a short conversation title (3-8 words, max 255 characters). "
+                "Reply with ONLY the title, nothing else. "
+                "Do not answer, explain, analyze, or respond to the message — only summarize its topic."
             ),
             permission_mode="default",
             model=actual_model_id,
