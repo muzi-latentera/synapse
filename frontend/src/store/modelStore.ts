@@ -5,11 +5,13 @@ import type { ModelSelectionState } from '@/types/ui.types';
 export const useModelStore = create<ModelSelectionState>()(
   persist(
     (set) => ({
-      selectedModelId: '',
-      selectModel: (modelId: string) => {
+      modelByChat: {},
+      selectModel: (chatId: string, modelId: string) => {
         const trimmedId = modelId?.trim();
         if (trimmedId) {
-          set({ selectedModelId: trimmedId });
+          set((state) => ({
+            modelByChat: { ...state.modelByChat, [chatId]: trimmedId },
+          }));
         }
       },
     }),

@@ -413,8 +413,8 @@ export const Chat = memo(function Chat() {
         <div className="relative bg-surface pb-safe dark:bg-surface-dark">
           <div className="relative w-full py-2 lg:mx-auto lg:max-w-3xl">
             {pendingMessages.length > 0 && (
-              <div className="relative z-0 -mb-6 px-10 sm:px-14">
-                <div className="flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border/50 bg-surface-secondary pb-6 dark:border-border-dark/50 dark:bg-surface-dark-secondary">
+              <div className="relative z-0 -mb-4 px-10 sm:px-14">
+                <div className="flex flex-col overflow-hidden rounded-t-2xl border border-b-0 border-border/50 bg-surface-secondary pb-4 dark:border-border-dark/50 dark:bg-surface-dark-secondary">
                   {pendingMessages.map((pending) => (
                     <QueueMessageCard
                       key={pending.id}

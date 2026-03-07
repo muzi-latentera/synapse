@@ -22,8 +22,8 @@ export interface ThemeState {
 }
 
 export interface ModelSelectionState {
-  selectedModelId: string;
-  selectModel: (modelId: string) => void;
+  modelByChat: Record<string, string>;
+  selectModel: (chatId: string, modelId: string) => void;
 }
 
 export interface PermissionModeState {

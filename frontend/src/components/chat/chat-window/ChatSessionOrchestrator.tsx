@@ -22,7 +22,6 @@ interface ChatSessionOrchestratorProps {
   hasFetchedMessages: boolean;
   messagesQuery: ReturnType<typeof useInfiniteMessagesQuery>;
   refetchFilesMetadata: () => Promise<unknown>;
-  selectedModelId: string;
   children: ReactNode;
 }
 
@@ -33,7 +32,6 @@ export function ChatSessionOrchestrator({
   hasFetchedMessages,
   messagesQuery,
   refetchFilesMetadata,
-  selectedModelId,
   children,
 }: ChatSessionOrchestratorProps) {
   const queryClient = useQueryClient();
@@ -52,7 +50,7 @@ export function ChatSessionOrchestrator({
     })),
   );
 
-  const { selectModel } = useModelSelection();
+  const { selectedModelId, selectModel } = useModelSelection({ chatId });
 
   const {
     initialPrompt,

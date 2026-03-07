@@ -228,10 +228,10 @@ export const QueueMessageCard = memo(function QueueMessageCard({
   );
 
   return (
-    <div className="flex w-full flex-col px-4 py-2.5">
+    <div className="flex w-full flex-col px-3 py-1.5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-text-quaternary dark:text-text-dark-quaternary" />
+          <CornerDownRight className="h-3 w-3 shrink-0 text-text-quaternary dark:text-text-dark-quaternary" />
           {hasLocalFiles && !hasServerAttachments && (
             <div className="flex flex-wrap gap-1">
               {message.files!.map((file, idx) => (
@@ -258,10 +258,10 @@ export const QueueMessageCard = memo(function QueueMessageCard({
               onChange={(e) => setEditContent(e.target.value)}
               onKeyDown={handleKeyDown}
               aria-label="Edit message"
-              className="min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-quaternary focus:outline-none dark:text-text-dark-primary"
+              className="min-w-0 flex-1 bg-transparent text-xs text-text-primary placeholder:text-text-quaternary focus:outline-none dark:text-text-dark-primary"
             />
           ) : (
-            <span className="truncate text-sm text-text-secondary dark:text-text-dark-secondary">
+            <span className="truncate text-xs text-text-secondary dark:text-text-dark-secondary">
               {message.content}
             </span>
           )}
@@ -277,14 +277,14 @@ export const QueueMessageCard = memo(function QueueMessageCard({
               <Button
                 onClick={handleSaveEdit}
                 variant="ghost"
-                className="h-6 rounded-md px-2 py-0 text-xs font-medium text-text-primary dark:text-text-dark-primary"
+                className="h-5 rounded-md px-1.5 py-0 text-2xs font-medium text-text-primary dark:text-text-dark-primary"
               >
                 Save
               </Button>
               <Button
                 onClick={handleCancelEdit}
                 variant="ghost"
-                className="h-6 rounded-md px-2 py-0 text-xs font-medium text-text-tertiary dark:text-text-dark-tertiary"
+                className="h-5 rounded-md px-1.5 py-0 text-2xs font-medium text-text-tertiary dark:text-text-dark-tertiary"
               >
                 Cancel
               </Button>
@@ -295,27 +295,27 @@ export const QueueMessageCard = memo(function QueueMessageCard({
                 <Button
                   onClick={() => onSendNow(message.id)}
                   variant="ghost"
-                  className="h-6 rounded-md px-2 py-0 text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
+                  className="h-5 rounded-md px-1.5 py-0 text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
                   aria-label="Send now"
                 >
-                  <Send className="h-3.5 w-3.5" />
+                  <Send className="h-3 w-3" />
                 </Button>
               )}
               <Button
                 onClick={handleStartEdit}
                 variant="ghost"
-                className="h-6 rounded-md px-2 py-0 text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
+                className="h-5 rounded-md px-1.5 py-0 text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
                 aria-label="Edit message"
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-3 w-3" />
               </Button>
               <Button
                 onClick={() => onCancel(message.id)}
                 variant="ghost"
-                className="h-6 rounded-md px-2 py-0 text-text-tertiary hover:bg-error-50 hover:text-error-600 dark:hover:bg-error-500/10 dark:hover:text-error-400"
+                className="h-5 rounded-md px-1.5 py-0 text-text-tertiary hover:bg-error-50 hover:text-error-600 dark:hover:bg-error-500/10 dark:hover:text-error-400"
                 aria-label="Cancel message"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-3 w-3" />
               </Button>
             </>
           )}

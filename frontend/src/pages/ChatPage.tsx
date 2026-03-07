@@ -15,7 +15,6 @@ import { ChatSessionOrchestrator } from '@/components/chat/chat-window/ChatSessi
 import { useEditorState } from '@/hooks/useEditorState';
 import { useChatData } from '@/hooks/useChatData';
 import { useSandboxFiles } from '@/hooks/useSandboxFiles';
-import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useWorkspacesQuery } from '@/hooks/queries/useWorkspaceQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { mergeAgents } from '@/utils/settings';
@@ -57,7 +56,6 @@ export function ChatPage() {
   const { chatId } = useParams();
   const navigate = useNavigate();
 
-  const { selectedModelId } = useModelSelection();
   useCommandMenu();
 
   const { currentView, secondaryView } = useUIStore(
@@ -295,7 +293,6 @@ export function ChatPage() {
         hasFetchedMessages={hasFetchedMessages}
         messagesQuery={messagesQuery}
         refetchFilesMetadata={refetchFilesMetadata}
-        selectedModelId={selectedModelId}
       >
         <div className="relative flex h-full">
           <div className="flex h-full flex-1 overflow-hidden bg-surface text-text-primary dark:bg-surface-dark dark:text-text-dark-primary">

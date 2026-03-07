@@ -7,6 +7,7 @@ import { useModelStore } from '@/store/modelStore';
 import { queryKeys } from './queryKeys';
 
 const EMPTY_MODEL_MAP = new Map<string, Model>();
+const DEFAULT_MODEL_KEY = '__default__';
 
 export const useModelsQuery = (options?: Partial<UseQueryOptions<Model[]>>) => {
   return useQuery({
@@ -16,19 +17,20 @@ export const useModelsQuery = (options?: Partial<UseQueryOptions<Model[]>>) => {
   });
 };
 
-export const useModelSelection = (options?: { enabled?: boolean }) => {
+export const useModelSelection = (options?: { enabled?: boolean; chatId?: string }) => {
+  const chatId = options?.chatId ?? DEFAULT_MODEL_KEY;
   const { data: models = [], isLoading } = useModelsQuery({
     enabled: options?.enabled,
   });
-  const selectedModelId = useModelStore((state) => state.selectedModelId);
+  const selectedModelId = useModelStore((state) => state.modelByChat[chatId] ?? '');
 
   useEffect(() => {
     if (models.length === 0) return;
     const selectedExists = models.some((m) => m.model_id === selectedModelId);
     if (!selectedExists) {
-      useModelStore.getState().selectModel(models[0].model_id);
+      useModelStore.getState().selectModel(chatId, models[0].model_id);
     }
-  }, [models, selectedModelId]);
+  }, [models, selectedModelId, chatId]);
 
   const selectedModel = useMemo(
     () => models.find((m) => m.model_id === selectedModelId) ?? null,
@@ -36,8 +38,8 @@ export const useModelSelection = (options?: { enabled?: boolean }) => {
   );
 
   const selectModel = useCallback(
-    (modelId: string) => useModelStore.getState().selectModel(modelId),
-    [],
+    (modelId: string) => useModelStore.getState().selectModel(chatId, modelId),
+    [chatId],
   );
 
   return { models, selectedModelId, selectedModel, selectModel, isLoading };

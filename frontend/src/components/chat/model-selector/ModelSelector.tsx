@@ -1,4 +1,4 @@
-import { memo, useMemo, useEffect } from 'react';
+import { memo, useMemo } from 'react';
 import { Cpu } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import type { DropdownItemType } from '@/components/ui/primitives/Dropdown';
@@ -56,12 +56,6 @@ export const ModelSelector = memo(function ModelSelector({
   }, [models]);
 
   const selectedModel = models.find((m) => m.model_id === selectedModelId);
-
-  useEffect(() => {
-    if (models.length > 0 && !selectedModel) {
-      onModelChange(models[0].model_id);
-    }
-  }, [models, selectedModel, onModelChange]);
 
   if (isLoading) {
     return (
