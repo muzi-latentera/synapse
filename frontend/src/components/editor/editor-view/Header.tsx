@@ -2,7 +2,9 @@ import { memo } from 'react';
 import { AlertTriangle, Code, FileText, Save, Loader2, PanelLeft, Maximize2 } from 'lucide-react';
 import type { FileStructure } from '@/types/file-system.types';
 import { Button } from '@/components/ui/primitives/Button';
+import { FileIcon } from '@/components/editor/file-tree/FileIcon';
 import { isPreviewableFile } from '@/utils/fileTypes';
+import { getFileName } from '@/utils/file';
 import { cn } from '@/utils/cn';
 
 export interface HeaderProps {
@@ -52,6 +54,7 @@ export const Header = memo(function Header({
             <PanelLeft size={14} />
           </button>
         )}
+        <FileIcon name={getFileName(filePath)} className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-tertiary">
           {filePath}
         </span>

@@ -5,11 +5,11 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Columns2,
-  FileText,
   GitCompareArrows,
   Rows2,
   RotateCcw,
 } from 'lucide-react';
+import { FileIcon } from '@/components/editor/file-tree/FileIcon';
 import { Button } from '@/components/ui/primitives/Button';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import { Spinner } from '@/components/ui/primitives/Spinner';
@@ -362,7 +362,7 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
                         isExpanded && 'rotate-90',
                       )}
                     />
-                    <FileText className="h-3 w-3 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+                    <FileIcon name={file.name} className="h-3 w-3" />
                     <span className="min-w-0 truncate font-mono text-2xs text-text-secondary dark:text-text-dark-secondary">
                       {isRenamed && file.prevName ? (
                         <>
