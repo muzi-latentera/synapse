@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderOpen, ChevronRight, MoreHorizontal, MessageSquarePlus } from 'lucide-react';
+import { Plus, FolderOpen, ChevronRight, MoreHorizontal, SquarePen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useInView } from 'react-intersection-observer';
 import type { FetchNextPageOptions } from '@tanstack/react-query';
@@ -512,7 +512,7 @@ export function Sidebar({
                         onClick={(e) => handleNewWorkspaceThread(e, group.workspace.id)}
                         className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
                       >
-                        <MessageSquarePlus className="h-3.5 w-3.5" />
+                        <SquarePen className="h-3.5 w-3.5" />
                       </button>
                       <button
                         type="button"

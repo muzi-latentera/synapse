@@ -64,9 +64,10 @@ function DropdownInner<T>({
   }, [isOpen]);
 
   const filterItems = (itemsToFilter: readonly T[]): T[] => {
-    if (!searchQuery.trim()) return [...itemsToFilter];
+    if (!searchQuery.trim()) return itemsToFilter as T[];
+    const isStringItems = itemsToFilter.length > 0 && typeof itemsToFilter[0] === 'string';
     return fuzzySearch(searchQuery, [...itemsToFilter], {
-      keys: ['name', 'label'],
+      keys: isStringItems ? undefined : ['name', 'label'],
       limit: 50,
     });
   };
