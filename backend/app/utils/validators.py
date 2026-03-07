@@ -38,9 +38,8 @@ def validate_model_api_keys(
     # uses the user's existing login.  All other built-in providers still
     # need an explicit key.
     token_optional_types = {"anthropic"}
-    if (
-        provider_type not in ("custom", *token_optional_types)
-        and not provider.get("auth_token")
+    if provider_type not in ("custom", *token_optional_types) and not provider.get(
+        "auth_token"
     ):
         raise APIKeyValidationError(
             f"API key is required for provider '{provider.get('name')}'. "
