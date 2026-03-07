@@ -2,6 +2,7 @@ import { EnhanceButton } from './EnhanceButton';
 import { PermissionModeSelector } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
 import { ModelSelector } from '@/components/chat/model-selector/ModelSelector';
 import { ThinkingModeSelector } from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
+import { BranchSelector } from '@/components/chat/branch-selector/BranchSelector';
 import { useInputState, useInputActions } from '@/hooks/useInputContext';
 
 export function InputControls() {
@@ -32,6 +33,8 @@ export function InputControls() {
         dropdownPosition={state.dropdownPosition}
         disabled={state.isLoading}
       />
+
+      <BranchSelector dropdownPosition={state.dropdownPosition} disabled={state.isLoading} />
     </div>
   );
 }
