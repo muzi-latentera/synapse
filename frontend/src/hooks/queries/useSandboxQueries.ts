@@ -162,9 +162,9 @@ export const useCheckoutBranchMutation = () => {
   return useMutation({
     mutationFn: ({ sandboxId, branch }: { sandboxId: string; branch: string }) =>
       sandboxService.checkoutGitBranch(sandboxId, branch),
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       if (!data.success) return;
-      Promise.all([
+      await Promise.all([
         queryClient.invalidateQueries({
           queryKey: queryKeys.sandbox.gitBranches(variables.sandboxId),
         }),
