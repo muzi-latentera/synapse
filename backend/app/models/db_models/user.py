@@ -120,14 +120,4 @@ class UserSettings(Base):
     installed_plugins: Mapped[list[InstalledPluginDict] | None] = mapped_column(
         JSON, nullable=True
     )
-    gmail_oauth_client: Mapped[dict | None] = mapped_column(
-        EncryptedJSON, nullable=True
-    )
-    gmail_oauth_tokens: Mapped[dict | None] = mapped_column(
-        EncryptedJSON, nullable=True
-    )
-    gmail_connected_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    gmail_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     user = relationship("User", back_populates="settings")

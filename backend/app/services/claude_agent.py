@@ -1,5 +1,4 @@
 import logging
-import shutil
 import sys
 from collections.abc import AsyncIterator, Callable
 from functools import partial
@@ -373,7 +372,7 @@ class ClaudeAgentService:
         sandbox_provider: str,
     ) -> dict[str, Any]:
         # Assemble the MCP servers dict passed to the SDK: the permission
-        # server is always included, plus any user-configured MCPs and Gmail.
+        # server is always included, plus any user-configured MCPs.
         servers: dict[str, Any] = {}
         servers["permission"] = self._build_permission_server(
             permission_mode, chat_id, sandbox_provider
@@ -390,18 +389,6 @@ class ClaudeAgentService:
                 servers[mcp_name] = self._build_mcp_config(mcp, command_type)
             except ClaudeAgentException:
                 logger.error("Failed to configure MCP '%s'", mcp_name, exc_info=True)
-
-        # gmail-mcp is a built-in MCP that reads/sends email — only enabled
-        # when the user has linked their Google account via OAuth.
-        # In host mode, skip if the binary isn't installed.
-        if user_settings.gmail_oauth_tokens:
-            if sandbox_provider != SandboxProviderType.HOST.value or shutil.which(
-                "gmail-mcp"
-            ):
-                servers["gmail"] = {
-                    "command": "gmail-mcp",
-                    "args": [],
-                }
 
         return servers
 

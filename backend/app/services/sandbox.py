@@ -529,40 +529,6 @@ class SandboxService:
             sandbox_id, f"{openai_dir}/auth.json", openai_auth_json
         )
 
-    async def _setup_gmail_mcp(
-        self,
-        sandbox_id: str,
-        gmail_oauth_client: dict[str, Any],
-        gmail_oauth_tokens: dict[str, Any],
-    ) -> None:
-        gmail_dir = f"{SANDBOX_HOME_DIR}/.gmail-mcp"
-        await self.execute_command(sandbox_id, f"mkdir -p {gmail_dir}")
-
-        oauth_client_content = json.dumps(gmail_oauth_client, indent=2)
-        await self.provider.write_file(
-            sandbox_id, f"{gmail_dir}/gcp-oauth.keys.json", oauth_client_content
-        )
-
-        client_data = gmail_oauth_client.get("installed") or gmail_oauth_client.get(
-            "web", {}
-        )
-        credentials: dict[str, Any] = {
-            "token": gmail_oauth_tokens.get("access_token"),
-            "refresh_token": gmail_oauth_tokens.get("refresh_token"),
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "client_id": client_data.get("client_id"),
-            "client_secret": client_data.get("client_secret"),
-            "scopes": gmail_oauth_tokens.get("scope", "").split(),
-        }
-        if gmail_oauth_tokens.get("expiry"):
-            credentials["expiry"] = gmail_oauth_tokens["expiry"]
-        credentials_content = json.dumps(credentials, indent=2)
-        await self.provider.write_file(
-            sandbox_id, f"{gmail_dir}/credentials.json", credentials_content
-        )
-
-        await self.execute_command(sandbox_id, f"chmod 600 {gmail_dir}/*.json")
-
     async def initialize_sandbox(
         self,
         sandbox_id: str,
@@ -575,8 +541,6 @@ class SandboxService:
         auto_compact_disabled: bool = False,
         attribution_disabled: bool = False,
         custom_providers: list[CustomProviderDict] | None = None,
-        gmail_oauth_client: dict[str, Any] | None = None,
-        gmail_oauth_tokens: dict[str, Any] | None = None,
     ) -> None:
         tasks: list[Coroutine[None, None, None]] = [
             self._start_openvscode_server(sandbox_id),
@@ -605,13 +569,6 @@ class SandboxService:
 
         if github_token:
             tasks.append(self._setup_github_token(sandbox_id, github_token))
-
-        if gmail_oauth_client and gmail_oauth_tokens:
-            tasks.append(
-                self._setup_gmail_mcp(
-                    sandbox_id, gmail_oauth_client, gmail_oauth_tokens
-                )
-            )
 
         openai_auth = self._get_openai_auth_from_provider(custom_providers)
         if openai_auth:

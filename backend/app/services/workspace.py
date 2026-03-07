@@ -111,8 +111,6 @@ class WorkspaceService(BaseDbService[Workspace]):
             auto_compact_disabled=user_settings.auto_compact_disabled,
             attribution_disabled=user_settings.attribution_disabled,
             custom_providers=user_settings.custom_providers,
-            gmail_oauth_client=user_settings.gmail_oauth_client,
-            gmail_oauth_tokens=user_settings.gmail_oauth_tokens,
         )
 
         try:

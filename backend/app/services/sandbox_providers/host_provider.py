@@ -290,7 +290,7 @@ class LocalHostProvider(SandboxProvider):
         process_env = os.environ.copy()
         if envs:
             process_env.update(envs)
-        # Web mode: override HOME so tools (Codex, Gmail MCP) find auth files in the sandbox dir.
+        # Web mode: override HOME so tools (Codex) find auth files in the sandbox dir.
         # Desktop mode: keep real HOME so Claude Code finds its existing login credentials.
         if not settings.DESKTOP_MODE:
             process_env["HOME"] = home_dir_str

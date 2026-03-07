@@ -3,7 +3,6 @@ import {
   AlertCircle,
   Settings2,
   Layers,
-  Link2,
   Store,
   Plug,
   Bot,
@@ -40,11 +39,6 @@ import { PromptsSection } from '@/components/settings/sections/PromptsSection';
 import { EnvVarsSection } from '@/components/settings/sections/EnvVarsSection';
 import { TasksSection } from '@/components/settings/sections/TasksSection';
 
-const IntegrationsSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/IntegrationsSettingsTab').then((m) => ({
-    default: m.IntegrationsSettingsTab,
-  })),
-);
 const MarketplaceSettingsTab = lazy(() =>
   import('@/components/settings/tabs/MarketplaceSettingsTab').then((m) => ({
     default: m.MarketplaceSettingsTab,
@@ -59,7 +53,6 @@ const InstructionsSettingsTab = lazy(() =>
 type TabKey =
   | 'general'
   | 'providers'
-  | 'integrations'
   | 'marketplace'
   | 'mcp'
   | 'agents'
@@ -97,7 +90,6 @@ const createFallbackSettings = (): UserSettings => ({
 const TAB_FIELDS: Record<TabKey, (keyof UserSettings)[]> = {
   general: ['github_personal_access_token', 'timezone'],
   providers: ['custom_providers'],
-  integrations: [],
   marketplace: [],
   mcp: ['custom_mcps'],
   agents: ['custom_agents'],
@@ -126,7 +118,6 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
     items: [
       { id: 'general', label: 'General', icon: Settings2 },
       { id: 'providers', label: 'Providers', icon: Layers },
-      { id: 'integrations', label: 'Integrations', icon: Link2 },
       { id: 'marketplace', label: 'Marketplace', icon: Store },
     ],
   },
@@ -581,14 +572,6 @@ const SettingsPage: React.FC = () => {
                     <div role="tabpanel" id="providers-panel" aria-labelledby="providers-tab">
                       <Suspense fallback={tabLoadingFallback}>
                         <ProvidersSection />
-                      </Suspense>
-                    </div>
-                  )}
-
-                  {activeTab === 'integrations' && (
-                    <div role="tabpanel" id="integrations-panel" aria-labelledby="integrations-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <IntegrationsSettingsTab />
                       </Suspense>
                     </div>
                   )}
