@@ -11,7 +11,7 @@ export function InputControls() {
 
   return (
     <div
-      className="absolute bottom-2.5 left-3 right-20 flex flex-wrap items-center gap-1 sm:gap-1.5"
+      className="absolute bottom-2.5 left-3 right-20 flex items-center gap-1 sm:gap-1.5"
       onMouseDown={(e) => e.preventDefault()}
     >
       <EnhanceButton
