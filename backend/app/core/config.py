@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     REQUIRE_EMAIL_VERIFICATION: bool = False
     REGISTRATION_DISABLED: bool = False
 
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/agentrove"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/agentrove"
+    )
     REDIS_URL: str = "redis://localhost:6379/0"
 
     SECRET_KEY: str = ""

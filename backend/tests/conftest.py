@@ -22,7 +22,8 @@ os.environ.setdefault(
     "SECRET_KEY", "test_secret_key_for_testing_at_least_32_characters_long"
 )
 os.environ.setdefault(
-    "DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5433/agentrove_test"
+    "DATABASE_URL",
+    "postgresql+asyncpg://postgres:postgres@localhost:5433/agentrove_test",
 )
 os.environ.setdefault("REDIS_URL", "redis://localhost:6380/0")
 os.environ.setdefault("REQUIRE_EMAIL_VERIFICATION", "false")
