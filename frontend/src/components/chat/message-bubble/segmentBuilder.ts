@@ -1,5 +1,8 @@
 import type { AssistantStreamEvent } from '@/types/chat.types';
 import type { ToolAggregate, ToolEventStatus } from '@/types/tools.types';
+import { PROMPT_SUGGESTIONS_RE } from '@/utils/stream';
+
+const PARTIAL_PROMPT_SUGGESTIONS_RE = /<prompt_suggestions>[\s\S]*$/;
 
 export interface TextSegment {
   kind: 'text';
@@ -312,19 +315,44 @@ export const buildSegments = (events: AssistantStreamEvent[]): MessageSegment[] 
   const segmentIndexByToolId = new Map<string, number>();
   const pendingChildren = new Map<string, ToolAggregate[]>();
   let pendingText = '';
+  let pendingThinking = '';
+  let pendingThinkingIndex = -1;
   let textSegmentCount = 0;
   let thinkingSegmentCount = 0;
   let suggestionsSegmentCount = 0;
 
   const flushText = () => {
     if (!pendingText) return;
-    segments.push({
-      kind: 'text',
-      id: `text-${textSegmentCount}`,
-      text: pendingText,
-    });
-    textSegmentCount++;
+    // Strip prompt_suggestions tags that arrive as raw text via partial streaming
+    const hasTag = pendingText.includes('<prompt_suggestion');
+    const cleaned = hasTag
+      ? pendingText
+          .replace(PROMPT_SUGGESTIONS_RE, '')
+          .replace(PARTIAL_PROMPT_SUGGESTIONS_RE, '')
+          .trimEnd()
+      : pendingText;
+    if (cleaned) {
+      segments.push({
+        kind: 'text',
+        id: `text-${textSegmentCount}`,
+        text: cleaned,
+      });
+      textSegmentCount++;
+    }
     pendingText = '';
+  };
+
+  const flushThinking = () => {
+    if (!pendingThinking) return;
+    segments.push({
+      kind: 'thinking',
+      id: `thinking-${thinkingSegmentCount}`,
+      text: pendingThinking,
+      eventIndex: pendingThinkingIndex,
+    });
+    thinkingSegmentCount++;
+    pendingThinking = '';
+    pendingThinkingIndex = -1;
   };
 
   const context: ProcessToolEventContext = {
@@ -337,20 +365,17 @@ export const buildSegments = (events: AssistantStreamEvent[]): MessageSegment[] 
   events.forEach((event, index) => {
     switch (event.type) {
       case 'assistant_text':
+        flushThinking();
         pendingText += event.text;
         break;
       case 'assistant_thinking':
         flushText();
-        segments.push({
-          kind: 'thinking',
-          id: `thinking-${thinkingSegmentCount}`,
-          text: event.thinking,
-          eventIndex: index,
-        });
-        thinkingSegmentCount++;
+        pendingThinkingIndex = index;
+        pendingThinking += event.thinking;
         break;
       case 'prompt_suggestions':
         flushText();
+        flushThinking();
         segments.push({
           kind: 'suggestions',
           id: `suggestions-${suggestionsSegmentCount}`,
@@ -362,9 +387,11 @@ export const buildSegments = (events: AssistantStreamEvent[]): MessageSegment[] 
       case 'tool_completed':
       case 'tool_failed':
         flushText();
+        flushThinking();
         processToolEvent(event, context);
         break;
       case 'user_text':
+        flushThinking();
         pendingText += event.text;
         break;
       default:
@@ -373,5 +400,6 @@ export const buildSegments = (events: AssistantStreamEvent[]): MessageSegment[] 
   });
 
   flushText();
+  flushThinking();
   return segments;
 };

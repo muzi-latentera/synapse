@@ -520,6 +520,7 @@ class ClaudeAgentService:
             setting_sources=["local", "user", "project"],
             # Route permission prompts through our MCP permission server
             permission_prompt_tool_name="mcp__permission__approval_prompt",
+            include_partial_messages=True,
         )
 
         if thinking_mode in THINKING_MODE_TOKENS:

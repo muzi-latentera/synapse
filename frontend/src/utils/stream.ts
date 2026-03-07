@@ -133,10 +133,13 @@ export const appendEventToLog = (
   return JSON.stringify(events);
 };
 
+export const PROMPT_SUGGESTIONS_RE = /<prompt_suggestions>[\s\S]*?<\/prompt_suggestions>/g;
+
 export const extractAssistantText = (source: string | AssistantStreamEvent[]): string => {
   const events = Array.isArray(source) ? source : parseEventLog(source);
-  return events
+  const raw = events
     .filter((event) => event.type === 'assistant_text')
     .map((event) => event.text)
     .join('');
+  return raw.replace(PROMPT_SUGGESTIONS_RE, '').trimEnd();
 };

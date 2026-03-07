@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Any, Literal, TypedDict
@@ -18,6 +19,10 @@ StreamEventType = Literal[
     "prompt_suggestions",
 ]
 MAX_AUDIT_STRING_LENGTH = 4096
+PROMPT_SUGGESTIONS_RE = re.compile(
+    r"<prompt_suggestions>\s*.*?\s*</prompt_suggestions>",
+    re.DOTALL,
+)
 SENSITIVE_KEY_PARTS = (
     "token",
     "api_key",
@@ -103,7 +108,10 @@ class StreamSnapshotAccumulator:
 
     @property
     def content_text(self) -> str:
-        return "".join(self.text_parts)
+        raw = "".join(self.text_parts)
+        if "<prompt_suggestions>" not in raw:
+            return raw
+        return PROMPT_SUGGESTIONS_RE.sub("", raw).strip()
 
 
 class StreamEnvelope:

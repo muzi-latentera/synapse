@@ -79,6 +79,12 @@ class BaseSandboxTransport(Transport, ABC):
             "TERM": TERMINAL_TYPE,
             **(self._options.env or {}),
         }
+        # Enable fine-grained tool streaming when partial messages are requested.
+        # --include-partial-messages emits stream_event messages, but tool input
+        # parameters are still buffered unless eager_input_streaming is also
+        # enabled at the per-tool level via this env var.
+        if self._options.include_partial_messages:
+            envs.setdefault("CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING", "1")
         return (
             envs,
             str(self._options.cwd or "/home/user"),

@@ -14,6 +14,8 @@ from claude_agent_sdk import (
     ThinkingBlock,
     SystemMessage,
 )
+from claude_agent_sdk.types import StreamEvent as SDKStreamEvent
+
 from app.services.tool_handler import ToolHandlerRegistry
 from app.services.streaming.types import StreamEvent, StreamEventType
 
@@ -40,6 +42,9 @@ class StreamProcessor:
         self._session_handler = session_handler
         self.total_cost_usd = 0.0
         self.usage: dict[str, Any] | None = None
+        # Tracks which block kinds have been streamed via partial deltas
+        # so we skip only those specific kinds from the complete AssistantMessage.
+        self._streamed_kinds: set[str] = set()
 
     def _process_session_init(self, message: SystemMessage) -> None:
         if message.subtype != "init" or not self._session_handler:
@@ -50,8 +55,17 @@ class StreamProcessor:
             self._session_handler(session_id)
 
     def emit_events_for_message(
-        self, message: AssistantMessage | UserMessage | ResultMessage | SystemMessage
+        self,
+        message: AssistantMessage
+        | UserMessage
+        | ResultMessage
+        | SystemMessage
+        | SDKStreamEvent,
     ) -> Iterable[StreamEvent]:
+        if isinstance(message, SDKStreamEvent):
+            yield from self._emit_partial_delta(message)
+            return
+
         if isinstance(message, SystemMessage):
             self._process_session_init(message)
             return
@@ -61,6 +75,7 @@ class StreamProcessor:
             if message.usage is not None and not is_subagent:
                 self.usage = message.usage
             yield from self._emit_assistant_events(message)
+            self._streamed_kinds.clear()
             return
 
         if isinstance(message, UserMessage):
@@ -94,15 +109,42 @@ class StreamProcessor:
         for block in message.content:
             yield from self._emit_block_events(block, parent_tool_use_id)
 
+    def _emit_partial_delta(self, message: SDKStreamEvent) -> Iterable[StreamEvent]:
+        raw = message.event
+        if raw.get("type") != "content_block_delta":
+            return
+
+        delta = raw.get("delta", {})
+        delta_type = delta.get("type")
+        if delta_type == "text_delta":
+            text = delta.get("text", "")
+            if text:
+                self._streamed_kinds.add("text")
+                yield {"type": "assistant_text", "text": text}
+        elif delta_type == "thinking_delta":
+            thinking = delta.get("thinking", "")
+            if thinking:
+                self._streamed_kinds.add("thinking")
+                yield {"type": "assistant_thinking", "thinking": thinking}
+
     def _emit_block_events(
         self, block: Any, parent_tool_use_id: str | None = None
     ) -> Iterable[StreamEvent]:
         if isinstance(block, TextBlock):
-            yield from self._emit_text_block(block.text, event_type="assistant_text")
+            if "text" in self._streamed_kinds:
+                # Text already streamed token-by-token via partial deltas,
+                # but we still need to extract prompt suggestions from the
+                # complete text since the tag spans multiple delta chunks.
+                yield from self._extract_prompt_suggestions(block.text)
+            else:
+                yield from self._emit_text_block(
+                    block.text, event_type="assistant_text"
+                )
             return
 
         if isinstance(block, ThinkingBlock):
-            yield from self._emit_thinking_block(block.thinking)
+            if "thinking" not in self._streamed_kinds:
+                yield from self._emit_thinking_block(block.thinking)
             return
 
         if isinstance(block, ToolUseBlock):
@@ -135,42 +177,40 @@ class StreamProcessor:
         if isinstance(item, ToolResultBlock):
             yield from self._emit_tool_result(item)
 
+    def _extract_prompt_suggestions(self, text: str) -> Iterable[StreamEvent]:
+        match = PROMPT_SUGGESTIONS_PATTERN.search(text)
+        if not match:
+            return
+        try:
+            parsed = json.loads(match.group(1))
+            if isinstance(parsed, list):
+                suggestions = [
+                    s.strip() for s in parsed if isinstance(s, str) and s.strip()
+                ]
+                if suggestions:
+                    yield {
+                        "type": "prompt_suggestions",
+                        "suggestions": suggestions,
+                    }
+            else:
+                logger.warning("Prompt suggestions is not a list")
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse prompt suggestions JSON")
+
     def _emit_text_block(
         self, text: str | None, *, event_type: StreamEventType
     ) -> Iterable[StreamEvent]:
         if not text:
             return
 
-        suggestions: list[str] | None = None
+        if event_type == "assistant_text" and PROMPT_SUGGESTIONS_PATTERN.search(text):
+            cleaned = PROMPT_SUGGESTIONS_PATTERN.sub("", text).strip()
+            if cleaned:
+                yield {"type": event_type, "text": cleaned}
+            yield from self._extract_prompt_suggestions(text)
+            return
 
-        if event_type == "assistant_text":
-            match = PROMPT_SUGGESTIONS_PATTERN.search(text)
-            if match:
-                try:
-                    parsed = json.loads(match.group(1))
-                    if isinstance(parsed, list):
-                        suggestions = [
-                            s.strip()
-                            for s in parsed
-                            if isinstance(s, str) and s.strip()
-                        ]
-                        if suggestions:
-                            text = PROMPT_SUGGESTIONS_PATTERN.sub("", text).strip()
-                    else:
-                        logger.warning("Prompt suggestions is not a list")
-                except json.JSONDecodeError:
-                    logger.warning("Failed to parse prompt suggestions JSON")
-
-        if text:
-            event: StreamEvent = {"type": event_type, "text": text}
-            yield event
-
-        if suggestions:
-            suggestions_event: StreamEvent = {
-                "type": "prompt_suggestions",
-                "suggestions": suggestions,
-            }
-            yield suggestions_event
+        yield {"type": event_type, "text": text}
 
     def _emit_thinking_block(self, thinking: str | None) -> Iterable[StreamEvent]:
         if thinking:
