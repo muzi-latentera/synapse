@@ -53,18 +53,21 @@ const SLASH_COMMANDS: SlashCommand[] = [
   {
     value: '/loop',
     label: 'Loop',
-    description: 'Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo, defaults to 10m)',
+    description:
+      'Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo, defaults to 10m)',
   },
   {
     value: '/frontend-design',
     label: 'Frontend Design',
-    description: 'Create distinctive, production-grade frontend interfaces with high design quality',
+    description:
+      'Create distinctive, production-grade frontend interfaces with high design quality',
   },
   {
     value: '/batch',
     label: 'Batch',
-    description: 'Research and plan a large-scale change, then execute it in parallel across 5-30 isolated worktree agents that each open a PR'
-  }
+    description:
+      'Research and plan a large-scale change, then execute it in parallel across 5-30 isolated worktree agents that each open a PR',
+  },
 ];
 
 interface UseSlashCommandOptions {
