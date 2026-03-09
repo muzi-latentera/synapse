@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import type { UseMutationOptions, UseQueryOptions } from '@tanstack/react-query';
 import { sandboxService } from '@/services/sandboxService';
 import type {
@@ -190,6 +190,7 @@ export const useGitDiffQuery = (
     queryFn: () => sandboxService.getGitDiff(sandboxId, mode, fullContext),
     enabled: !!sandboxId,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
     ...options,
   });
 };

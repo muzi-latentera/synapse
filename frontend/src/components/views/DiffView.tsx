@@ -57,7 +57,12 @@ interface FileDiffMeta {
   name: string;
   prevName?: string;
   type?: string;
-  hunks?: { additionCount: number; deletionCount: number; additionLines: number; deletionLines: number }[];
+  hunks?: {
+    additionCount: number;
+    deletionCount: number;
+    additionLines: number;
+    deletionLines: number;
+  }[];
   [key: string]: unknown;
 }
 
@@ -175,6 +180,8 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
     setParsingDone(false);
     if (!diffContent) {
       setParsingDone(true);
+      setExpandedFiles(new Set());
+      prevFileNamesRef.current = '';
       return;
     }
     let cancelled = false;
