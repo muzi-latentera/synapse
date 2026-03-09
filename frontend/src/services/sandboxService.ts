@@ -219,11 +219,15 @@ async function getBrowserStatus(sandboxId: string): Promise<BrowserStatus> {
   });
 }
 
-async function getGitDiff(sandboxId: string, mode: DiffMode = 'all'): Promise<GitDiffData> {
+async function getGitDiff(
+  sandboxId: string,
+  mode: DiffMode = 'all',
+  fullContext: boolean = false,
+): Promise<GitDiffData> {
   validateRequired(sandboxId, 'Sandbox ID');
 
   return serviceCall(async () => {
-    const qs = buildQueryString({ mode });
+    const qs = buildQueryString({ mode, full_context: fullContext || undefined });
     const response = await apiClient.get<GitDiffData>(`/sandbox/${sandboxId}/git/diff${qs}`);
     return response ?? { diff: '', has_changes: false, is_git_repo: false };
   });

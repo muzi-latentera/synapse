@@ -182,11 +182,12 @@ export const useCheckoutBranchMutation = () => {
 export const useGitDiffQuery = (
   sandboxId: string,
   mode: DiffMode = 'all',
+  fullContext: boolean = false,
   options?: Partial<UseQueryOptions<GitDiffData>>,
 ) => {
   return useQuery({
-    queryKey: queryKeys.sandbox.gitDiff(sandboxId, mode),
-    queryFn: () => sandboxService.getGitDiff(sandboxId, mode),
+    queryKey: queryKeys.sandbox.gitDiff(sandboxId, mode, fullContext),
+    queryFn: () => sandboxService.getGitDiff(sandboxId, mode, fullContext),
     enabled: !!sandboxId,
     staleTime: 30_000,
     ...options,
