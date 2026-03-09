@@ -324,13 +324,7 @@ class ClaudeAgentService:
                         title = message.result
 
             title = title.strip().strip('"').strip("'")
-            if not title:
-                return None
-            # If the model returned a long response instead of a title, take just the first line
-            first_line = title.split("\n", 1)[0].strip()
-            if len(first_line) > 80:
-                first_line = first_line[:77] + "..."
-            return first_line or None
+            return title or None
         except ClaudeSDKError:
             logger.debug("Title generation SDK call failed for user %s", user.id)
             return None
