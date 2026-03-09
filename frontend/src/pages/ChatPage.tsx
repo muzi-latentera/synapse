@@ -151,7 +151,7 @@ export function ChatPage() {
   const pendingFilePath = useUIStore((s) => s.pendingFilePath);
 
   useEffect(() => {
-    if (!pendingFilePath) return;
+    if (!pendingFilePath || fileStructure.length === 0) return;
 
     const file = findFileByToolPath(fileStructure, pendingFilePath);
     setSelectedFile(file ?? { path: pendingFilePath, type: 'file', content: '' });

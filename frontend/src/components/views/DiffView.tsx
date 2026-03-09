@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useEffect, useCallback } from 'react';
+import { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   AlertCircle,
   ChevronRight,
@@ -57,7 +57,12 @@ interface FileDiffMeta {
   name: string;
   prevName?: string;
   type?: string;
-  hunks?: { additionCount: number; deletionCount: number }[];
+  hunks?: {
+    additionCount: number;
+    deletionCount: number;
+    additionLines: number;
+    deletionLines: number;
+  }[];
   [key: string]: unknown;
 }
 
@@ -114,8 +119,8 @@ function FileStats({ file }: { file: FileDiffMeta }) {
   let additions = 0;
   let deletions = 0;
   for (const h of hunks) {
-    additions += h.additionCount;
-    deletions += h.deletionCount;
+    additions += h.additionLines;
+    deletions += h.deletionLines;
   }
 
   if (additions === 0 && deletions === 0) return null;
@@ -168,13 +173,15 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
   } = useGitDiffQuery(sandboxId || '', mode, expandUnchanged, { enabled: !!sandboxId });
 
   const diffContent = diffData?.diff ?? '';
+  const prevFileNamesRef = useRef<string>('');
 
   useEffect(() => {
     setParsedFiles([]);
     setParsingDone(false);
-    setExpandedFiles(new Set());
     if (!diffContent) {
       setParsingDone(true);
+      setExpandedFiles(new Set());
+      prevFileNamesRef.current = '';
       return;
     }
     let cancelled = false;
@@ -183,7 +190,13 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
         const { parsePatchFiles } = await import('@pierre/diffs');
         const patches = parsePatchFiles(diffContent);
         if (!cancelled) {
-          setParsedFiles(patches.flatMap((p) => p.files));
+          const files = patches.flatMap((p) => p.files);
+          const fileNames = files.map((f) => f.name).join('\0');
+          if (fileNames !== prevFileNamesRef.current) {
+            setExpandedFiles(new Set());
+            prevFileNamesRef.current = fileNames;
+          }
+          setParsedFiles(files);
         }
       } finally {
         if (!cancelled) setParsingDone(true);

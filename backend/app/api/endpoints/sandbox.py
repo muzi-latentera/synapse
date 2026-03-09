@@ -119,6 +119,12 @@ async def get_files_metadata(
     return SandboxFilesMetadataResponse(files=[FileMetadata(**f) for f in files])
 
 
+def _normalize_file_path(file_path: str) -> str:
+    if file_path.startswith("/") and not file_path.startswith(SANDBOX_HOME_DIR):
+        return file_path.lstrip("/")
+    return file_path
+
+
 @router.get(
     "/{sandbox_id}/files/content/{file_path:path}", response_model=FileContentResponse
 )
@@ -128,7 +134,9 @@ async def get_file_content(
     sandbox_service: SandboxService = Depends(get_sandbox_service),
 ) -> FileContentResponse:
     try:
-        file_data = await sandbox_service.get_file_content(sandbox_id, file_path)
+        file_data = await sandbox_service.get_file_content(
+            sandbox_id, _normalize_file_path(file_path)
+        )
         return FileContentResponse(**file_data)
     except SandboxException as e:
         raise HTTPException(
@@ -144,11 +152,12 @@ async def update_file_in_sandbox(
     sandbox_service: SandboxService = Depends(get_sandbox_service),
 ) -> UpdateFileResponse:
     try:
+        normalized_path = _normalize_file_path(request.file_path)
         await sandbox_service.provider.write_file(
-            sandbox_id, request.file_path, request.content
+            sandbox_id, normalized_path, request.content
         )
         return UpdateFileResponse(
-            success=True, message=f"File {request.file_path} updated successfully"
+            success=True, message=f"File {normalized_path} updated successfully"
         )
     except SandboxException as e:
         raise HTTPException(

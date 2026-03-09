@@ -10,6 +10,7 @@ import type { FileStructure } from '@/types/file-system.types';
 import { detectLanguage, findFileInStructure } from '@/utils/file';
 import { useUpdateFileMutation, useFileContentQuery } from '@/hooks/queries/useSandboxQueries';
 import { isPreviewableFile, isHtmlFile } from '@/utils/fileTypes';
+import toast from 'react-hot-toast';
 
 export interface ViewProps {
   selectedFile: FileStructure | null;
@@ -124,8 +125,6 @@ export const View = memo(function View({
   const handleUpdateFile = useCallback(async () => {
     if (!selectedFile || !sandboxId || !chatId || !hasUnsavedChanges) return;
 
-    setError(null);
-
     updateFileMutation.mutate(
       {
         sandboxId,
@@ -136,10 +135,10 @@ export const View = memo(function View({
         onSuccess: () => {
           setHasUnsavedChanges(false);
           isUserEditRef.current = false;
+          toast.success('File saved');
         },
         onError: (err) => {
-          const errorMessage = err instanceof Error ? err.message : 'Failed to update file';
-          setError(errorMessage);
+          toast.error(err instanceof Error ? err.message : 'Failed to update file');
         },
       },
     );
