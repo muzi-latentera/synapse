@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/primitives/Button';
 import type { SlashCommand } from '@/types/ui.types';
 
@@ -13,6 +13,16 @@ export const SlashCommandsPanel = memo(function SlashCommandsPanel({
   highlightedIndex,
   onSelect,
 }: SlashCommandsPanelProps) {
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      itemRefs.current[highlightedIndex]?.scrollIntoView({
+        block: 'nearest',
+      });
+    }
+  }, [highlightedIndex]);
+
   if (suggestions.length === 0) return null;
 
   return (
@@ -24,6 +34,9 @@ export const SlashCommandsPanel = memo(function SlashCommandsPanel({
             return (
               <Button
                 key={command.value}
+                ref={(el) => {
+                  itemRefs.current[index] = el;
+                }}
                 type="button"
                 variant="unstyled"
                 role="option"

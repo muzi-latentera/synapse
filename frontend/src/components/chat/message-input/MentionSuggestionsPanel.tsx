@@ -29,7 +29,6 @@ export const MentionSuggestionsPanel = memo(function MentionSuggestionsPanel({
     if (highlightedIndex >= 0 && mentionRefs.current[highlightedIndex]) {
       mentionRefs.current[highlightedIndex]?.scrollIntoView({
         block: 'nearest',
-        behavior: 'smooth',
       });
     }
   }, [highlightedIndex]);
