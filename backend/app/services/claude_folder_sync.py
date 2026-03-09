@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
+from app.constants import CLAUDE_DIR
 from app.core.config import get_settings
 from app.models.types import (
     CustomAgentDict,
@@ -21,8 +22,6 @@ from app.utils.yaml_parser import YAMLParser
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
-
-CLAUDE_DIR = Path.home() / ".claude"
 CLAUDE_AGENTS_DIR = CLAUDE_DIR / "agents"
 CLAUDE_COMMANDS_DIR = CLAUDE_DIR / "commands"
 CLAUDE_SKILLS_DIR = CLAUDE_DIR / "skills"

@@ -1,5 +1,10 @@
+import os
 from pathlib import Path
 from typing import Final
+
+CLAUDE_DIR: Final[Path] = (
+    Path(d) if (d := os.environ.get("CLAUDE_CONFIG_DIR")) else Path.home() / ".claude"
+)
 
 HOST_REQUIRED_PATH_PREFIX: Final[str] = (
     f"{Path.home()}/.local/bin:/opt/homebrew/bin:/usr/local/bin"

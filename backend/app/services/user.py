@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.constants import REDIS_KEY_USER_SETTINGS
+from app.constants import CLAUDE_DIR, REDIS_KEY_USER_SETTINGS
 from app.core.config import get_settings
 from app.models.db_models.user import UserSettings
 from pydantic import BaseModel
@@ -19,7 +19,7 @@ from app.models.schemas.settings import (
     UserSettingsResponse,
 )
 from app.models.types import InstalledPluginDict
-from app.services.claude_folder_sync import CLAUDE_DIR, ClaudeFolderSync
+from app.services.claude_folder_sync import ClaudeFolderSync
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import UserException
 from app.utils.cache import CacheStore, cache_connection

@@ -12,11 +12,12 @@ from app.models.types import (
     PluginComponentsDict,
     PluginDetailsDict,
 )
+from app.constants import CLAUDE_DIR
 from app.services.exceptions import ErrorCode, MarketplaceException
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_PLUGINS_DIR = Path.home() / ".claude" / "plugins"
+CLAUDE_PLUGINS_DIR = CLAUDE_DIR / "plugins"
 KNOWN_MARKETPLACES_JSON = CLAUDE_PLUGINS_DIR / "known_marketplaces.json"
 MAX_SKILL_FILES = 50
 SAFE_PATH_SEGMENT = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
