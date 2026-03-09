@@ -154,7 +154,8 @@ export function ChatPage() {
     if (!pendingFilePath) return;
 
     const file = findFileByToolPath(fileStructure, pendingFilePath);
-    setSelectedFile(file ?? { path: pendingFilePath, type: 'file', content: '' });
+    const normalizedPath = pendingFilePath.replace(/^\/+/, '');
+    setSelectedFile(file ?? { path: normalizedPath, type: 'file', content: '' });
     useUIStore.setState({ pendingFilePath: null });
   }, [pendingFilePath, setSelectedFile, fileStructure]);
 
