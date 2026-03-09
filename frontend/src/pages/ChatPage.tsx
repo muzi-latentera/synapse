@@ -151,11 +151,10 @@ export function ChatPage() {
   const pendingFilePath = useUIStore((s) => s.pendingFilePath);
 
   useEffect(() => {
-    if (!pendingFilePath) return;
+    if (!pendingFilePath || fileStructure.length === 0) return;
 
     const file = findFileByToolPath(fileStructure, pendingFilePath);
-    const normalizedPath = pendingFilePath.replace(/^\/+/, '');
-    setSelectedFile(file ?? { path: normalizedPath, type: 'file', content: '' });
+    setSelectedFile(file ?? { path: pendingFilePath, type: 'file', content: '' });
     useUIStore.setState({ pendingFilePath: null });
   }, [pendingFilePath, setSelectedFile, fileStructure]);
 
