@@ -18,8 +18,8 @@ export const queryKeys = {
     ideUrl: (sandboxId: string) => ['sandbox', sandboxId, 'ide-url'] as const,
     vncUrl: (sandboxId: string) => ['sandbox', sandboxId, 'vnc-url'] as const,
     browserStatus: (sandboxId: string) => ['sandbox', sandboxId, 'browser-status'] as const,
-    gitDiff: (sandboxId: string, mode: DiffMode) =>
-      ['sandbox', sandboxId, 'git-diff', mode] as const,
+    gitDiff: (sandboxId: string, mode: DiffMode, fullContext: boolean = false) =>
+      ['sandbox', sandboxId, 'git-diff', mode, fullContext] as const,
     gitDiffAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-diff'] as const,
     gitBranches: (sandboxId: string) => ['sandbox', sandboxId, 'git-branches'] as const,
   },

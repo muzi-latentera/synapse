@@ -265,6 +265,7 @@ async def get_git_diff(
     sandbox_id: str = Depends(validate_sandbox_ownership),
     sandbox_service: SandboxService = Depends(get_sandbox_service),
     mode: Literal["all", "staged", "unstaged", "branch"] = Query("all"),
+    full_context: bool = Query(False),
 ) -> GitDiffResponse:
     # Workspace is mounted at /home/user/workspace in Docker containers;
     # cd there first, falling back to /home/user for non-Docker sandboxes.
@@ -276,9 +277,12 @@ async def get_git_diff(
         if check.exit_code != 0:
             return GitDiffResponse(diff="", has_changes=False, is_git_repo=False)
 
+        # Large context window so the patch includes the entire file, enabling full-file diff view
+        ctx = " -U99999" if full_context else ""
+
         untracked_diff = (
             " git ls-files --others --exclude-standard -z"
-            " | xargs -0 -I{} git diff --no-index -- /dev/null {} 2>/dev/null"
+            f" | xargs -0 -I{{}} git diff{ctx} --no-index -- /dev/null {{}} 2>/dev/null"
         )
 
         if mode == "branch":
@@ -291,16 +295,16 @@ async def get_git_diff(
                 " git rev-parse --verify $b >/dev/null 2>&1 && base=$b && break; done;"
                 ' if [ -z "$base" ]; then exit 2; fi;'
                 ' merge_base=$(git merge-base "$base" HEAD 2>/dev/null || echo "$base");'
-                ' git diff "$merge_base" HEAD 2>/dev/null'
+                f' git diff{ctx} "$merge_base" HEAD 2>/dev/null'
             )
         elif mode == "staged":
-            cmd = "git diff --cached 2>/dev/null"
+            cmd = f"git diff{ctx} --cached 2>/dev/null"
         elif mode == "unstaged":
-            cmd = f"git diff 2>/dev/null;{untracked_diff}"
+            cmd = f"git diff{ctx} 2>/dev/null;{untracked_diff}"
         else:
             cmd = (
-                "{ git diff HEAD 2>/dev/null"
-                " || { git diff --cached 2>/dev/null; git diff 2>/dev/null; }; };"
+                f"{{ git diff{ctx} HEAD 2>/dev/null"
+                f" || {{ git diff{ctx} --cached 2>/dev/null; git diff{ctx} 2>/dev/null; }}; }};"
                 f"{untracked_diff}"
             )
 

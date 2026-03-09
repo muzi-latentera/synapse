@@ -8,6 +8,8 @@ import {
   GitCompareArrows,
   Rows2,
   RotateCcw,
+  UnfoldVertical,
+  FoldVertical,
 } from 'lucide-react';
 import { FileIcon } from '@/components/editor/file-tree/FileIcon';
 import { Button } from '@/components/ui/primitives/Button';
@@ -156,13 +158,14 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
   const [parsingDone, setParsingDone] = useState(false);
   const [mode, setMode] = useState<DiffMode>('all');
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
+  const [expandUnchanged, setExpandUnchanged] = useState(false);
 
   const {
     data: diffData,
     isFetching,
     isError,
     refetch,
-  } = useGitDiffQuery(sandboxId || '', mode, { enabled: !!sandboxId });
+  } = useGitDiffQuery(sandboxId || '', mode, expandUnchanged, { enabled: !!sandboxId });
 
   const diffContent = diffData?.diff ?? '';
 
@@ -196,9 +199,10 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
       theme: DIFF_THEMES,
       themeType: theme,
       diffStyle,
+      expandUnchanged,
       disableFileHeader: true,
     }),
-    [theme, diffStyle],
+    [theme, diffStyle, expandUnchanged],
   );
 
   const toggleFile = useCallback((index: number) => {
@@ -279,6 +283,20 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
             </Button>
           </>
         )}
+
+        <Button
+          onClick={() => setExpandUnchanged(!expandUnchanged)}
+          variant="unstyled"
+          className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
+          title={expandUnchanged ? 'Show changes only' : 'Show full file'}
+          aria-label={expandUnchanged ? 'Show changes only' : 'Show full file'}
+        >
+          {expandUnchanged ? (
+            <FoldVertical className="h-3 w-3" />
+          ) : (
+            <UnfoldVertical className="h-3 w-3" />
+          )}
+        </Button>
 
         <Button
           onClick={() => setDiffStyle(diffStyle === 'unified' ? 'split' : 'unified')}
