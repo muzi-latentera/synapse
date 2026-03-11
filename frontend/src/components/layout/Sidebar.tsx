@@ -604,7 +604,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={() => handleDeleteWorkspace(workspaceDropdown.workspaceId)}
-            className="text-error-500 dark:text-error-400 w-full rounded-md px-2.5 py-1.5 text-left text-xs transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
+            className="w-full rounded-md px-2.5 py-1.5 text-left text-xs text-error-500 transition-colors duration-200 hover:bg-surface-hover dark:text-error-400 dark:hover:bg-surface-dark-hover"
           >
             Delete
           </button>

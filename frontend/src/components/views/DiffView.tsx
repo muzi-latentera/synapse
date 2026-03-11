@@ -262,7 +262,9 @@ export const DiffView = memo(function DiffView({ sandboxId }: DiffViewProps) {
           title="Refresh diff"
           aria-label="Refresh diff"
         >
-          <RotateCcw className={cn('h-3 w-3', isFetching && 'animate-spin motion-reduce:animate-none')} />
+          <RotateCcw
+            className={cn('h-3 w-3', isFetching && 'animate-spin motion-reduce:animate-none')}
+          />
         </Button>
 
         <Dropdown

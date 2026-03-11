@@ -53,11 +53,13 @@ export function SendButton({
   if (showSpinnerIcon) {
     ariaLabel = 'Starting chat';
     icon = (
-      <LoaderCircle className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none text-text-dark-primary dark:text-text-primary" />
+      <LoaderCircle className="h-3.5 w-3.5 animate-spin text-text-dark-primary motion-reduce:animate-none dark:text-text-primary" />
     );
   } else if (showStopIcon) {
     ariaLabel = 'Stop generating';
-    icon = <Pause className="h-3 w-3 animate-pulse motion-reduce:animate-none text-text-dark-primary" />;
+    icon = (
+      <Pause className="h-3 w-3 animate-pulse text-text-dark-primary motion-reduce:animate-none" />
+    );
   } else {
     ariaLabel = 'Send message';
     icon = (
