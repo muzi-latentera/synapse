@@ -38,7 +38,10 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
 
   const fileTree = useMemo(() => skillFilesToFileTree(files), [files]);
 
-  const modifiedPathsKey = useMemo(() => [...modifiedFiles.keys()].sort().join('\0'), [modifiedFiles]);
+  const modifiedPathsKey = useMemo(
+    () => [...modifiedFiles.keys()].sort().join('\0'),
+    [modifiedFiles],
+  );
   const modifiedPaths = useMemo(
     () => new Set(modifiedPathsKey ? modifiedPathsKey.split('\0') : []),
     [modifiedPathsKey],
@@ -62,7 +65,12 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
         setExpandedFolders(collectFolderPathsFromFiles(loaded));
         const firstTextFile = loaded.find((f) => !f.is_binary);
         if (firstTextFile) {
-          setSelectedFile({ path: firstTextFile.path, content: firstTextFile.content, type: 'file', is_binary: false });
+          setSelectedFile({
+            path: firstTextFile.path,
+            content: firstTextFile.content,
+            type: 'file',
+            is_binary: false,
+          });
         }
       } catch (err) {
         if (cancelled) return;
@@ -84,7 +92,8 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
 
   const currentContent = useMemo(() => {
     if (!selectedSkillFile) return '';
-    if (modifiedFiles.has(selectedSkillFile.path)) return modifiedFiles.get(selectedSkillFile.path)!;
+    if (modifiedFiles.has(selectedSkillFile.path))
+      return modifiedFiles.get(selectedSkillFile.path)!;
     return selectedSkillFile.content;
   }, [selectedSkillFile, modifiedFiles]);
 
@@ -249,7 +258,12 @@ function skillFilesToFileTree(files: SkillFileEntry[]): FileStructure[] {
       let existing = current.find((n) => n.path === partPath);
       if (!existing) {
         existing = isLast
-          ? { path: partPath, content: file.content, type: 'file' as const, is_binary: file.is_binary }
+          ? {
+              path: partPath,
+              content: file.content,
+              type: 'file' as const,
+              is_binary: file.is_binary,
+            }
           : { path: partPath, content: '', type: 'folder' as const, children: [] };
         current.push(existing);
       }
