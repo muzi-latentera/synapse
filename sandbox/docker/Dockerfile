@@ -99,7 +99,7 @@ RUN python3 -m pip install --user --upgrade pip && \
     requests \
     pydantic \
     mcp \
-    anthropic-bridge==0.1.38
+    anthropic-bridge==0.1.39
 
 RUN echo '#!/bin/bash\nexec echo $GITHUB_TOKEN' > /home/user/.git-askpass.sh && \
     chmod +x /home/user/.git-askpass.sh
