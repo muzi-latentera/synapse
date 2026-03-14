@@ -232,7 +232,9 @@ class ChatService(BaseDbService[Chat]):
 
             return chat
 
-    async def get_model_context_window(self, chat_id: UUID, user_id: UUID) -> int | None:
+    async def get_model_context_window(
+        self, chat_id: UUID, user_id: UUID
+    ) -> int | None:
         last_msg = await self.message_service.get_latest_assistant_message(chat_id)
         if not last_msg or not last_msg.model_id:
             return None

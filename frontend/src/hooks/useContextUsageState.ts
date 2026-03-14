@@ -45,10 +45,7 @@ export function useContextUsageState(
     }
   }, [chatId, currentChat?.context_token_usage, currentChat?.id]);
 
-  const { data: contextUsageData } = useContextUsageQuery(
-    chatId || '',
-    { enabled: !!chatId },
-  );
+  const { data: contextUsageData } = useContextUsageQuery(chatId || '', { enabled: !!chatId });
 
   useEffect(() => {
     if (!chatId || !contextUsageData) return;
