@@ -215,6 +215,12 @@
 - Before flagging cross-chat, cross-screen, or cross-context state contamination in the frontend, trace the full lifecycle: callback creation site, captured values, storage location, update path, and invocation site
 - Prefer concrete callback lifecycle traces over static closure assumptions when hooks interact with long-lived stores, subscriptions, or external event sources
 
+### Failure-path control flow
+- When reviewing error handling, trace the exact path an exception takes through `except`, `raise`, and `return` boundaries before concluding that later code is affected
+- Do not flag success-path classification logic as buggy unless you have verified that execution can still reach it after the failure
+- In async call chains, follow the failure across helper methods and outer handlers all the way to the final state write before reporting misclassification bugs
+- Before raising a finding about status handling, verify which exact lines run next after the failure
+
 ### Complexity test
 Before flagging or fixing an issue, ask: "If this fails, does the user lose data or get stuck?" If the answer is no (e.g., an orphaned row, a briefly stale UI element), skip it. If the answer is yes (e.g., a queued message is silently dropped, the stream appears frozen), fix it.
 
