@@ -100,6 +100,19 @@ When creating a workspace you can override the default sandbox provider (Docker 
 ```bash
 git clone https://github.com/Mng-dev-ai/agentrove.git
 cd agentrove
+cp .env.example .env
+```
+
+Set a `SECRET_KEY` in your `.env` file (used for JWT signing):
+
+```bash
+# Generate a random key and paste it as the SECRET_KEY value in .env
+openssl rand -hex 32
+```
+
+Then start all services:
+
+```bash
 docker compose -p agentrove-web -f docker-compose.yml up -d
 ```
 
