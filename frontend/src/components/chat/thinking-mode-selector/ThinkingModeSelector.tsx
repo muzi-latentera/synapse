@@ -1,7 +1,11 @@
 import { memo } from 'react';
 import { Brain } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
-import { useChatSettingsStore, DEFAULT_CHAT_SETTINGS_KEY, DEFAULT_THINKING_MODE } from '@/store/chatSettingsStore';
+import {
+  useChatSettingsStore,
+  DEFAULT_CHAT_SETTINGS_KEY,
+  DEFAULT_THINKING_MODE,
+} from '@/store/chatSettingsStore';
 import { useUIStore } from '@/store/uiStore';
 
 export interface ThinkingModeOption {

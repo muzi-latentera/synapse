@@ -5,7 +5,11 @@ import { ChatSessionProvider } from '@/contexts/ChatSessionContext';
 import { ChatInputMessageProvider } from '@/contexts/ChatInputMessageContext';
 import type { ChatSessionState, ChatSessionActions } from '@/contexts/ChatSessionContextDefinition';
 import { useChatStore } from '@/store/chatStore';
-import { useChatSettingsStore, DEFAULT_PERMISSION_MODE, DEFAULT_THINKING_MODE } from '@/store/chatSettingsStore';
+import {
+  useChatSettingsStore,
+  DEFAULT_PERMISSION_MODE,
+  DEFAULT_THINKING_MODE,
+} from '@/store/chatSettingsStore';
 import { useChatStreaming } from '@/hooks/useChatStreaming';
 import { usePermissionRequest } from '@/hooks/usePermissionRequest';
 import { useInitialPrompt } from '@/hooks/useInitialPrompt';

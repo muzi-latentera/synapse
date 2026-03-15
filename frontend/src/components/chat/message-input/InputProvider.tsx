@@ -6,7 +6,11 @@ import { useSlashCommandSuggestions } from '@/hooks/useSlashCommandSuggestions';
 import { useEnhancePromptMutation } from '@/hooks/queries/useChatQueries';
 import { useMentionSuggestions } from '@/hooks/useMentionSuggestions';
 import { useMessageQueueStore } from '@/store/messageQueueStore';
-import { useChatSettingsStore, DEFAULT_PERMISSION_MODE, DEFAULT_THINKING_MODE } from '@/store/chatSettingsStore';
+import {
+  useChatSettingsStore,
+  DEFAULT_PERMISSION_MODE,
+  DEFAULT_THINKING_MODE,
+} from '@/store/chatSettingsStore';
 import { useChatContext } from '@/hooks/useChatContext';
 import {
   InputContext,

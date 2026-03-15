@@ -32,7 +32,9 @@ export const useChatSettingsStore = create<ChatSettingsState>()(
         const state = get();
         const permission = state.permissionModeByChat[DEFAULT_KEY];
         const thinking = state.thinkingModeByChat[DEFAULT_KEY];
-        const updates: Partial<Pick<ChatSettingsState, 'permissionModeByChat' | 'thinkingModeByChat'>> = {};
+        const updates: Partial<
+          Pick<ChatSettingsState, 'permissionModeByChat' | 'thinkingModeByChat'>
+        > = {};
         if (permission !== undefined) {
           updates.permissionModeByChat = { ...state.permissionModeByChat, [chatId]: permission };
         }
