@@ -208,9 +208,7 @@ class ClaudeAgentService:
                         tool_name = event.get("tool", {}).get("name", "")
                         mode = PLAN_MODE_TRANSITIONS.get((event_type, tool_name))
                         if mode:
-                            sdk_mode = SDK_PERMISSION_MODE_MAP.get(
-                                mode, "acceptEdits"
-                            )
+                            sdk_mode = SDK_PERMISSION_MODE_MAP.get(mode, "acceptEdits")
                             await client.set_permission_mode(sdk_mode)
                 if processor.usage is not prev_usage:
                     result.usage = processor.usage
