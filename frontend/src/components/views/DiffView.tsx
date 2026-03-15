@@ -162,7 +162,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
   const [expandedFiles, setExpandedFiles] = useState<Set<number>>(new Set());
   const [parsedFiles, setParsedFiles] = useState<FileDiffMeta[]>([]);
   const [parsingDone, setParsingDone] = useState(false);
-  const [mode, setMode] = useState<DiffMode>('all');
+  const [mode, setMode] = useState<DiffMode>(cwd ? 'branch' : 'all');
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
   const [expandUnchanged, setExpandUnchanged] = useState(false);
 
