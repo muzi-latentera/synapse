@@ -23,8 +23,6 @@ import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { mergeAgents, mergeByName, mergeCommands } from '@/utils/settings';
 import { findFileByToolPath } from '@/utils/file';
 import { ChatProvider } from '@/contexts/ChatContext';
-import { useGitWorktreesQuery } from '@/hooks/queries/useSandboxQueries';
-import { useChatSettingsStore, DEFAULT_WORKTREE } from '@/store/chatSettingsStore';
 
 const Editor = lazy(() =>
   import('@/components/editor/editor-core/Editor').then((m) => ({ default: m.Editor })),
@@ -78,18 +76,7 @@ export function ChatPage() {
     chatId,
   );
 
-  const worktreeEnabled = useChatSettingsStore((state) =>
-    chatId ? (state.worktreeByChat[chatId] ?? DEFAULT_WORKTREE) : false,
-  );
-  const { data: worktreesData } = useGitWorktreesQuery(
-    currentChat?.sandbox_id ?? '',
-    worktreeEnabled && !!currentChat?.sandbox_id,
-  );
-  const worktreeCwd = useMemo(() => {
-    if (!worktreesData?.worktrees) return undefined;
-    const nonMain = worktreesData.worktrees.find((wt) => !wt.is_main);
-    return nonMain?.path;
-  }, [worktreesData]);
+  const worktreeCwd = currentChat?.worktree_cwd ?? undefined;
 
   const prevViewsRef = useRef<{
     current: ViewType | null;

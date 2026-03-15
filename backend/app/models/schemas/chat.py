@@ -79,6 +79,7 @@ class Chat(ChatBase):
     updated_at: datetime
     context_token_usage: int | None = None
     pinned_at: datetime | None = None
+    worktree_cwd: str | None = None
 
 
 class ContextUsage(BaseModel):

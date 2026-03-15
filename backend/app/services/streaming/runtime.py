@@ -80,16 +80,18 @@ class SessionUpdateCallback:
         assistant_message_id: str | None,
         session_factory: SessionFactoryType,
         session_container: dict[str, Any],
+        worktree: bool = False,
     ) -> None:
         self.chat_id = chat_id
         self.assistant_message_id = assistant_message_id
         self.session_factory = session_factory
         self.session_container = session_container
+        self._worktree = worktree
         self._pending_task: asyncio.Task[None] | None = None
 
-    def __call__(self, new_session_id: str) -> None:
+    def __call__(self, new_session_id: str, cwd: str | None = None) -> None:
         self.session_container["session_id"] = new_session_id
-        task = asyncio.create_task(self._update_session_id(new_session_id))
+        task = asyncio.create_task(self._update_session_init(new_session_id, cwd))
         self._pending_task = task
         task.add_done_callback(self._on_task_done)
 
@@ -100,9 +102,9 @@ class SessionUpdateCallback:
             return
         exc = task.exception()
         if exc:
-            logger.error("Session ID update task failed: %s", exc)
+            logger.error("Session init update task failed: %s", exc)
 
-    async def _update_session_id(self, session_id: str) -> None:
+    async def _update_session_init(self, session_id: str, cwd: str | None) -> None:
         try:
             async with self.session_factory() as db:
                 chat_uuid = UUID(self.chat_id)
@@ -111,6 +113,8 @@ class SessionUpdateCallback:
                 chat_record = chat_result.scalar_one_or_none()
                 if chat_record:
                     chat_record.session_id = session_id
+                    if self._worktree and cwd:
+                        chat_record.worktree_cwd = cwd
                     db.add(chat_record)
 
                 if self.assistant_message_id:
@@ -124,7 +128,7 @@ class SessionUpdateCallback:
 
                 await db.commit()
         except (SQLAlchemyError, ValueError) as exc:
-            logger.error("Failed to update session_id: %s", exc)
+            logger.error("Failed to update session init: %s", exc)
 
 
 class ChatStreamRuntime:
@@ -1082,6 +1086,7 @@ class ChatStreamRuntime:
                 assistant_message_id=request.assistant_message_id,
                 session_factory=runtime.session_factory,
                 session_container=runtime.session_container,
+                worktree=request.worktree,
             )
 
             session.cancel_event.clear()

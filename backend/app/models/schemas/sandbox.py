@@ -90,13 +90,3 @@ class GitCheckoutResponse(BaseModel):
     success: bool
     current_branch: str
     error: str | None = None
-
-
-class GitWorktree(BaseModel):
-    path: str
-    branch: str | None = None
-    is_main: bool
-
-
-class GitWorktreesResponse(BaseModel):
-    worktrees: list[GitWorktree]

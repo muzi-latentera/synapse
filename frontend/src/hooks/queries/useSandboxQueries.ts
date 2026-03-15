@@ -196,15 +196,6 @@ export const useGitDiffQuery = (
   });
 };
 
-export const useGitWorktreesQuery = (sandboxId: string, enabled: boolean = true) => {
-  return useQuery({
-    queryKey: queryKeys.sandbox.gitWorktrees(sandboxId),
-    queryFn: () => sandboxService.getGitWorktrees(sandboxId),
-    enabled: !!sandboxId && enabled,
-    staleTime: 30_000,
-  });
-};
-
 interface BrowserStatus {
   running: boolean;
   current_url?: string;

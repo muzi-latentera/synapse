@@ -9,7 +9,6 @@ import type {
   GitBranchesData,
   GitCheckoutData,
   GitDiffData,
-  GitWorktreesData,
   PortInfo,
   Secret,
   UpdateFileResult,
@@ -239,15 +238,6 @@ async function getGitDiff(
   });
 }
 
-async function getGitWorktrees(sandboxId: string): Promise<GitWorktreesData> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  return serviceCall(async () => {
-    const response = await apiClient.get<GitWorktreesData>(`/sandbox/${sandboxId}/git/worktrees`);
-    return response ?? { worktrees: [] };
-  });
-}
-
 async function getGitBranches(sandboxId: string): Promise<GitBranchesData> {
   validateRequired(sandboxId, 'Sandbox ID');
 
@@ -287,6 +277,5 @@ export const sandboxService = {
   getBrowserStatus,
   getGitDiff,
   getGitBranches,
-  getGitWorktrees,
   checkoutGitBranch,
 };

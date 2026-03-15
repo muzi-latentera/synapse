@@ -22,7 +22,6 @@ export const queryKeys = {
       ['sandbox', sandboxId, 'git-diff', mode, fullContext, cwd] as const,
     gitDiffAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-diff'] as const,
     gitBranches: (sandboxId: string) => ['sandbox', sandboxId, 'git-branches'] as const,
-    gitWorktrees: (sandboxId: string) => ['sandbox', sandboxId, 'git-worktrees'] as const,
   },
   workspaces: ['workspaces'] as const,
   workspaceResources: (workspaceId: string) => ['workspaces', workspaceId, 'resources'] as const,

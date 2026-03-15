@@ -58,13 +58,3 @@ export interface GitCheckoutData {
   current_branch: string;
   error?: string;
 }
-
-export interface GitWorktreeData {
-  path: string;
-  branch: string | null;
-  is_main: boolean;
-}
-
-export interface GitWorktreesData {
-  worktrees: GitWorktreeData[];
-}

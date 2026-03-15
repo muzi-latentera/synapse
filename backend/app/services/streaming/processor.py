@@ -5,20 +5,19 @@ from collections.abc import Callable, Iterable
 from typing import Any
 
 from claude_agent_sdk import (
-    TextBlock,
-    ToolUseBlock,
-    ToolResultBlock,
     AssistantMessage,
-    UserMessage,
     ResultMessage,
-    ThinkingBlock,
     SystemMessage,
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
 )
 from claude_agent_sdk.types import StreamEvent as SDKStreamEvent
 
-from app.services.tool_handler import ToolHandlerRegistry
 from app.services.streaming.types import StreamEvent, StreamEventType
-
+from app.services.tool_handler import ToolHandlerRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class StreamProcessor:
     def __init__(
         self,
         tool_registry: ToolHandlerRegistry,
-        session_handler: Callable[[str], None] | None = None,
+        session_handler: Callable[[str, str | None], None] | None = None,
     ) -> None:
         self._tool_registry = tool_registry
         self._session_handler = session_handler
@@ -52,15 +51,18 @@ class StreamProcessor:
 
         session_id = message.data.get("session_id")
         if session_id:
-            self._session_handler(session_id)
+            cwd = message.data.get("cwd")
+            self._session_handler(session_id, cwd)
 
     def emit_events_for_message(
         self,
-        message: AssistantMessage
-        | UserMessage
-        | ResultMessage
-        | SystemMessage
-        | SDKStreamEvent,
+        message: (
+            AssistantMessage
+            | UserMessage
+            | ResultMessage
+            | SystemMessage
+            | SDKStreamEvent
+        ),
     ) -> Iterable[StreamEvent]:
         if isinstance(message, SDKStreamEvent):
             yield from self._emit_partial_delta(message)

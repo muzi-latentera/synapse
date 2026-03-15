@@ -40,6 +40,7 @@ class Chat(Base):
         GUID(), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
     session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    worktree_cwd: Mapped[str | None] = mapped_column(String(512), nullable=True)
     context_token_usage: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
     )
