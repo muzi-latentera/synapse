@@ -478,6 +478,7 @@ export function useStreamCallbacks({
       );
 
       if (chatId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat(chatId), exact: true });
         timerIdsRef.current.push(
           setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: queryKeys.contextUsage(chatId) });

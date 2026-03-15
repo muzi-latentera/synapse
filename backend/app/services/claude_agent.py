@@ -176,7 +176,7 @@ class ClaudeAgentService:
         custom_instructions: str | None,
         session_id: str | None,
         result: StreamResult,
-        session_callback: Callable[[str], None] | None = None,
+        session_callback: Callable[[str, str | None], None] | None = None,
         attachments: list[dict[str, Any]] | None = None,
         attachment_base_dir: str = SANDBOX_HOME_DIR,
     ) -> AsyncIterator[StreamEvent]:

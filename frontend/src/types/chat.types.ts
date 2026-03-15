@@ -59,6 +59,7 @@ export interface Chat {
   updated_at: string;
   context_token_usage?: number;
   pinned_at?: string | null;
+  worktree_cwd?: string | null;
 }
 
 export interface ChatRequest {

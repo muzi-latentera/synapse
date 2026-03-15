@@ -16,8 +16,6 @@ from app.models.schemas.sandbox import (
     GitCheckoutRequest,
     GitCheckoutResponse,
     GitDiffResponse,
-    GitWorktree,
-    GitWorktreesResponse,
     IDEUrlResponse,
     SandboxFilesMetadataResponse,
     StartBrowserRequest,
@@ -343,47 +341,6 @@ async def get_git_diff(
             has_changes=bool(diff_output.strip()),
             is_git_repo=True,
         )
-    except SandboxException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-
-
-@router.get("/{sandbox_id}/git/worktrees", response_model=GitWorktreesResponse)
-async def get_git_worktrees(
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> GitWorktreesResponse:
-    try:
-        result = await sandbox_service.execute_command(
-            sandbox_id,
-            f"{GIT_CD_PREFIX}git worktree list --porcelain 2>/dev/null",
-        )
-        if result.exit_code != 0:
-            return GitWorktreesResponse(worktrees=[])
-
-        worktrees: list[GitWorktree] = []
-        path: str | None = None
-        branch: str | None = None
-
-        for line in [*result.stdout.splitlines(), ""]:
-            if line.startswith("worktree "):
-                path = line[9:]
-            elif line.startswith("branch "):
-                branch = line[7:].removeprefix("refs/heads/")
-            elif line == "" and path:
-                worktrees.append(
-                    GitWorktree(
-                        path=path,
-                        branch=branch,
-                        is_main=path == SANDBOX_WORKSPACE_DIR,
-                    )
-                )
-                path = None
-                branch = None
-
-        return GitWorktreesResponse(worktrees=worktrees)
     except SandboxException as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
