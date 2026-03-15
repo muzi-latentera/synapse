@@ -148,7 +148,10 @@ function DropdownInner<T>({
       >
         {LeftIcon && (
           <LeftIcon
-            className={cn('h-3 w-3 text-text-tertiary dark:text-text-dark-tertiary', !forceCompact && 'sm:hidden')}
+            className={cn(
+              'h-3 w-3 text-text-tertiary dark:text-text-dark-tertiary',
+              !forceCompact && 'sm:hidden',
+            )}
           />
         )}
         <span className={labelClasses}>
