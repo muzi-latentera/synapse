@@ -555,6 +555,8 @@ class LocalHostProvider(SandboxProvider):
                     session_id,
                     master_fd,
                     on_data,
+                    str(home_dir),
+                    str(workspace_dir),
                 )
             )
             self._pty_sessions[sandbox_id][session_id]["reader_task"] = reader_task
@@ -567,12 +569,24 @@ class LocalHostProvider(SandboxProvider):
         session_id: str,
         master_fd: int,
         on_data: PtyDataCallbackType,
+        home_dir_str: str,
+        workspace_dir_str: str,
     ) -> None:
+        mask = not settings.DESKTOP_MODE
+        if mask:
+            home_bytes = home_dir_str.encode()
+            workspace_bytes = workspace_dir_str.encode()
+            virtual_home = SANDBOX_HOME_DIR.encode()
+            virtual_workspace = SANDBOX_WORKSPACE_DIR.encode()
         try:
             while True:
                 chunk = await asyncio.to_thread(os.read, master_fd, 4096)
                 if not chunk:
                     break
+                if mask:
+                    if workspace_bytes != home_bytes:
+                        chunk = chunk.replace(workspace_bytes, virtual_workspace)
+                    chunk = chunk.replace(home_bytes, virtual_home)
                 await on_data(chunk)
         except asyncio.CancelledError:
             pass
