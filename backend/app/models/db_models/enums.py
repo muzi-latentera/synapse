@@ -48,10 +48,6 @@ class ToolStatus(str, enum.Enum):
 
 class StreamEventKind(str, enum.Enum):
     STREAM = "stream"
-    CONTENT = "content"
-    COMPLETE = "complete"
-    ERROR = "error"
-    QUEUE_INJECTED = "queue_injected"
     QUEUE_PROCESSING = "queue_processing"
 
 

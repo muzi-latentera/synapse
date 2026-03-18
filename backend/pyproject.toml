@@ -142,4 +142,5 @@ DEP002 = [
     "python-multipart",
     "bcrypt",
     "anthropic-bridge",
+    "email-validator",
 ]

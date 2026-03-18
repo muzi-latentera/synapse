@@ -23,7 +23,6 @@ class ErrorCode(str, Enum):
     WORKSPACE_NOT_FOUND = "WORKSPACE_NOT_FOUND"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
-    EXTERNAL_SERVICE_ERROR = "EXTERNAL_SERVICE_ERROR"
 
 
 class ServiceException(Exception):
@@ -39,13 +38,6 @@ class ServiceException(Exception):
         self.error_code = error_code
         self.details: dict[str, str] = details or {}
         self.status_code = status_code
-
-    def to_dict(self) -> dict[str, str | dict[str, str]]:
-        return {
-            "error_code": self.error_code.value,
-            "message": self.message,
-            "details": self.details,
-        }
 
 
 class ChatException(ServiceException):
@@ -155,31 +147,6 @@ class AgentException(ServiceException):
         details: dict[str, str] | None = None,
         status_code: int = 400,
     ):
-        super().__init__(message, error_code, details, status_code)
-
-
-class APIKeyValidationException(ServiceException):
-    def __init__(
-        self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.API_KEY_MISSING,
-        details: dict[str, str] | None = None,
-        status_code: int = 400,
-    ):
-        super().__init__(message, error_code, details, status_code)
-
-
-class ExternalServiceException(ServiceException):
-    def __init__(
-        self,
-        message: str,
-        service_name: str,
-        error_code: ErrorCode = ErrorCode.EXTERNAL_SERVICE_ERROR,
-        details: dict[str, str] | None = None,
-        status_code: int = 503,
-    ):
-        details = details or {}
-        details["service_name"] = service_name
         super().__init__(message, error_code, details, status_code)
 
 

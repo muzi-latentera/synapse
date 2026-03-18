@@ -1,7 +1,6 @@
 from uuid import UUID
 
-API_PREFIX = "/api/v1"
-ATTACHMENTS_PREFIX = f"{API_PREFIX}/attachments"
+ATTACHMENTS_PREFIX = "/api/v1/attachments"
 
 
 class AttachmentURL:

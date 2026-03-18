@@ -138,11 +138,6 @@ class RefreshTokenService:
         )
         return int(getattr(result, "rowcount", 0))
 
-    async def revoke_all_user_tokens(self, user_id: UUID, db: AsyncSession) -> int:
-        count = await self._revoke_all_tokens(user_id, db)
-        await db.commit()
-        return count
-
     async def cleanup_expired_and_revoked_tokens(
         self, revoked_grace_days: int = 7
     ) -> dict[str, int]:
@@ -173,6 +168,3 @@ class RefreshTokenService:
         except Exception as e:
             logger.error("Error cleaning up refresh tokens: %s", e)
             return {"error": str(e)}
-
-
-refresh_token_service = RefreshTokenService()

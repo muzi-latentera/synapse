@@ -24,7 +24,6 @@ from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.scheduler import SchedulerService
 from app.services.skill import SkillService
-from app.services.storage import StorageService
 from app.services.user import UserService
 
 logger = logging.getLogger(__name__)
@@ -153,12 +152,6 @@ async def get_sandbox_service(
         yield SandboxService(provider)
     finally:
         await provider.cleanup()
-
-
-async def get_storage_service(
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> StorageService:
-    return StorageService(sandbox_service)
 
 
 async def get_workspace_service(

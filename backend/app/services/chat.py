@@ -303,31 +303,6 @@ class ChatService(BaseDbService[Chat]):
                             ws_sandbox.delete_sandbox(workspace.sandbox_id)
                         )
 
-    async def get_chat_sandbox_id(self, chat_id: UUID, user: User) -> str | None:
-        # Look up the sandbox ID for a chat via its workspace, without loading the full chat.
-        async with self.session_factory() as db:
-            result = await db.execute(
-                select(Workspace.sandbox_id)
-                .join(Chat, Chat.workspace_id == Workspace.id)
-                .filter(
-                    Chat.id == chat_id,
-                    Chat.user_id == user.id,
-                    Chat.deleted_at.is_(None),
-                )
-            )
-            row = result.one_or_none()
-
-            if not row:
-                raise ChatException(
-                    "Chat not found or you don't have permission to access sandbox",
-                    error_code=ErrorCode.CHAT_ACCESS_DENIED,
-                    details={"chat_id": str(chat_id)},
-                    status_code=403,
-                )
-
-            sandbox_id: str | None = row[0]
-            return sandbox_id
-
     async def delete_all_chats(self, user: User) -> int:
         # Bulk soft-delete all chats, messages, and workspaces for a user,
         # then fire-and-forget session termination and sandbox cleanup.
