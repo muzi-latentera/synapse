@@ -37,16 +37,11 @@ export const SplitViewContainer = memo(function SplitViewContainer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const isSingleView =
-    isMobile || !mosaicLayout || !isMosaicSplitNode(mosaicLayout);
+  const isSingleView = isMobile || !mosaicLayout || !isMosaicSplitNode(mosaicLayout);
 
   if (isSingleView) {
     const view: ViewType = typeof mosaicLayout === 'string' ? mosaicLayout : currentView;
-    return (
-      <div className="flex h-full flex-1 overflow-hidden">
-        {renderView(view, 'single')}
-      </div>
-    );
+    return <div className="flex h-full flex-1 overflow-hidden">{renderView(view, 'single')}</div>;
   }
 
   return (

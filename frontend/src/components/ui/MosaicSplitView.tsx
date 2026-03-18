@@ -79,9 +79,7 @@ export function MosaicSplitView({ mosaicLayout, renderView }: MosaicSplitViewPro
                     {props.title}
                   </span>
                 </div>
-                <div className="flex items-center">
-                  {props.toolbarControls}
-                </div>
+                <div className="flex items-center">{props.toolbarControls}</div>
               </div>
             )}
           >

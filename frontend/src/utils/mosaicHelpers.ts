@@ -64,7 +64,12 @@ export function libraryToMosaicLayout(node: MosaicNode<string> | null): MosaicLa
 
   // Handle n-ary format: { type: 'split', direction, children, splitPercentages }
   if ('type' in node && node.type === 'split' && 'children' in node) {
-    const nary = node as { type: 'split'; direction: 'row' | 'column'; children: MosaicNode<string>[]; splitPercentages?: number[] };
+    const nary = node as {
+      type: 'split';
+      direction: 'row' | 'column';
+      children: MosaicNode<string>[];
+      splitPercentages?: number[];
+    };
     if (nary.children.length === 0) return null;
     if (nary.children.length === 1) return libraryToMosaicLayout(nary.children[0]);
 
@@ -97,7 +102,12 @@ export function libraryToMosaicLayout(node: MosaicNode<string> | null): MosaicLa
 
   // Handle legacy binary format: { direction, first, second, splitPercentage }
   if ('direction' in node && 'first' in node && 'second' in node) {
-    const legacy = node as { direction: 'row' | 'column'; first: MosaicNode<string>; second: MosaicNode<string>; splitPercentage?: number };
+    const legacy = node as {
+      direction: 'row' | 'column';
+      first: MosaicNode<string>;
+      second: MosaicNode<string>;
+      splitPercentage?: number;
+    };
     const pct = legacy.splitPercentage;
     return {
       direction: legacy.direction,

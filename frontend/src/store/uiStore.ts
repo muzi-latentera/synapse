@@ -113,7 +113,8 @@ export const useUIStore = create<UIStoreState>()(
         const state = get();
         const currentLayout = state.mosaicLayout ?? state.currentView;
 
-        const leaves = typeof currentLayout === 'string' ? [currentLayout] : getLeaves(currentLayout);
+        const leaves =
+          typeof currentLayout === 'string' ? [currentLayout] : getLeaves(currentLayout);
         if (leaves.includes(view)) return;
 
         set({

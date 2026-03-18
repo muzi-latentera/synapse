@@ -214,7 +214,11 @@ export function CommandMenu() {
                   onClick={() => handleSelect(cmd.id)}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-                  <HighlightMatch text={cmd.label} searchQuery={query} className="flex-1 text-left" />
+                  <HighlightMatch
+                    text={cmd.label}
+                    searchQuery={query}
+                    className="flex-1 text-left"
+                  />
                   {isActive && (
                     <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
                   )}
