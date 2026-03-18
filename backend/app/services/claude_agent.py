@@ -513,7 +513,7 @@ class ClaudeAgentService:
             # Route permission prompts through our MCP permission server
             permission_prompt_tool_name="mcp__permission__approval_prompt",
             include_partial_messages=True,
-            max_thinking_tokens=THINKING_MODE_TOKENS.get(thinking_mode) or 0,
+            max_thinking_tokens=THINKING_MODE_TOKENS.get(thinking_mode or "") or 0,
             worktree=worktree,
         )
         return options

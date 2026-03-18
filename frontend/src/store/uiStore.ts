@@ -6,7 +6,6 @@ import type {
   UIActions,
   SplitViewState,
   SplitViewActions,
-  MosaicLayoutNode,
   ViewType,
 } from '@/types/ui.types';
 import { MOBILE_BREAKPOINT } from '@/config/constants';
