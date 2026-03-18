@@ -6,7 +6,7 @@ import {
   DEFAULT_CHAT_SETTINGS_KEY,
   DEFAULT_THINKING_MODE,
 } from '@/store/chatSettingsStore';
-import { useUIStore } from '@/store/uiStore';
+import { useIsSplitMode } from '@/hooks/useIsSplitMode';
 
 export interface ThinkingModeOption {
   value: string | null;
@@ -37,7 +37,7 @@ export const ThinkingModeSelector = memo(function ThinkingModeSelector({
   const thinkingMode = useChatSettingsStore(
     (state) => state.thinkingModeByChat[key] ?? DEFAULT_THINKING_MODE,
   );
-  const isSplitMode = useUIStore((state) => state.isSplitMode);
+  const isSplitMode = useIsSplitMode();
 
   const selectedMode = THINKING_MODES.find((m) => m.value === thinkingMode) || THINKING_MODES[0];
 

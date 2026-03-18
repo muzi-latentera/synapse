@@ -10,15 +10,24 @@ import {
   GitCompareArrows,
   Monitor,
   Search,
-  Rows2,
-  Columns2,
+  PanelRight,
+  PanelBottom,
 } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useActiveViews } from '@/hooks/useActiveViews';
 import { fuzzySearch } from '@/utils/fuzzySearch';
 import { HighlightMatch } from '@/components/editor/file-tree/HighlightMatch';
 import { cn } from '@/utils/cn';
-import type { ViewType, SplitDirection } from '@/types/ui.types';
+import type { ViewType, MosaicDirection } from '@/types/ui.types';
+
+const splitButtonClass = cn(
+  'flex items-center justify-center rounded-md p-1',
+  'text-text-quaternary dark:text-text-dark-quaternary',
+  'hover:text-text-primary dark:hover:text-text-dark-primary',
+  'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+  'transition-colors duration-200',
+);
 
 function VSCodeIcon({ className }: { className?: string }) {
   return (
@@ -55,9 +64,8 @@ export function CommandMenu() {
   const listId = 'command-menu-list';
 
   const isOpen = useUIStore((state) => state.commandMenuOpen);
-  const currentView = useUIStore((state) => state.currentView);
-  const splitDirection = useUIStore((state) => state.splitDirection);
   const isMobile = useIsMobile();
+  const activeLeaves = useActiveViews();
 
   const visibleCommands = useMemo(
     () => VIEW_COMMANDS.filter((cmd) => !isMobile || !cmd.hideOnMobile),
@@ -87,20 +95,19 @@ export function CommandMenu() {
 
   const handleSelect = useCallback(
     (viewId: ViewType) => {
-      const state = useUIStore.getState();
-      if (viewId !== state.currentView) {
-        state.handleViewClick(viewId, true);
-      }
+      useUIStore.getState().handleViewClick(viewId, true);
       close();
     },
     [close],
   );
 
-  const toggleSplitDirection = useCallback(() => {
-    const next: SplitDirection =
-      useUIStore.getState().splitDirection === 'horizontal' ? 'vertical' : 'horizontal';
-    useUIStore.getState().setSplitDirection(next);
-  }, []);
+  const handleSplit = useCallback(
+    (viewId: ViewType, direction: MosaicDirection) => {
+      useUIStore.getState().addTileToMosaic(viewId, direction);
+      close();
+    },
+    [close],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -184,14 +191,11 @@ export function CommandMenu() {
         <div className="max-h-64 overflow-y-auto py-1" role="listbox" id={listId}>
           {filteredCommands.map((cmd, index) => {
             const Icon = cmd.icon;
-            const isActive = cmd.id === currentView;
+            const isActive = activeLeaves.includes(cmd.id);
 
             return (
-              <button
+              <div
                 key={cmd.id}
-                id={`command-item-${cmd.id}`}
-                role="option"
-                aria-selected={index === activeIndex}
                 className={cn(
                   'flex w-full items-center gap-3 px-3 py-2 text-xs transition-colors duration-200',
                   'text-text-primary dark:text-text-dark-primary',
@@ -200,15 +204,42 @@ export function CommandMenu() {
                     : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
                 )}
                 onMouseEnter={() => setActiveIndex(index)}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelect(cmd.id)}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-                <HighlightMatch text={cmd.label} searchQuery={query} className="flex-1 text-left" />
-                {isActive && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+                <button
+                  id={`command-item-${cmd.id}`}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  className="flex flex-1 items-center gap-3"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(cmd.id)}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+                  <HighlightMatch text={cmd.label} searchQuery={query} className="flex-1 text-left" />
+                  {isActive && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+                  )}
+                </button>
+                {!isMobile && !isActive && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSplit(cmd.id, 'row')}
+                      className={splitButtonClass}
+                      title="Split right"
+                    >
+                      <PanelRight className="h-3 w-3" />
+                    </button>
+                    <button
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSplit(cmd.id, 'column')}
+                      className={splitButtonClass}
+                      title="Split down"
+                    >
+                      <PanelBottom className="h-3 w-3" />
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
 
@@ -222,25 +253,8 @@ export function CommandMenu() {
         {!isMobile && (
           <div className="flex items-center justify-between border-t border-border/50 px-3 py-2 dark:border-border-dark/50">
             <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              Enter to split · Esc to close
+              Enter to add · Click icons to split · Esc to close
             </span>
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={toggleSplitDirection}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2 py-1 text-2xs transition-colors duration-200',
-                'text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary',
-                'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-              )}
-              aria-label={`Split direction: ${splitDirection}`}
-            >
-              {splitDirection === 'horizontal' ? (
-                <Columns2 className="h-3 w-3" />
-              ) : (
-                <Rows2 className="h-3 w-3" />
-              )}
-              <span className="capitalize">{splitDirection}</span>
-            </button>
           </div>
         )}
       </div>

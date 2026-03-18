@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useCallback, useRef, ReactNode, lazy, Suspense } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
-import { useShallow } from 'zustand/react/shallow';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useLayoutSidebar } from '@/components/layout/layoutState';
 import { useUIStore } from '@/store/uiStore';
@@ -8,6 +7,7 @@ import { useChatStore } from '@/store/chatStore';
 import { SplitViewContainer } from '@/components/ui/SplitViewContainer';
 import { CommandMenu } from '@/components/ui/CommandMenu';
 import { useCommandMenu } from '@/hooks/useCommandMenu';
+import { useActiveViews } from '@/hooks/useActiveViews';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 import type { ViewType } from '@/types/ui.types';
 import { Chat as ChatComponent } from '@/components/chat/chat-window/Chat';
@@ -61,12 +61,7 @@ export function ChatPage() {
 
   useCommandMenu();
 
-  const { currentView, secondaryView } = useUIStore(
-    useShallow((state) => ({
-      currentView: state.currentView,
-      secondaryView: state.secondaryView,
-    })),
-  );
+  const activeViews = useActiveViews();
 
   const { chats, currentChat, fetchedMessages, hasFetchedMessages, chatsQueryMeta, messagesQuery } =
     useChatData(chatId);
@@ -79,12 +74,10 @@ export function ChatPage() {
   const worktreeCwd = currentChat?.worktree_cwd ?? undefined;
 
   const prevViewsRef = useRef<{
-    current: ViewType | null;
-    secondary: ViewType | null;
+    views: ViewType[];
     sandboxId: string | null;
   }>({
-    current: null,
-    secondary: null,
+    views: [],
     sandboxId: null,
   });
 
@@ -92,25 +85,19 @@ export function ChatPage() {
     if (!currentChat?.sandbox_id) return;
 
     const prev = prevViewsRef.current;
-    const switchedToEditorPrimary = currentView === 'editor' && prev.current !== 'editor';
-    const switchedToEditorSecondary = secondaryView === 'editor' && prev.secondary !== 'editor';
-    const isEditorActive = currentView === 'editor' || secondaryView === 'editor';
+    const editorNowActive = activeViews.includes('editor');
+    const editorWasActive = prev.views.includes('editor');
     const switchedSandbox = prev.sandboxId !== currentChat.sandbox_id;
 
-    if (
-      switchedToEditorPrimary ||
-      switchedToEditorSecondary ||
-      (isEditorActive && switchedSandbox)
-    ) {
+    if ((editorNowActive && !editorWasActive) || (editorNowActive && switchedSandbox)) {
       refetchFilesMetadata();
     }
 
     prevViewsRef.current = {
-      current: currentView,
-      secondary: secondaryView,
+      views: activeViews,
       sandboxId: currentChat.sandbox_id,
     };
-  }, [currentView, secondaryView, currentChat?.sandbox_id, refetchFilesMetadata]);
+  }, [activeViews, currentChat?.sandbox_id, refetchFilesMetadata]);
 
   const { data: workspacesData } = useWorkspacesQuery();
   const workspaces = workspacesData?.items ?? [];
@@ -173,7 +160,7 @@ export function ChatPage() {
   );
 
   const sidebarContent = useMemo(() => {
-    if (currentView !== 'agent') return null;
+    if (!activeViews.includes('agent')) return null;
     return (
       <Sidebar
         chats={chats}
@@ -186,7 +173,7 @@ export function ChatPage() {
       />
     );
   }, [
-    currentView,
+    activeViews,
     chats,
     workspaces,
     chatId,
@@ -273,7 +260,7 @@ export function ChatPage() {
   );
 
   const renderView = useCallback(
-    (view: ViewType, slot: 'single' | 'primary' | 'secondary'): ReactNode => {
+    (view: ViewType, slot: string): ReactNode => {
       const isTerminal = view === 'terminal';
       return (
         <div className="relative flex h-full w-full">

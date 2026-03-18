@@ -3,8 +3,8 @@ import { Cpu } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import type { DropdownItemType } from '@/components/ui/primitives/Dropdown';
 import { useAuthStore } from '@/store/authStore';
-import { useUIStore } from '@/store/uiStore';
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
+import { useIsSplitMode } from '@/hooks/useIsSplitMode';
 import type { Model } from '@/types/chat.types';
 
 const groupModelsByProvider = (models: Model[]) => {
@@ -38,7 +38,7 @@ export const ModelSelector = memo(function ModelSelector({
   disabled = false,
 }: ModelSelectorProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const isSplitMode = useUIStore((state) => state.isSplitMode);
+  const isSplitMode = useIsSplitMode();
   const { models, isLoading } = useModelSelection({ enabled: isAuthenticated });
 
   const groupedItems = useMemo(() => {

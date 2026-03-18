@@ -6,7 +6,7 @@ import {
   DEFAULT_CHAT_SETTINGS_KEY,
   DEFAULT_PERMISSION_MODE,
 } from '@/store/chatSettingsStore';
-import { useUIStore } from '@/store/uiStore';
+import { useIsSplitMode } from '@/hooks/useIsSplitMode';
 
 export interface PermissionModeOption {
   value: 'plan' | 'ask' | 'auto';
@@ -35,7 +35,7 @@ export const PermissionModeSelector = memo(function PermissionModeSelector({
   const permissionMode = useChatSettingsStore(
     (state) => state.permissionModeByChat[key] ?? DEFAULT_PERMISSION_MODE,
   );
-  const isSplitMode = useUIStore((state) => state.isSplitMode);
+  const isSplitMode = useIsSplitMode();
 
   const selectedMode =
     PERMISSION_MODES.find((m) => m.value === permissionMode) || PERMISSION_MODES[2];
