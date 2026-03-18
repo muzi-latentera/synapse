@@ -1,5 +1,6 @@
 import { memo, useEffect, ReactNode } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { X } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { cn } from '@/utils/cn';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -66,8 +67,25 @@ export const SplitViewContainer = memo(function SplitViewContainer({
       </PanelResizeHandle>
 
       <Panel minSize={20}>
-        <div className="flex h-full w-full flex-1 overflow-hidden">
+        <div className="relative flex h-full w-full flex-1 overflow-hidden">
           {renderView(secondaryView, 'secondary')}
+          <button
+            onClick={() => useUIStore.getState().exitSplitMode()}
+            className={cn(
+              'absolute z-10 flex items-center justify-center',
+              'h-5 w-5 rounded-md',
+              'bg-surface-secondary/90 dark:bg-surface-dark-secondary/90',
+              'border border-border/50 dark:border-border-dark/50',
+              'text-text-tertiary dark:text-text-dark-tertiary',
+              'hover:text-text-primary dark:hover:text-text-dark-primary',
+              'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+              'transition-colors duration-200',
+              'right-2 top-2',
+            )}
+            title="Close split view (Esc)"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       </Panel>
     </PanelGroup>
