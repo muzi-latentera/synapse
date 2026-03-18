@@ -39,6 +39,7 @@ class ServiceException(Exception):
         self.details: dict[str, str] = details or {}
         self.status_code = status_code
 
+
 class ChatException(ServiceException):
     def __init__(
         self,
