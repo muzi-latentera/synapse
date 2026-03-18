@@ -6,8 +6,10 @@ import type {
   UIActions,
   SplitViewState,
   SplitViewActions,
+  ViewType,
 } from '@/types/ui.types';
 import { MOBILE_BREAKPOINT } from '@/config/constants';
+import { getLeaves, isMosaicSplitNode, removeTileFromLayout } from '@/utils/mosaicHelpers';
 
 type UIStoreState = ThemeState &
   Pick<UIState, 'sidebarOpen'> &
@@ -44,58 +46,118 @@ export const useUIStore = create<UIStoreState>()(
 
       pendingFilePath: null,
       openFileInEditor: (path) => {
+        set({ pendingFilePath: path });
         const isMobile = typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
-        set(
-          isMobile
-            ? {
-                currentView: 'editor',
-                isSplitMode: false,
-                secondaryView: null,
-                pendingFilePath: path,
-              }
-            : { secondaryView: 'editor', isSplitMode: true, pendingFilePath: path },
-        );
+        if (isMobile) {
+          set({ currentView: 'editor', mosaicLayout: 'editor' });
+        } else {
+          const state = get();
+          const layout = state.mosaicLayout;
+          if (layout && isMosaicSplitNode(layout)) {
+            const leaves = getLeaves(layout);
+            if (!leaves.includes('editor')) {
+              set({ mosaicLayout: { direction: 'row', first: layout, second: 'editor' } });
+            }
+          } else {
+            const currentView = (layout ?? state.currentView) as ViewType;
+            if (currentView !== 'editor') {
+              set({
+                mosaicLayout: {
+                  direction: 'row',
+                  first: currentView,
+                  second: 'editor',
+                },
+              });
+            }
+          }
+        }
       },
 
-      isSplitMode: false,
       currentView: 'agent',
-      secondaryView: null,
-      splitDirection: 'horizontal',
+      splitDirection: 'row',
+      mosaicLayout: null,
 
-      setCurrentView: (view) => set({ currentView: view, isSplitMode: false, secondaryView: null }),
+      setCurrentView: (view) =>
+        set({
+          currentView: view,
+          mosaicLayout: view,
+        }),
 
-      setSecondaryView: (view) => set({ secondaryView: view, isSplitMode: view !== null }),
-
-      exitSplitMode: () => set({ isSplitMode: false, secondaryView: null }),
+      exitSplitMode: () => {
+        const state = get();
+        set({ mosaicLayout: state.currentView });
+      },
 
       setSplitDirection: (direction) => set({ splitDirection: direction }),
 
-      handleViewClick: (view, isShiftClick) => {
+      setMosaicLayout: (layout) => {
+        if (layout === null) {
+          set({ mosaicLayout: null });
+          return;
+        }
+        if (typeof layout === 'string') {
+          set({
+            mosaicLayout: layout,
+            currentView: layout as ViewType,
+          });
+        } else {
+          const leaves = getLeaves(layout);
+          set({
+            mosaicLayout: layout,
+            currentView: leaves[0] as ViewType,
+          });
+        }
+      },
+
+      addTileToMosaic: (view, direction) => {
         const state = get();
+        const currentLayout = state.mosaicLayout ?? state.currentView;
+
+        const leaves =
+          typeof currentLayout === 'string' ? [currentLayout] : getLeaves(currentLayout);
+        if (leaves.includes(view)) return;
+
+        set({
+          mosaicLayout: {
+            direction,
+            first: currentLayout,
+            second: view,
+          },
+          currentView: leaves[0] as ViewType,
+        });
+      },
+
+      removeTileFromMosaic: (view) => {
+        const layout = get().mosaicLayout;
+        if (!layout || typeof layout === 'string') return;
+        const remaining = getLeaves(layout).filter((v) => v !== view);
+        if (remaining.length === 0) return;
+        if (remaining.length === 1) {
+          set({ currentView: remaining[0], mosaicLayout: remaining[0] });
+        } else {
+          const newLayout = removeTileFromLayout(layout, view);
+          if (newLayout) get().setMosaicLayout(newLayout);
+        }
+      },
+
+      handleViewClick: (view, isShiftClick) => {
         if (
           isShiftClick &&
           typeof window !== 'undefined' &&
           window.innerWidth >= MOBILE_BREAKPOINT
         ) {
-          if (state.currentView === view) {
-            return;
-          }
-          set({
-            secondaryView: view,
-            isSplitMode: true,
-          });
+          get().addTileToMosaic(view, get().splitDirection);
         } else {
           set({
             currentView: view,
-            isSplitMode: false,
-            secondaryView: null,
+            mosaicLayout: view,
           });
         }
       },
     }),
     {
       name: 'ui-storage',
-      version: 3,
+      version: 6,
       partialize: (state) => ({
         theme: state.theme,
         currentView: state.currentView,
@@ -108,6 +170,9 @@ export const useUIStore = create<UIStoreState>()(
         delete state.secondaryView;
         delete state.permissionMode;
         delete state.thinkingMode;
+        delete state.mosaicLayout;
+        if (state.splitDirection === 'horizontal') state.splitDirection = 'row';
+        if (state.splitDirection === 'vertical') state.splitDirection = 'column';
         return state;
       },
       merge: (persisted, current) => ({

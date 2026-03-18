@@ -37,21 +37,31 @@ export type ViewType =
   | 'webPreview'
   | 'mobilePreview';
 
-export type SplitDirection = 'horizontal' | 'vertical';
+export type MosaicDirection = 'row' | 'column';
+
+export interface MosaicSplitNode {
+  direction: MosaicDirection;
+  first: MosaicLayoutNode;
+  second: MosaicLayoutNode;
+  splitPercentages?: number[];
+}
+
+export type MosaicLayoutNode = MosaicSplitNode | ViewType;
 
 export interface SplitViewState {
-  isSplitMode: boolean;
   currentView: ViewType;
-  secondaryView: ViewType | null;
-  splitDirection: SplitDirection;
+  splitDirection: MosaicDirection;
+  mosaicLayout: MosaicLayoutNode | null;
 }
 
 export interface SplitViewActions {
   setCurrentView: (view: ViewType) => void;
-  setSecondaryView: (view: ViewType | null) => void;
   exitSplitMode: () => void;
   handleViewClick: (view: ViewType, isShiftClick: boolean) => void;
-  setSplitDirection: (direction: SplitDirection) => void;
+  setSplitDirection: (direction: MosaicDirection) => void;
+  setMosaicLayout: (layout: MosaicLayoutNode | null) => void;
+  addTileToMosaic: (view: ViewType, direction: MosaicDirection) => void;
+  removeTileFromMosaic: (view: ViewType) => void;
 }
 
 export interface UIState {

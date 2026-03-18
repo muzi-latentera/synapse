@@ -1,27 +1,35 @@
-import { memo, useEffect, ReactNode } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { X } from 'lucide-react';
+import { memo, useEffect, lazy, Suspense, ReactNode } from 'react';
 import { useUIStore } from '@/store/uiStore';
-import { cn } from '@/utils/cn';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { Spinner } from '@/components/ui/primitives/Spinner';
+import { isMosaicSplitNode } from '@/utils/mosaicHelpers';
 import type { ViewType } from '@/types/ui.types';
 
+const MosaicSplitView = lazy(() =>
+  import('@/components/ui/MosaicSplitView').then((m) => ({ default: m.MosaicSplitView })),
+);
+
+const mosaicFallback = (
+  <div className="flex h-full w-full items-center justify-center bg-surface-secondary dark:bg-surface-dark-secondary">
+    <Spinner size="md" className="text-text-quaternary dark:text-text-dark-quaternary" />
+  </div>
+);
+
 interface SplitViewContainerProps {
-  renderView: (view: ViewType, slot: 'single' | 'primary' | 'secondary') => ReactNode;
+  renderView: (view: ViewType, slot: string) => ReactNode;
 }
 
 export const SplitViewContainer = memo(function SplitViewContainer({
   renderView,
 }: SplitViewContainerProps) {
   const currentView = useUIStore((state) => state.currentView);
-  const secondaryView = useUIStore((state) => state.secondaryView);
-  const isSplitMode = useUIStore((state) => state.isSplitMode);
-  const splitDirection = useUIStore((state) => state.splitDirection);
+  const mosaicLayout = useUIStore((state) => state.mosaicLayout);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && useUIStore.getState().isSplitMode) {
+      const layout = useUIStore.getState().mosaicLayout;
+      if (event.key === 'Escape' && layout && isMosaicSplitNode(layout)) {
         useUIStore.getState().exitSplitMode();
       }
     };
@@ -29,65 +37,16 @@ export const SplitViewContainer = memo(function SplitViewContainer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  if (isMobile || !isSplitMode || !secondaryView) {
-    return (
-      <div className="flex h-full flex-1 overflow-hidden">{renderView(currentView, 'single')}</div>
-    );
+  const isSingleView = isMobile || !mosaicLayout || !isMosaicSplitNode(mosaicLayout);
+
+  if (isSingleView) {
+    const view: ViewType = typeof mosaicLayout === 'string' ? mosaicLayout : currentView;
+    return <div className="flex h-full flex-1 overflow-hidden">{renderView(view, 'single')}</div>;
   }
 
   return (
-    <PanelGroup
-      direction={splitDirection}
-      autoSaveId={`split-view-${splitDirection}`}
-      className="flex-1"
-    >
-      <Panel defaultSize={50} minSize={20}>
-        <div className="flex h-full w-full flex-1 overflow-hidden">
-          {renderView(currentView, 'primary')}
-        </div>
-      </Panel>
-
-      <PanelResizeHandle
-        className={cn(
-          'group relative',
-          splitDirection === 'horizontal' ? 'w-px' : 'h-px',
-          'bg-border dark:bg-border-dark',
-          'hover:bg-text-primary dark:hover:bg-text-dark-primary',
-          'transition-colors duration-150',
-        )}
-      >
-        <div
-          className={cn(
-            'absolute',
-            splitDirection === 'horizontal'
-              ? 'inset-y-0 -left-2 -right-2 cursor-col-resize'
-              : 'inset-x-0 -bottom-2 -top-2 cursor-row-resize',
-          )}
-        />
-      </PanelResizeHandle>
-
-      <Panel minSize={20}>
-        <div className="relative flex h-full w-full flex-1 overflow-hidden">
-          {renderView(secondaryView, 'secondary')}
-          <button
-            onClick={() => useUIStore.getState().exitSplitMode()}
-            className={cn(
-              'absolute z-10 flex items-center justify-center',
-              'h-5 w-5 rounded-md',
-              'bg-surface-secondary/90 dark:bg-surface-dark-secondary/90',
-              'border border-border/50 dark:border-border-dark/50',
-              'text-text-tertiary dark:text-text-dark-tertiary',
-              'hover:text-text-primary dark:hover:text-text-dark-primary',
-              'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-              'transition-colors duration-200',
-              'right-2 top-2',
-            )}
-            title="Close split view (Esc)"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      </Panel>
-    </PanelGroup>
+    <Suspense fallback={mosaicFallback}>
+      <MosaicSplitView mosaicLayout={mosaicLayout} renderView={renderView} />
+    </Suspense>
   );
 });

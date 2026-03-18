@@ -8,7 +8,7 @@ export interface ContainerProps {
   sandboxId?: string;
   chatId?: string;
   isVisible: boolean;
-  panelKey: 'single' | 'primary' | 'secondary';
+  panelKey: string;
 }
 
 interface TerminalInstance {

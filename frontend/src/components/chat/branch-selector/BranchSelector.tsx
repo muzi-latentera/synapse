@@ -2,8 +2,8 @@ import { memo } from 'react';
 import toast from 'react-hot-toast';
 import { GitBranch } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
-import { useUIStore } from '@/store/uiStore';
 import { useChatContext } from '@/hooks/useChatContext';
+import { useIsSplitMode } from '@/hooks/useIsSplitMode';
 import { useGitBranchesQuery, useCheckoutBranchMutation } from '@/hooks/queries/useSandboxQueries';
 
 export interface BranchSelectorProps {
@@ -16,7 +16,7 @@ export const BranchSelector = memo(function BranchSelector({
   disabled = false,
 }: BranchSelectorProps) {
   const { sandboxId } = useChatContext();
-  const isSplitMode = useUIStore((state) => state.isSplitMode);
+  const isSplitMode = useIsSplitMode();
 
   const { data: branchesData } = useGitBranchesQuery(sandboxId ?? '', !!sandboxId);
   const checkoutBranch = useCheckoutBranchMutation();
