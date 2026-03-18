@@ -195,10 +195,8 @@ export function ChatPage() {
             <Suspense fallback={viewLoadingFallback}>
               <Editor
                 files={fileStructure}
-                isExpanded={true}
                 selectedFile={selectedFile}
                 onFileSelect={handleFileSelect}
-                chatId={chatId}
                 currentChat={currentChat}
                 isSandboxSyncing={isFileMetadataLoading}
                 onRefresh={handleRefresh}
@@ -215,7 +213,7 @@ export function ChatPage() {
         case 'secrets':
           return (
             <Suspense fallback={viewLoadingFallback}>
-              <SecretsView chatId={chatId} sandboxId={currentChat?.sandbox_id} />
+              <SecretsView sandboxId={currentChat?.sandbox_id} />
             </Suspense>
           );
         case 'webPreview':

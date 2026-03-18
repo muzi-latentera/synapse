@@ -19,10 +19,8 @@ const collectFolderPaths = (items: FileStructure[], validPaths: Set<string>) => 
 
 export interface EditorProps {
   files: FileStructure[];
-  isExpanded: boolean;
   selectedFile: FileStructure | null;
   onFileSelect: (file: FileStructure | null) => void;
-  chatId?: string;
   currentChat?: Chat | null;
   isSandboxSyncing?: boolean;
   onRefresh?: () => void;

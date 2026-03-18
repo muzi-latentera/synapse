@@ -1,7 +1,7 @@
 const RESOLVED_REQUESTS_KEY = 'agentrove_resolved_permission_requests';
 const MAX_RESOLVED_REQUESTS = 100;
 
-export function getResolvedRequestIds(): Set<string> {
+function getResolvedRequestIds(): Set<string> {
   try {
     const stored = localStorage.getItem(RESOLVED_REQUESTS_KEY);
     return stored ? new Set(JSON.parse(stored) as string[]) : new Set();

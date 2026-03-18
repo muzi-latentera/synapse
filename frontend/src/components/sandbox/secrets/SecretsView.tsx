@@ -15,7 +15,6 @@ import toast from 'react-hot-toast';
 import { cn } from '@/utils/cn';
 
 export interface SecretsViewProps {
-  chatId?: string;
   sandboxId?: string;
 }
 

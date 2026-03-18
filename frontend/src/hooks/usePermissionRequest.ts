@@ -8,7 +8,7 @@ import type { PermissionRequest } from '@/types/chat.types';
 
 type ApiError = Error & { status?: number };
 
-export interface UsePermissionRequestReturn {
+interface UsePermissionRequestReturn {
   pendingRequest: PermissionRequest | null;
   isLoading: boolean;
   error: string | null;

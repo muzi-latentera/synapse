@@ -70,4 +70,3 @@ export interface InputContextValue {
 export const InputContext = createContext<InputContextValue | null>(null);
 export const InputStateContext = createContext<InputState | null>(null);
 export const InputActionsContext = createContext<InputActions | null>(null);
-export const InputMetaContext = createContext<InputMeta | null>(null);

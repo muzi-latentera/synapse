@@ -1,7 +1,6 @@
 import { memo } from 'react';
 
 export interface MessageSkeletonProps {
-  isBot?: boolean;
   className?: string;
 }
 
@@ -39,14 +38,8 @@ export const ChatSkeleton = memo(function ChatSkeleton({
   return (
     <div className={`mx-auto max-w-4xl px-6 ${className}`}>
       {Array.from({ length: messageCount }).map((_, index) => (
-        <MessageSkeleton
-          key={index}
-          isBot={index % 2 === 1}
-          className={index === 0 ? 'mt-4' : ''}
-        />
+        <MessageSkeleton key={index} className={index === 0 ? 'mt-4' : ''} />
       ))}
     </div>
   );
 });
-
-export default ChatSkeleton;

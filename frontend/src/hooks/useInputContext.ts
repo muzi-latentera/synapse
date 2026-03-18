@@ -3,7 +3,6 @@ import {
   InputContext,
   InputStateContext,
   InputActionsContext,
-  InputMetaContext,
 } from '@/components/chat/message-input/InputContext';
 
 export function useInputContext() {
@@ -28,12 +27,4 @@ export function useInputActions() {
     throw new Error('useInputActions must be used within an InputProvider');
   }
   return actions;
-}
-
-export function useInputMeta() {
-  const meta = use(InputMetaContext);
-  if (!meta) {
-    throw new Error('useInputMeta must be used within an InputProvider');
-  }
-  return meta;
 }

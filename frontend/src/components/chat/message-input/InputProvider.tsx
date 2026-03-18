@@ -17,7 +17,6 @@ import {
   InputContext,
   InputStateContext,
   InputActionsContext,
-  InputMetaContext,
   type InputState,
   type InputActions,
   type InputMeta,
@@ -412,9 +411,7 @@ export function InputProvider({
   return (
     <InputContext.Provider value={value}>
       <InputStateContext.Provider value={stateValue}>
-        <InputActionsContext.Provider value={actionsValue}>
-          <InputMetaContext.Provider value={metaValue}>{children}</InputMetaContext.Provider>
-        </InputActionsContext.Provider>
+        <InputActionsContext.Provider value={actionsValue}>{children}</InputActionsContext.Provider>
       </InputStateContext.Provider>
     </InputContext.Provider>
   );

@@ -54,7 +54,7 @@ function parseEventLogUncached(content: string): AssistantStreamEvent[] {
   ];
 }
 
-export const parseEventLog = (content: string | null | undefined): AssistantStreamEvent[] => {
+const parseEventLog = (content: string | null | undefined): AssistantStreamEvent[] => {
   if (!content) {
     return [];
   }
@@ -123,15 +123,6 @@ export class StreamingContentAccumulator {
     return JSON.stringify(this.events);
   }
 }
-
-export const appendEventToLog = (
-  content: string | null | undefined,
-  event: AssistantStreamEvent,
-): string => {
-  const events = [...parseEventLog(content)];
-  events.push(event);
-  return JSON.stringify(events);
-};
 
 export const PROMPT_SUGGESTIONS_RE = /<prompt_suggestions>[\s\S]*?<\/prompt_suggestions>/g;
 
