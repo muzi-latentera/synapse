@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 
-export interface ChatInputMessageContextValue {
+interface ChatInputMessageContextValue {
   inputMessage: string;
   setInputMessage: (msg: string) => void;
 }

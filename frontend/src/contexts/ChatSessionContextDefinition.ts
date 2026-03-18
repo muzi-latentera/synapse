@@ -32,7 +32,7 @@ export interface ChatSessionActions {
   onPermissionReject: (alternativeInstruction?: string) => void;
 }
 
-export interface ChatSessionContextValue {
+interface ChatSessionContextValue {
   state: ChatSessionState;
   actions: ChatSessionActions;
 }

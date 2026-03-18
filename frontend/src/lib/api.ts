@@ -237,9 +237,8 @@ class APIClient {
   }
 }
 
-export let API_BASE_URL: string = resolveHttpBaseUrl(import.meta.env.VITE_API_BASE_URL);
+let API_BASE_URL: string = resolveHttpBaseUrl(import.meta.env.VITE_API_BASE_URL);
 export let WS_BASE_URL: string = resolveWsBaseUrl(import.meta.env.VITE_WS_URL);
-export let API_ORIGIN: string = new URL(API_BASE_URL).origin;
 
 export const apiClient = new APIClient(API_BASE_URL);
 
@@ -247,6 +246,5 @@ export function setApiPort(port: number): void {
   const origin = `http://127.0.0.1:${port}`;
   API_BASE_URL = `${origin}/api/v1`;
   WS_BASE_URL = `ws://127.0.0.1:${port}/api/v1/ws`;
-  API_ORIGIN = origin;
   apiClient.setBaseUrl(API_BASE_URL);
 }

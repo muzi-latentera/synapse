@@ -62,12 +62,3 @@ export function createAttachmentsFromFiles(
     };
   });
 }
-
-export const findLastBotMessageIndex = (messages: Message[]): number => {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].is_bot) {
-      return i;
-    }
-  }
-  return -1;
-};

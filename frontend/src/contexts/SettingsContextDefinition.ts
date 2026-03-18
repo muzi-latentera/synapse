@@ -1,7 +1,7 @@
 import { createContext } from 'react';
 import type { UserSettings } from '@/types/user.types';
 
-export type PersistSettingsFn = (
+type PersistSettingsFn = (
   updater: (previous: UserSettings) => UserSettings,
   options?: { successMessage?: string; errorMessage?: string },
 ) => Promise<void>;
