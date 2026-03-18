@@ -15,8 +15,6 @@ cd /app && python migrate.py || exit 1
 
 ensure_docker_network
 
-WORKERS=1
-
 echo "Starting VNC server..."
 start-vnc.sh &
 

@@ -44,7 +44,3 @@ class RefreshToken(Base):
     @property
     def is_revoked(self) -> bool:
         return self.revoked_at is not None
-
-    @property
-    def is_valid(self) -> bool:
-        return not self.is_expired and not self.is_revoked

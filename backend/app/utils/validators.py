@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from app.services.provider import ProviderService
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.models.db_models.user import UserSettings
@@ -20,9 +17,7 @@ def validate_model_api_keys(
     model_id: str,
 ) -> None:
     provider_service = ProviderService()
-    provider, actual_model_id = provider_service.get_provider_for_model(
-        user_settings, model_id
-    )
+    provider, _ = provider_service.get_provider_for_model(user_settings, model_id)
 
     if not provider:
         raise APIKeyValidationError(

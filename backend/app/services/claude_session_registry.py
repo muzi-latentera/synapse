@@ -81,9 +81,6 @@ class SessionRegistry:
         session.last_used_at = time.monotonic()
         return session
 
-    def get_session(self, chat_id: str) -> ChatSession | None:
-        return self._sessions.get(chat_id)
-
     async def cancel_generation(self, chat_id: str) -> None:
         # Signal the running generation to stop and send an interrupt to the
         # SDK client. The cancel is also recorded in _pending_cancels so the
