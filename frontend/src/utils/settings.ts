@@ -131,14 +131,7 @@ export const validatePersonaForm = (
   try {
     validateRequired(form.name, 'Name');
     validateRequired(form.content, 'Content');
-    validateUnique(
-      'name',
-      form.name,
-      existingItems,
-      editingIndex,
-      'persona with this name',
-      'A',
-    );
+    validateUnique('name', form.name, existingItems, editingIndex, 'persona with this name', 'A');
 
     return null;
   } catch (error) {

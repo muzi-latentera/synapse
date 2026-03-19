@@ -3,7 +3,11 @@ import toast from 'react-hot-toast';
 import { logger } from '@/utils/logger';
 import { createAttachmentsFromFiles } from '@/utils/message';
 import { MAX_MESSAGE_SIZE_BYTES } from '@/config/constants';
-import { useChatSettingsStore, DEFAULT_CHAT_SETTINGS_KEY, DEFAULT_PERSONA } from '@/store/chatSettingsStore';
+import {
+  useChatSettingsStore,
+  DEFAULT_CHAT_SETTINGS_KEY,
+  DEFAULT_PERSONA,
+} from '@/store/chatSettingsStore';
 import { resolvePersona } from '@/utils/settings';
 import { useChatContext } from '@/hooks/useChatContext';
 import type { ChatRequest, Message } from '@/types/chat.types';
@@ -81,7 +85,8 @@ export function useMessageActions({
 
       try {
         const personaKey = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
-        const storedPersona = useChatSettingsStore.getState().personaByChat[personaKey] ?? DEFAULT_PERSONA;
+        const storedPersona =
+          useChatSettingsStore.getState().personaByChat[personaKey] ?? DEFAULT_PERSONA;
         const validPersona = resolvePersona(storedPersona, personas);
 
         const request: ChatRequest = {

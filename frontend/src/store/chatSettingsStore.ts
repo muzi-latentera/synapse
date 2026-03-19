@@ -51,7 +51,10 @@ export const useChatSettingsStore = create<ChatSettingsState>()(
         const worktree = state.worktreeByChat[DEFAULT_KEY];
         const persona = state.personaByChat[DEFAULT_KEY];
         const updates: Partial<
-          Pick<ChatSettingsState, 'permissionModeByChat' | 'thinkingModeByChat' | 'worktreeByChat' | 'personaByChat'>
+          Pick<
+            ChatSettingsState,
+            'permissionModeByChat' | 'thinkingModeByChat' | 'worktreeByChat' | 'personaByChat'
+          >
         > = {};
         if (permission !== undefined) {
           updates.permissionModeByChat = { ...state.permissionModeByChat, [chatId]: permission };
