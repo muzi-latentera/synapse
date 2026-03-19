@@ -35,7 +35,7 @@ from app.models.schemas.scheduler import (
     TaskExecutionResponse,
     TaskToggleResponse,
 )
-from app.prompts.system_prompt import build_system_prompt_for_chat
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import SchedulerException
 from app.services.provider import ProviderService
@@ -745,7 +745,7 @@ class SchedulerService(BaseDbService[ScheduledTask]):
                 assistant_message_id=str(assistant_message_id),
                 thinking_mode="ultra",
                 attachments=None,
-                is_custom_prompt=False,
+                selected_persona_name=DEFAULT_PERSONA_NAME,
             )
             try:
                 await ChatStreamRuntime.execute_chat(

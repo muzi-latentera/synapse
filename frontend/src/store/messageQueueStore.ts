@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { LocalQueuedMessage } from '@/types/queue.types';
 import { queueService } from '@/services/queueService';
+import { DEFAULT_PERSONA } from '@/store/chatSettingsStore';
 
 export const EMPTY_QUEUE: LocalQueuedMessage[] = [];
 
@@ -15,6 +16,7 @@ interface MessageQueueState {
     permissionMode?: string,
     thinkingMode?: string | null,
     worktree?: boolean,
+    selectedPersonaName?: string,
     files?: File[],
   ) => Promise<string>;
   updateQueuedMessage: (chatId: string, messageId: string, content: string) => Promise<void>;
@@ -40,6 +42,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
     permissionMode: string = 'auto',
     thinkingMode: string | null = null,
     worktree: boolean = false,
+    selectedPersonaName: string = DEFAULT_PERSONA,
     files?: File[],
   ): Promise<string> => {
     const currentQueue = get().queues.get(chatId) || [];
@@ -68,6 +71,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
         permissionMode,
         thinkingMode,
         worktree,
+        selectedPersonaName,
         files,
       );
 
@@ -311,6 +315,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
             'auto',
             null,
             false,
+            DEFAULT_PERSONA,
             msg.files,
           );
 

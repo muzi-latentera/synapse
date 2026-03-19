@@ -6,6 +6,7 @@ from fastapi import UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.db_models.enums import AttachmentType, MessageRole, MessageStreamStatus
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 
 
 class MessageAttachmentBase(BaseModel):
@@ -32,7 +33,7 @@ class ChatRequest(BaseModel):
     permission_mode: Literal["plan", "ask", "auto"] = "auto"
     thinking_mode: str | None = Field(None, max_length=50)
     worktree: bool = False
-    selected_prompt_name: str | None = Field(None, max_length=100)
+    selected_persona_name: str = Field(DEFAULT_PERSONA_NAME, max_length=100)
 
 
 class MessageBase(BaseModel):

@@ -70,7 +70,7 @@ export interface ChatRequest {
   permission_mode: 'plan' | 'ask' | 'auto';
   thinking_mode?: string;
   worktree?: boolean;
-  selected_prompt_name?: string;
+  selected_persona_name: string;
 }
 
 export interface CreateChatRequest {

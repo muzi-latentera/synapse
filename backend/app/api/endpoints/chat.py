@@ -22,6 +22,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.constants import (
     REDIS_KEY_CHAT_CONTEXT_USAGE,
 )
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 from app.core.config import get_settings
 from app.core.deps import get_chat_service
 from app.core.security import get_current_user
@@ -152,7 +153,7 @@ async def send_message(
     permission_mode: Literal["plan", "ask", "auto"] = Form("auto"),
     thinking_mode: str | None = Form(None),
     worktree: bool = Form(False),
-    selected_prompt_name: str | None = Form(None),
+    selected_persona_name: str = Form(DEFAULT_PERSONA_NAME),
     attached_files: list[UploadFile] | None = File(None),
     chat_service: ChatService = Depends(get_chat_service),
     current_user: User = Depends(get_current_user),
@@ -168,7 +169,7 @@ async def send_message(
                 permission_mode=permission_mode,
                 thinking_mode=thinking_mode,
                 worktree=worktree,
-                selected_prompt_name=selected_prompt_name,
+                selected_persona_name=selected_persona_name,
             ),
             current_user,
         )
@@ -460,6 +461,7 @@ async def queue_message(
     permission_mode: Literal["plan", "ask", "auto"] = Form("auto"),
     thinking_mode: str | None = Form(None),
     worktree: bool = Form(False),
+    selected_persona_name: str = Form(DEFAULT_PERSONA_NAME),
     attached_files: list[UploadFile] | None = File(None),
     current_user: User = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
@@ -493,6 +495,7 @@ async def queue_message(
             permission_mode=permission_mode,
             thinking_mode=thinking_mode,
             worktree=worktree,
+            selected_persona_name=selected_persona_name,
             attachments=queue_attachments,
         )
 

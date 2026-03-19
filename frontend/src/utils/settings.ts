@@ -1,9 +1,11 @@
+import { DEFAULT_PERSONA } from '@/store/chatSettingsStore';
 import type {
   CustomAgent,
   CustomCommand,
   CustomEnvVar,
   CustomMcp,
   CustomSkill,
+  Persona,
 } from '@/types/user.types';
 import type { GeneralSecretFieldConfig } from '@/types/settings.types';
 import { validateRequired, validateRequiredIf, validateUnique } from '@/utils/validation';
@@ -103,6 +105,39 @@ export const validateMcpForm = (
       editingIndex,
       'MCP server with this name',
       'An',
+    );
+
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : 'Validation failed';
+  }
+};
+
+export const resolvePersona = (storedPersona: string, personas: Persona[]): string =>
+  storedPersona !== DEFAULT_PERSONA && personas.some((p) => p.name === storedPersona)
+    ? storedPersona
+    : DEFAULT_PERSONA;
+
+export const createDefaultPersonaForm = (): Persona => ({
+  name: '',
+  content: '',
+});
+
+export const validatePersonaForm = (
+  form: Persona,
+  editingIndex: number | null,
+  existingItems: Persona[],
+): string | null => {
+  try {
+    validateRequired(form.name, 'Name');
+    validateRequired(form.content, 'Content');
+    validateUnique(
+      'name',
+      form.name,
+      existingItems,
+      editingIndex,
+      'persona with this name',
+      'A',
     );
 
     return null;

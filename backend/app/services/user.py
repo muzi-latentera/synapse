@@ -150,7 +150,7 @@ class UserService(BaseDbService[UserSettings]):
             "custom_providers",
             "custom_mcps",
             "custom_env_vars",
-            "custom_prompts",
+            "personas",
         }
 
         if "custom_providers" in settings_update:

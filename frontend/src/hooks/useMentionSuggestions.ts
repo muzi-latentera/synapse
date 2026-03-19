@@ -1,6 +1,6 @@
 import { useCallback, useDeferredValue, useMemo, useRef } from 'react';
 import type { FileStructure } from '@/types/file-system.types';
-import type { CustomAgent, CustomPrompt } from '@/types/user.types';
+import type { CustomAgent } from '@/types/user.types';
 import type { MentionItem } from '@/types/ui.types';
 import { useSuggestionBase } from './useSuggestionBase';
 import { traverseFileStructure, getFileName } from '@/utils/file';
@@ -12,7 +12,6 @@ interface UseMentionOptions {
   cursorPosition: number;
   fileStructure: FileStructure[];
   customAgents: CustomAgent[];
-  customPrompts: CustomPrompt[];
   onSelect: (item: MentionItem, mentionStartPos: number, mentionEndPos: number) => void;
 }
 
@@ -38,25 +37,15 @@ const convertAgentsToMentions = (agents: CustomAgent[]): MentionItem[] => {
   }));
 };
 
-const convertPromptsToMentions = (prompts: CustomPrompt[]): MentionItem[] => {
-  return prompts.map((prompt) => ({
-    type: 'prompt' as const,
-    name: prompt.name,
-    path: `prompt:${encodeURIComponent(prompt.name)}`,
-  }));
-};
-
 export const useMentionSuggestions = ({
   message,
   cursorPosition,
   fileStructure,
   customAgents,
-  customPrompts,
   onSelect,
 }: UseMentionOptions) => {
   const allFiles = useMemo(() => convertFilesToMentions(fileStructure), [fileStructure]);
   const allAgents = useMemo(() => convertAgentsToMentions(customAgents), [customAgents]);
-  const allPrompts = useMemo(() => convertPromptsToMentions(customPrompts), [customPrompts]);
 
   const { isActive, query, mentionStartPos, mentionEndPos } = parseMentionQuery(
     message,
@@ -65,9 +54,9 @@ export const useMentionSuggestions = ({
 
   const deferredQuery = useDeferredValue(query);
 
-  const { filteredFiles, filteredAgents, filteredPrompts, allSuggestions } = useMemo(() => {
+  const { filteredFiles, filteredAgents, allSuggestions } = useMemo(() => {
     if (!isActive) {
-      return { filteredFiles: [], filteredAgents: [], filteredPrompts: [], allSuggestions: [] };
+      return { filteredFiles: [], filteredAgents: [], allSuggestions: [] };
     }
 
     const files = fuzzySearch(deferredQuery, allFiles, { keys: ['name', 'path'], limit: 30 });
@@ -75,15 +64,13 @@ export const useMentionSuggestions = ({
       keys: ['name', 'description'],
       limit: 20,
     });
-    const prompts = fuzzySearch(deferredQuery, allPrompts, { keys: ['name'], limit: 20 });
 
     return {
       filteredFiles: files,
       filteredAgents: agents,
-      filteredPrompts: prompts,
-      allSuggestions: [...agents, ...prompts, ...files],
+      allSuggestions: [...agents, ...files],
     };
-  }, [isActive, deferredQuery, allFiles, allAgents, allPrompts]);
+  }, [isActive, deferredQuery, allFiles, allAgents]);
 
   const hasSuggestions = allSuggestions.length > 0;
 
@@ -109,7 +96,6 @@ export const useMentionSuggestions = ({
   return {
     filteredFiles,
     filteredAgents,
-    filteredPrompts,
     allSuggestions,
     highlightedIndex,
     hasSuggestions,

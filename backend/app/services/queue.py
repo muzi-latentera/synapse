@@ -9,6 +9,7 @@ from app.constants import (
     REDIS_KEY_CHAT_QUEUE_SEND_NOW,
 )
 from app.models.schemas.queue import QueueAddResponse, QueuedMessage
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 
 from app.utils.cache import CacheStore
 
@@ -40,6 +41,7 @@ class QueueService:
         permission_mode: str = "auto",
         thinking_mode: str | None = None,
         worktree: bool = False,
+        selected_persona_name: str = DEFAULT_PERSONA_NAME,
         attachments: list[dict[str, Any]] | None = None,
     ) -> QueueAddResponse:
         key = self._queue_key(chat_id)
@@ -54,6 +56,7 @@ class QueueService:
             "permission_mode": permission_mode,
             "thinking_mode": thinking_mode,
             "worktree": worktree,
+            "selected_persona_name": selected_persona_name,
             "queued_at": queued_at.isoformat(),
             "attachments": attachments,
         }
@@ -72,6 +75,9 @@ class QueueService:
             permission_mode=item.get("permission_mode", "auto"),
             thinking_mode=item.get("thinking_mode"),
             worktree=item.get("worktree", False),
+            selected_persona_name=item.get(
+                "selected_persona_name", DEFAULT_PERSONA_NAME
+            ),
             queued_at=datetime.fromisoformat(item["queued_at"]),
             attachments=item.get("attachments"),
         )

@@ -8,7 +8,7 @@ import {
   Bot,
   Zap,
   Terminal,
-  MessageSquare,
+  UserCircle,
   Key,
   ScrollText,
   CalendarClock,
@@ -35,7 +35,7 @@ import { McpSection } from '@/components/settings/sections/McpSection';
 import { AgentsSection } from '@/components/settings/sections/AgentsSection';
 import { SkillsSection } from '@/components/settings/sections/SkillsSection';
 import { CommandsSection } from '@/components/settings/sections/CommandsSection';
-import { PromptsSection } from '@/components/settings/sections/PromptsSection';
+import { PersonasSection } from '@/components/settings/sections/PersonasSection';
 import { EnvVarsSection } from '@/components/settings/sections/EnvVarsSection';
 import { TasksSection } from '@/components/settings/sections/TasksSection';
 
@@ -58,7 +58,7 @@ type TabKey =
   | 'agents'
   | 'skills'
   | 'commands'
-  | 'prompts'
+  | 'personas'
   | 'env_vars'
   | 'instructions'
   | 'tasks';
@@ -79,7 +79,7 @@ const createFallbackSettings = (): UserSettings => ({
   custom_env_vars: null,
   custom_skills: null,
   custom_slash_commands: null,
-  custom_prompts: null,
+  personas: null,
   notifications_enabled: true,
   auto_compact_disabled: false,
   attribution_disabled: false,
@@ -95,7 +95,7 @@ const TAB_FIELDS: Record<TabKey, (keyof UserSettings)[]> = {
   agents: ['custom_agents'],
   skills: ['custom_skills'],
   commands: ['custom_slash_commands'],
-  prompts: ['custom_prompts'],
+  personas: ['personas'],
   env_vars: ['custom_env_vars'],
   instructions: ['custom_instructions'],
   tasks: [],
@@ -133,7 +133,7 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
   {
     label: 'Configuration',
     items: [
-      { id: 'prompts', label: 'Prompts', icon: MessageSquare },
+      { id: 'personas', label: 'Personas', icon: UserCircle },
       { id: 'env_vars', label: 'Env Variables', icon: Key },
       { id: 'instructions', label: 'Instructions', icon: ScrollText },
       { id: 'tasks', label: 'Tasks', icon: CalendarClock },
@@ -197,7 +197,7 @@ const SettingsPage: React.FC = () => {
         'custom_env_vars',
         'custom_skills',
         'custom_slash_commands',
-        'custom_prompts',
+        'personas',
         'notifications_enabled',
         'auto_compact_disabled',
         'attribution_disabled',
@@ -616,10 +616,10 @@ const SettingsPage: React.FC = () => {
                     </div>
                   )}
 
-                  {activeTab === 'prompts' && (
-                    <div role="tabpanel" id="prompts-panel" aria-labelledby="prompts-tab">
+                  {activeTab === 'personas' && (
+                    <div role="tabpanel" id="personas-panel" aria-labelledby="personas-tab">
                       <Suspense fallback={tabLoadingFallback}>
-                        <PromptsSection />
+                        <PersonasSection />
                       </Suspense>
                     </div>
                   )}

@@ -26,7 +26,7 @@ from app.db.session import SessionLocal
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.enums import MessageRole, MessageStreamStatus
 from app.models.db_models.user import User, UserSettings
-from app.prompts.system_prompt import build_system_prompt_for_chat
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
 from app.services.claude_agent import (
     SDK_PERMISSION_MODE_MAP,
     ClaudeAgentService,
@@ -838,8 +838,12 @@ class ChatStreamRuntime:
         user_settings: UserSettings,
         assistant_message_id: str,
     ) -> ChatStreamRequest:
+        selected_persona_name = queued_msg.get(
+            "selected_persona_name", DEFAULT_PERSONA_NAME
+        )
         system_prompt = build_system_prompt_for_chat(
             user_settings,
+            selected_persona_name=selected_persona_name,
         )
         context_window = ProviderService().get_model_context_window(
             user_settings, queued_msg["model_id"]
@@ -866,7 +870,7 @@ class ChatStreamRuntime:
             thinking_mode=queued_msg.get("thinking_mode"),
             worktree=queued_msg.get("worktree", False),
             attachments=queued_msg.get("attachments"),
-            is_custom_prompt=False,
+            selected_persona_name=selected_persona_name,
         )
 
     @classmethod
@@ -1072,7 +1076,7 @@ class ChatStreamRuntime:
                 session_id=request.session_id,
                 thinking_mode=request.thinking_mode,
                 worktree=request.worktree,
-                is_custom_prompt=request.is_custom_prompt,
+                selected_persona_name=request.selected_persona_name,
             )
 
             session = await session_registry.get_or_create(

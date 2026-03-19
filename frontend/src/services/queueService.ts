@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api';
 import { ensureResponse, serviceCall } from '@/services/base/BaseService';
+import { DEFAULT_PERSONA } from '@/store/chatSettingsStore';
 import { validateId, validateRequired } from '@/utils/validation';
 import type { QueuedMessage, QueueAddResponse } from '@/types/queue.types';
 
@@ -10,6 +11,7 @@ async function queueMessage(
   permissionMode: string = 'auto',
   thinkingMode: string | null = null,
   worktree: boolean = false,
+  selectedPersonaName: string = DEFAULT_PERSONA,
   files?: File[],
 ): Promise<QueueAddResponse> {
   validateId(chatId, 'Chat ID');
@@ -27,6 +29,7 @@ async function queueMessage(
     if (worktree) {
       formData.append('worktree', 'true');
     }
+    formData.append('selected_persona_name', selectedPersonaName);
 
     if (files) {
       files.forEach((file) => {

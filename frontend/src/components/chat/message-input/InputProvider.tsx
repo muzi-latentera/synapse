@@ -11,7 +11,9 @@ import {
   DEFAULT_PERMISSION_MODE,
   DEFAULT_THINKING_MODE,
   DEFAULT_WORKTREE,
+  DEFAULT_PERSONA,
 } from '@/store/chatSettingsStore';
+import { resolvePersona } from '@/utils/settings';
 import { useChatContext } from '@/hooks/useChatContext';
 import {
   InputContext,
@@ -47,7 +49,7 @@ export function InputProvider({
   disabled = false,
   children,
 }: InputProps & { children: ReactNode }) {
-  const { fileStructure, customAgents, customSlashCommands, customPrompts } = useChatContext();
+  const { fileStructure, customAgents, customSlashCommands, personas } = useChatContext();
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [previewDismissed, setPreviewDismissed] = useState(false);
@@ -164,7 +166,6 @@ export function InputProvider({
   const {
     filteredFiles,
     filteredAgents,
-    filteredPrompts,
     highlightedIndex: highlightedMentionIndex,
     selectItem: selectMention,
     handleKeyDown: handleMentionKeyDown,
@@ -174,7 +175,6 @@ export function InputProvider({
     cursorPosition: cursorPosition,
     fileStructure,
     customAgents,
-    customPrompts,
     onSelect: handleMentionSelect,
   });
 
@@ -203,6 +203,8 @@ export function InputProvider({
       const permissionMode = settings.permissionModeByChat[chatId] ?? DEFAULT_PERMISSION_MODE;
       const thinkingMode = settings.thinkingModeByChat[chatId] ?? DEFAULT_THINKING_MODE;
       const worktree = settings.worktreeByChat[chatId] ?? DEFAULT_WORKTREE;
+      const storedPersona = settings.personaByChat[chatId] ?? DEFAULT_PERSONA;
+      const validPersona = resolvePersona(storedPersona, personas);
       const fullMessage = messageRef.current.trim();
       void useMessageQueueStore
         .getState()
@@ -213,6 +215,7 @@ export function InputProvider({
           permissionMode,
           thinkingMode,
           worktree,
+          validPersona,
           attachedFiles ?? undefined,
         );
       setMessage('');
@@ -316,7 +319,6 @@ export function InputProvider({
       highlightedSlashCommandIndex,
       filteredFiles,
       filteredAgents,
-      filteredPrompts,
       highlightedMentionIndex,
     }),
     [
@@ -348,7 +350,6 @@ export function InputProvider({
       highlightedSlashCommandIndex,
       filteredFiles,
       filteredAgents,
-      filteredPrompts,
       highlightedMentionIndex,
     ],
   );

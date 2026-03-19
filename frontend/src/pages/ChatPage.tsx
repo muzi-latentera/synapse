@@ -127,7 +127,7 @@ export function ChatPage() {
     ],
   );
 
-  const customPrompts = useMemo(() => settings?.custom_prompts ?? [], [settings?.custom_prompts]);
+  const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
   const { selectedFile, setSelectedFile, isRefreshing, handleRefresh, handleFileSelect } =
     useEditorState(refetchFilesMetadata);
@@ -290,7 +290,7 @@ export function ChatPage() {
       fileStructure={fileStructure}
       customAgents={allAgents}
       customSlashCommands={enabledSlashCommands}
-      customPrompts={customPrompts}
+      personas={personas}
     >
       <ChatSessionOrchestrator
         chatId={chatId}

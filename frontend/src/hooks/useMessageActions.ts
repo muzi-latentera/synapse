@@ -2,8 +2,10 @@ import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { logger } from '@/utils/logger';
 import { createAttachmentsFromFiles } from '@/utils/message';
-import { extractPromptMention } from '@/utils/mentionParser';
 import { MAX_MESSAGE_SIZE_BYTES } from '@/config/constants';
+import { useChatSettingsStore, DEFAULT_CHAT_SETTINGS_KEY, DEFAULT_PERSONA } from '@/store/chatSettingsStore';
+import { resolvePersona } from '@/utils/settings';
+import { useChatContext } from '@/hooks/useChatContext';
 import type { ChatRequest, Message } from '@/types/chat.types';
 import type { StreamState } from '@/types/stream.types';
 
@@ -51,6 +53,8 @@ export function useMessageActions({
   isLoading,
   isStreaming,
 }: UseMessageActionsParams) {
+  const { personas } = useChatContext();
+
   const sendMessage = useCallback(
     async (
       prompt: string,
@@ -76,17 +80,19 @@ export function useMessageActions({
       }
 
       try {
-        const { promptName, cleanedMessage } = extractPromptMention(normalizedPrompt);
+        const personaKey = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
+        const storedPersona = useChatSettingsStore.getState().personaByChat[personaKey] ?? DEFAULT_PERSONA;
+        const validPersona = resolvePersona(storedPersona, personas);
 
         const request: ChatRequest = {
-          prompt: cleanedMessage || normalizedPrompt,
+          prompt: normalizedPrompt,
           model_id: selectedModelId,
           ...(chatIdOverride && { chat_id: chatIdOverride }),
           attached_files: filesToSend && filesToSend.length > 0 ? filesToSend : undefined,
           permission_mode: permissionMode,
           thinking_mode: thinkingMode || undefined,
           worktree: worktree ? true : undefined,
-          ...(promptName && { selected_prompt_name: promptName }),
+          selected_persona_name: validPersona,
         };
 
         const messageId = await startStream(request);
@@ -131,6 +137,7 @@ export function useMessageActions({
     [
       chatId,
       addMessageToCache,
+      personas,
       permissionMode,
       selectedModelId,
       startStream,

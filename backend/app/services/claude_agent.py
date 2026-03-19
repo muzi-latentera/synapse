@@ -25,6 +25,7 @@ from app.models.db_models.enums import MessageRole
 from app.models.db_models.user import User, UserSettings
 from app.models.schemas.settings import ProviderType
 from app.prompts.enhance_prompt import ENHANCE_PROMPT
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 from app.prompts.generate_title import (
     GENERATE_TITLE_SYSTEM_PROMPT,
     GENERATE_TITLE_USER_TEMPLATE,
@@ -126,7 +127,7 @@ class ClaudeAgentService:
         session_id: str | None,
         thinking_mode: str | None,
         worktree: bool = False,
-        is_custom_prompt: bool,
+        selected_persona_name: str = DEFAULT_PERSONA_NAME,
     ) -> SessionParams:
         # Resolve chat + user settings into everything needed to launch a Claude
         # SDK session: agent options, sandbox identity, and a transport factory.
@@ -151,7 +152,7 @@ class ClaudeAgentService:
             thinking_mode=thinking_mode,
             worktree=worktree,
             chat_id=chat_id,
-            is_custom_prompt=is_custom_prompt,
+            selected_persona_name=selected_persona_name,
             cwd=claude_cwd,
             sandbox_provider=sandbox_provider,
         )
@@ -446,7 +447,7 @@ class ClaudeAgentService:
         thinking_mode: str | None,
         worktree: bool = False,
         chat_id: str,
-        is_custom_prompt: bool = False,
+        selected_persona_name: str = DEFAULT_PERSONA_NAME,
         cwd: str = SANDBOX_HOME_DIR,
         sandbox_provider: str = "docker",
     ) -> ClaudeAgentOptions:
@@ -480,10 +481,10 @@ class ClaudeAgentService:
             permission_mode, "acceptEdits"
         )
 
-        # Custom prompts are sent as-is; otherwise use the SDK's built-in
-        # claude_code preset and append our system prompt to it.
+        # Personas override the system prompt entirely; otherwise use the SDK's
+        # built-in claude_code preset and append our system prompt to it.
         system_prompt_config: str | dict[str, str]
-        if is_custom_prompt:
+        if selected_persona_name != DEFAULT_PERSONA_NAME:
             system_prompt_config = system_prompt
         else:
             system_prompt_config = {

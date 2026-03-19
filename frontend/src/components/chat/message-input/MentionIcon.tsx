@@ -1,4 +1,4 @@
-import { Bot, ScrollText } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { FileIcon } from '@/components/editor/file-tree/FileIcon';
 import type { MentionItem } from '@/types/ui.types';
 
@@ -10,13 +10,6 @@ export function MentionIcon({
   if (type === 'agent') {
     return (
       <Bot className={`${className} shrink-0 text-text-tertiary dark:text-text-dark-tertiary`} />
-    );
-  }
-  if (type === 'prompt') {
-    return (
-      <ScrollText
-        className={`${className} shrink-0 text-text-tertiary dark:text-text-dark-tertiary`}
-      />
     );
   }
   return <FileIcon name={name} className={className} />;
