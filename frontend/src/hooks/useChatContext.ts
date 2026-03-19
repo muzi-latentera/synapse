@@ -12,7 +12,7 @@ export function useChatContext() {
       fileStructure: EMPTY,
       customAgents: EMPTY,
       customSlashCommands: EMPTY,
-      customPrompts: EMPTY,
+      personas: EMPTY,
     }
   );
 }

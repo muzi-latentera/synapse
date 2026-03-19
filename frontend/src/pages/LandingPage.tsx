@@ -96,7 +96,7 @@ export function LandingPage() {
     [settings?.custom_slash_commands, settings?.custom_skills],
   );
 
-  const customPrompts = useMemo(() => settings?.custom_prompts ?? [], [settings?.custom_prompts]);
+  const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
   useEffect(() => {
     useChatStore.getState().setCurrentChat(null);
@@ -208,7 +208,7 @@ export function LandingPage() {
             <ChatProvider
               customAgents={allAgents}
               customSlashCommands={enabledSlashCommands}
-              customPrompts={customPrompts}
+              personas={personas}
             >
               <ChatInput
                 message={message}

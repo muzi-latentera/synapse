@@ -9,9 +9,9 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.models.types import (
     CustomEnvVarDict,
     CustomMcpDict,
-    CustomPromptDict,
     CustomProviderDict,
     InstalledPluginDict,
+    PersonaDict,
 )
 
 from app.db.base_class import Base, PG_GEN_UUID
@@ -93,9 +93,7 @@ class UserSettings(Base):
     custom_env_vars: Mapped[list[CustomEnvVarDict] | None] = mapped_column(
         JSON, nullable=True
     )
-    custom_prompts: Mapped[list[CustomPromptDict] | None] = mapped_column(
-        JSON, nullable=True
-    )
+    personas: Mapped[list[PersonaDict] | None] = mapped_column(JSON, nullable=True)
     notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False
     )

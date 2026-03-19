@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
+
 
 class QueuedMessageBase(BaseModel):
     content: str = Field(..., min_length=1, max_length=100000)
@@ -11,6 +13,7 @@ class QueuedMessageBase(BaseModel):
     permission_mode: Literal["plan", "ask", "auto"] = "auto"
     thinking_mode: str | None = None
     worktree: bool = False
+    selected_persona_name: str = DEFAULT_PERSONA_NAME
 
 
 class QueueMessageUpdate(BaseModel):

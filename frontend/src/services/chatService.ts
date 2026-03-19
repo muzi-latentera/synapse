@@ -40,9 +40,7 @@ async function createCompletion(
       if (request.worktree) {
         formData.append('worktree', 'true');
       }
-      if (request.selected_prompt_name) {
-        formData.append('selected_prompt_name', request.selected_prompt_name);
-      }
+      formData.append('selected_persona_name', request.selected_persona_name);
       formData.append('permission_mode', request.permission_mode);
 
       const taskResponse = await apiClient.postForm<{

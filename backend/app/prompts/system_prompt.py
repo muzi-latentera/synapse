@@ -23,21 +23,24 @@ Guidelines for suggestions:
 """
 
 
+DEFAULT_PERSONA_NAME = "Default"
+
+
 def build_system_prompt_for_chat(
     user_settings: "UserSettings",
-    selected_prompt_name: str | None = None,
+    selected_persona_name: str = DEFAULT_PERSONA_NAME,
 ) -> str:
-    custom_prompt_content = ""
-    if selected_prompt_name and user_settings.custom_prompts:
-        custom_prompt = next(
+    persona_content = ""
+    if selected_persona_name != DEFAULT_PERSONA_NAME and user_settings.personas:
+        persona = next(
             (
                 p
-                for p in user_settings.custom_prompts
-                if p.get("name") == selected_prompt_name
+                for p in user_settings.personas
+                if p.get("name") == selected_persona_name
             ),
             None,
         )
-        if custom_prompt:
-            custom_prompt_content = f"\n{custom_prompt['content']}\n"
+        if persona:
+            persona_content = f"\n{persona['content']}\n"
 
-    return f"{custom_prompt_content}\n{PROMPT_SUGGESTIONS_INSTRUCTIONS}"
+    return f"{persona_content}\n{PROMPT_SUGGESTIONS_INSTRUCTIONS}"

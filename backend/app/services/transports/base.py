@@ -200,6 +200,9 @@ class BaseSandboxTransport(Transport, ABC):
         except (OSError, CLIConnectionError):
             pass
 
+    def read_messages(self) -> AsyncIterator[dict[str, Any]]:
+        return self._parse_cli_output()
+
     def is_ready(self) -> bool:
         return self._ready
 

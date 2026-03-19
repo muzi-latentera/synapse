@@ -7,6 +7,8 @@ from hashlib import sha256
 from typing import Any, Literal, TypedDict
 from uuid import UUID
 
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
+
 
 StreamEventType = Literal[
     "assistant_text",
@@ -48,7 +50,7 @@ class ChatStreamRequest:
     worktree: bool = False
     attachments: list[dict[str, Any]] | None
     context_window: int | None = None
-    is_custom_prompt: bool = False
+    selected_persona_name: str = DEFAULT_PERSONA_NAME
 
 
 class ToolPayload(TypedDict, total=False):

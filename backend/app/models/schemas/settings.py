@@ -95,7 +95,7 @@ class CustomSlashCommand(BaseModel):
     ) = None
 
 
-class CustomPrompt(BaseModel):
+class Persona(BaseModel):
     name: str
     content: str
 
@@ -115,7 +115,7 @@ class UserSettingsBase(BaseModel):
     custom_providers: list[CustomProvider] | None = None
     custom_mcps: list[CustomMcp] | None = None
     custom_env_vars: list[CustomEnvVar] | None = None
-    custom_prompts: list[CustomPrompt] | None = None
+    personas: list[Persona] | None = None
     installed_plugins: list[InstalledPluginSchema] | None = None
     notifications_enabled: bool = True
     auto_compact_disabled: bool = False
@@ -125,7 +125,7 @@ class UserSettingsBase(BaseModel):
         "custom_providers",
         "custom_mcps",
         "custom_env_vars",
-        "custom_prompts",
+        "personas",
         "installed_plugins",
         mode="before",
     )

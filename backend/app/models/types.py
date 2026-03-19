@@ -48,7 +48,7 @@ class CustomSlashCommandDict(BaseResourceDict, total=False):
     )
 
 
-class CustomPromptDict(TypedDict, total=False):
+class PersonaDict(TypedDict, total=False):
     name: str
     content: str
 

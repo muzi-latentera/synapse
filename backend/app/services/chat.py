@@ -26,7 +26,7 @@ from app.models.schemas.pagination import (
 )
 from app.models.schemas.settings import ProviderType
 from app.models.types import ChatCompletionResult, MessageAttachmentDict
-from app.prompts.system_prompt import build_system_prompt_for_chat
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
 from app.services.claude_session_registry import session_registry
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import ChatException, ErrorCode
@@ -699,9 +699,8 @@ class ChatService(BaseDbService[Chat]):
 
         system_prompt = build_system_prompt_for_chat(
             user_settings,
-            selected_prompt_name=request.selected_prompt_name,
+            selected_persona_name=request.selected_persona_name,
         )
-        is_custom_prompt = bool(request.selected_prompt_name)
         custom_instructions = (
             user_settings.custom_instructions if user_settings else None
         )
@@ -724,7 +723,7 @@ class ChatService(BaseDbService[Chat]):
                 worktree=request.worktree,
                 attachments=attachments,
                 context_window=context_window,
-                is_custom_prompt=is_custom_prompt,
+                selected_persona_name=request.selected_persona_name,
             )
         except Exception as e:
             logger.error("Failed to enqueue chat task: %s", e)
@@ -755,7 +754,7 @@ class ChatService(BaseDbService[Chat]):
         worktree: bool = False,
         attachments: list[MessageAttachmentDict] | None,
         context_window: int | None = None,
-        is_custom_prompt: bool = False,
+        selected_persona_name: str = DEFAULT_PERSONA_NAME,
     ) -> None:
         stream_attachments = (
             [dict(item) for item in attachments] if attachments else None
@@ -783,7 +782,7 @@ class ChatService(BaseDbService[Chat]):
             thinking_mode=thinking_mode,
             worktree=worktree,
             attachments=stream_attachments,
-            is_custom_prompt=is_custom_prompt,
+            selected_persona_name=selected_persona_name,
         )
         ChatStreamRuntime.start_background_chat(request=request)
 

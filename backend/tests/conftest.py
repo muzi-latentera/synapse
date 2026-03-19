@@ -54,6 +54,7 @@ from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.docker_provider import LocalDockerProvider
 from app.services.sandbox_providers.types import DockerConfig
 from app.services.streaming.runtime import ChatStreamRuntime
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 from app.services.streaming.types import ChatStreamRequest
 from app.services.user import UserService
 
@@ -338,7 +339,7 @@ class TestChatService(ChatService):
         assistant_message_id,
         thinking_mode,
         attachments,
-        is_custom_prompt=False,
+        selected_persona_name=DEFAULT_PERSONA_NAME,
     ):
         task_id = str(uuid.uuid4())
 
@@ -362,7 +363,7 @@ class TestChatService(ChatService):
                 assistant_message_id=assistant_message_id,
                 thinking_mode=thinking_mode,
                 attachments=attachments,
-                is_custom_prompt=is_custom_prompt,
+                selected_persona_name=selected_persona_name,
             ),
             session_factory=self._test_session_factory,
         )

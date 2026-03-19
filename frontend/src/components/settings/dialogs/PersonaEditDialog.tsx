@@ -1,28 +1,28 @@
-import type { CustomPrompt } from '@/types/user.types';
+import type { Persona } from '@/types/user.types';
 import { Button } from '@/components/ui/primitives/Button';
 import { Input } from '@/components/ui/primitives/Input';
 import { Label } from '@/components/ui/primitives/Label';
 import { Textarea } from '@/components/ui/primitives/Textarea';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 
-interface PromptEditDialogProps {
+interface PersonaEditDialogProps {
   isOpen: boolean;
   isEditing: boolean;
-  prompt: CustomPrompt;
+  persona: Persona;
   error: string | null;
   onClose: () => void;
   onSubmit: () => void;
-  onPromptChange: <K extends keyof CustomPrompt>(field: K, value: CustomPrompt[K]) => void;
+  onPersonaChange: <K extends keyof Persona>(field: K, value: Persona[K]) => void;
 }
 
-export const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
+export const PersonaEditDialog: React.FC<PersonaEditDialogProps> = ({
   isOpen,
   isEditing,
-  prompt,
+  persona,
   error,
   onClose,
   onSubmit,
-  onPromptChange,
+  onPersonaChange,
 }) => {
   return (
     <BaseModal
@@ -33,7 +33,7 @@ export const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
     >
       <div className="p-5">
         <h3 className="mb-5 text-sm font-medium text-text-primary dark:text-text-dark-primary">
-          {isEditing ? 'Edit Prompt' : 'Add Prompt'}
+          {isEditing ? 'Edit Persona' : 'Add Persona'}
         </h3>
 
         {error && (
@@ -48,13 +48,13 @@ export const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
               Name
             </Label>
             <Input
-              value={prompt.name}
-              onChange={(e) => onPromptChange('name', e.target.value)}
+              value={persona.name}
+              onChange={(e) => onPersonaChange('name', e.target.value)}
               placeholder="code-reviewer"
               className="text-xs"
             />
             <p className="mt-1 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              Use @prompt:name to select when chatting
+              Select from the persona dropdown in the input bar
             </p>
           </div>
 
@@ -63,8 +63,8 @@ export const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
               Content
             </Label>
             <Textarea
-              value={prompt.content}
-              onChange={(e) => onPromptChange('content', e.target.value)}
+              value={persona.content}
+              onChange={(e) => onPersonaChange('content', e.target.value)}
               placeholder="You are an expert code reviewer..."
               className="min-h-[300px] font-mono text-xs"
               rows={15}
@@ -82,9 +82,9 @@ export const PromptEditDialog: React.FC<PromptEditDialogProps> = ({
             variant="outline"
             size="sm"
             className="border-text-primary bg-text-primary text-surface hover:bg-text-secondary dark:border-text-dark-primary dark:bg-text-dark-primary dark:text-surface-dark dark:hover:bg-text-dark-secondary"
-            disabled={!prompt.name.trim() || !prompt.content.trim()}
+            disabled={!persona.name.trim() || !persona.content.trim()}
           >
-            {isEditing ? 'Update' : 'Add Prompt'}
+            {isEditing ? 'Update' : 'Add Persona'}
           </Button>
         </div>
       </div>

@@ -1,5 +1,3 @@
-const PROMPT_MENTION_RE = /@prompt:([^\s]+)/;
-
 interface MentionParseResult {
   isActive: boolean;
   query: string;
@@ -13,24 +11,6 @@ const INACTIVE_RESULT: MentionParseResult = {
   mentionStartPos: -1,
   mentionEndPos: -1,
 } as const;
-
-export interface ExtractedPromptMention {
-  promptName: string | null;
-  cleanedMessage: string;
-}
-
-export const extractPromptMention = (message: string): ExtractedPromptMention => {
-  const match = PROMPT_MENTION_RE.exec(message);
-
-  if (!match) {
-    return { promptName: null, cleanedMessage: message };
-  }
-
-  const promptName = decodeURIComponent(match[1]);
-  const cleanedMessage = message.replace(match[0], '').trim();
-
-  return { promptName, cleanedMessage };
-};
 
 export const parseMentionQuery = (message: string, cursorPosition: number): MentionParseResult => {
   const textBeforeCursor = message.slice(0, cursorPosition);

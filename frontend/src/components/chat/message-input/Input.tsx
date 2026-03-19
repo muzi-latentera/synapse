@@ -149,7 +149,7 @@ function InputLayout() {
       {state.showTip && !state.hasAttachments && (
         <div className="mt-1 animate-fade-in text-center text-2xs text-text-quaternary dark:text-text-dark-tertiary">
           <span className="font-medium">Tip:</span> Drag and drop images, pdfs and xlsx files into
-          the input area, type `/` for slash commands, or `@` to mention files, agents, and prompts
+          the input area, type `/` for slash commands, or `@` to mention files and agents
         </div>
       )}
     </form>

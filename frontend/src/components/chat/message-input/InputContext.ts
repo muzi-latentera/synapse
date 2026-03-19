@@ -31,7 +31,6 @@ export interface InputState {
   highlightedSlashCommandIndex: number;
   filteredFiles: MentionItem[];
   filteredAgents: MentionItem[];
-  filteredPrompts: MentionItem[];
   highlightedMentionIndex: number;
 }
 

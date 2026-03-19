@@ -2,6 +2,7 @@ import { EnhanceButton } from './EnhanceButton';
 import { PermissionModeSelector } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
 import { ModelSelector } from '@/components/chat/model-selector/ModelSelector';
 import { ThinkingModeSelector } from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
+import { PersonaSelector } from '@/components/chat/persona-selector/PersonaSelector';
 import { BranchSelector } from '@/components/chat/branch-selector/BranchSelector';
 import { useInputState, useInputActions } from '@/hooks/useInputContext';
 
@@ -27,6 +28,12 @@ export function InputControls() {
       />
 
       <ThinkingModeSelector
+        chatId={state.chatId}
+        dropdownPosition={state.dropdownPosition}
+        disabled={state.isLoading}
+      />
+
+      <PersonaSelector
         chatId={state.chatId}
         dropdownPosition={state.dropdownPosition}
         disabled={state.isLoading}

@@ -59,7 +59,7 @@ export interface CustomCommand {
     | null;
 }
 
-export interface CustomPrompt {
+export interface Persona {
   name: string;
   content: string;
 }
@@ -98,7 +98,7 @@ export interface UserSettings {
   custom_env_vars: CustomEnvVar[] | null;
   custom_skills: CustomSkill[] | null;
   custom_slash_commands: CustomCommand[] | null;
-  custom_prompts: CustomPrompt[] | null;
+  personas: Persona[] | null;
   notifications_enabled?: boolean;
   auto_compact_disabled?: boolean;
   attribution_disabled?: boolean;

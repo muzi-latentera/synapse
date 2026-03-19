@@ -1,12 +1,12 @@
 import { type ReactNode, useMemo } from 'react';
 import type { FileStructure } from '@/types/file-system.types';
-import type { CustomAgent, CustomCommand, CustomPrompt } from '@/types/user.types';
+import type { CustomAgent, CustomCommand, Persona } from '@/types/user.types';
 import { ChatContext } from './ChatContextDefinition';
 
 const EMPTY_FILES: FileStructure[] = [];
 const EMPTY_AGENTS: CustomAgent[] = [];
 const EMPTY_COMMANDS: CustomCommand[] = [];
-const EMPTY_PROMPTS: CustomPrompt[] = [];
+const EMPTY_PERSONAS: Persona[] = [];
 
 interface ChatProviderProps {
   chatId?: string;
@@ -14,7 +14,7 @@ interface ChatProviderProps {
   fileStructure?: FileStructure[];
   customAgents?: CustomAgent[];
   customSlashCommands?: CustomCommand[];
-  customPrompts?: CustomPrompt[];
+  personas?: Persona[];
   children: ReactNode;
 }
 
@@ -24,7 +24,7 @@ export function ChatProvider({
   fileStructure = EMPTY_FILES,
   customAgents = EMPTY_AGENTS,
   customSlashCommands = EMPTY_COMMANDS,
-  customPrompts = EMPTY_PROMPTS,
+  personas = EMPTY_PERSONAS,
   children,
 }: ChatProviderProps) {
   const value = useMemo(
@@ -34,9 +34,9 @@ export function ChatProvider({
       fileStructure,
       customAgents,
       customSlashCommands,
-      customPrompts,
+      personas,
     }),
-    [chatId, sandboxId, fileStructure, customAgents, customSlashCommands, customPrompts],
+    [chatId, sandboxId, fileStructure, customAgents, customSlashCommands, personas],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

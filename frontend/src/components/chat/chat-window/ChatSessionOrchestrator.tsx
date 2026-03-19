@@ -57,7 +57,6 @@ export function ChatSessionOrchestrator({
   const worktree = useChatSettingsStore(
     (state) => state.worktreeByChat[chatId] ?? DEFAULT_WORKTREE,
   );
-
   const lastAssistantModelId = useMemo((): string | null | undefined => {
     if (messagesQuery.isLoading) return null;
     for (let i = fetchedMessages.length - 1; i >= 0; i--) {

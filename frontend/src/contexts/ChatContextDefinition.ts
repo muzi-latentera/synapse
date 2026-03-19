@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 import type { FileStructure } from '@/types/file-system.types';
-import type { CustomAgent, CustomCommand, CustomPrompt } from '@/types/user.types';
+import type { CustomAgent, CustomCommand, Persona } from '@/types/user.types';
 
 interface ChatContextValue {
   chatId: string | undefined;
@@ -8,7 +8,7 @@ interface ChatContextValue {
   fileStructure: FileStructure[];
   customAgents: CustomAgent[];
   customSlashCommands: CustomCommand[];
-  customPrompts: CustomPrompt[];
+  personas: Persona[];
 }
 
 export const ChatContext = createContext<ChatContextValue | null>(null);
