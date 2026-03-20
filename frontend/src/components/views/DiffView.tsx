@@ -8,8 +8,6 @@ import {
   GitCompareArrows,
   Rows2,
   RotateCcw,
-  UnfoldVertical,
-  FoldVertical,
 } from 'lucide-react';
 import { FileIcon } from '@/components/editor/file-tree/FileIcon';
 import { Button } from '@/components/ui/primitives/Button';
@@ -18,6 +16,7 @@ import { Spinner } from '@/components/ui/primitives/Spinner';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useGitDiffQuery } from '@/hooks/queries/useSandboxQueries';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import type { FileDiffMetadata, FileContents } from '@pierre/diffs';
 import type { DiffMode } from '@/types/sandbox.types';
 import { cn } from '@/utils/cn';
 
@@ -53,21 +52,53 @@ const STATUS_COLORS: Record<string, string> = {
     'bg-warning-600/15 text-warning-600 dark:bg-warning-400/15 dark:text-warning-400',
 };
 
-interface FileDiffMeta {
-  name: string;
-  prevName?: string;
-  type?: string;
-  hunks?: {
-    additionCount: number;
-    deletionCount: number;
-    additionLines: number;
-    deletionLines: number;
-  }[];
-  [key: string]: unknown;
+// Extract old/new file contents from a full-context parsed diff. The hunk lines
+// include trailing '\n' (from parsePatchFiles's SPLIT_WITH_NEWLINES split), so
+// joining without separator reconstructs the original file content.
+function extractContents(
+  file: FileDiffMetadata,
+): { oldContent: string; newContent: string } | null {
+  if (file.hunks.length === 0) return null;
+  const oldParts: string[] = [];
+  const newParts: string[] = [];
+  for (const hunk of file.hunks) {
+    for (const content of hunk.hunkContent) {
+      if (content.type === 'context') {
+        for (const line of content.lines) {
+          oldParts.push(line);
+          newParts.push(line);
+        }
+      } else {
+        for (const line of content.deletions) oldParts.push(line);
+        for (const line of content.additions) newParts.push(line);
+      }
+    }
+  }
+  if (oldParts.length === 0 && newParts.length === 0) return null;
+  return { oldContent: oldParts.join(''), newContent: newParts.join('') };
+}
+
+// Re-diff full-context file data with limited context so the library produces
+// hunk gaps (collapsedBefore > 0) that enable the incremental expand UI.
+function rebuildWithCollapsedContext(
+  fullFile: FileDiffMetadata,
+  parseDiffFromFile: (old: FileContents, cur: FileContents) => FileDiffMetadata,
+): FileDiffMetadata {
+  const contents = extractContents(fullFile);
+  if (!contents) return fullFile;
+  const rebuilt = parseDiffFromFile(
+    { name: fullFile.prevName ?? fullFile.name, contents: contents.oldContent },
+    { name: fullFile.name, contents: contents.newContent },
+  );
+  rebuilt.type = fullFile.type;
+  rebuilt.prevName = fullFile.prevName;
+  if (fullFile.mode) rebuilt.mode = fullFile.mode;
+  if (fullFile.oldMode) rebuilt.oldMode = fullFile.oldMode;
+  return rebuilt;
 }
 
 type FileDiffComponent = React.ComponentType<{
-  fileDiff: FileDiffMeta;
+  fileDiff: FileDiffMetadata;
   options?: Record<string, unknown>;
 }>;
 
@@ -75,7 +106,7 @@ function FileDiffRenderer({
   file,
   options,
 }: {
-  file: FileDiffMeta;
+  file: FileDiffMetadata;
   options: Record<string, unknown>;
 }) {
   const [FileDiff, setFileDiff] = useState<FileDiffComponent | null>(null);
@@ -112,9 +143,9 @@ function FileDiffRenderer({
   );
 }
 
-function FileStats({ file }: { file: FileDiffMeta }) {
-  const hunks = file.hunks;
-  if (!hunks || hunks.length === 0) return null;
+function FileStats({ file }: { file: FileDiffMetadata }) {
+  const { hunks } = file;
+  if (hunks.length === 0) return null;
 
   let additions = 0;
   let deletions = 0;
@@ -160,18 +191,17 @@ interface DiffViewProps {
 export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps) {
   const theme = useResolvedTheme();
   const [expandedFiles, setExpandedFiles] = useState<Set<number>>(new Set());
-  const [parsedFiles, setParsedFiles] = useState<FileDiffMeta[]>([]);
+  const [parsedFiles, setParsedFiles] = useState<FileDiffMetadata[]>([]);
   const [parsingDone, setParsingDone] = useState(false);
   const [mode, setMode] = useState<DiffMode>('all');
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
-  const [expandUnchanged, setExpandUnchanged] = useState(false);
 
   const {
     data: diffData,
     isFetching,
     isError,
     refetch,
-  } = useGitDiffQuery(sandboxId || '', mode, expandUnchanged, cwd, { enabled: !!sandboxId });
+  } = useGitDiffQuery(sandboxId || '', mode, true, cwd, { enabled: !!sandboxId });
 
   const diffContent = diffData?.diff ?? '';
   const prevFileNamesRef = useRef<string>('');
@@ -188,10 +218,12 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
     let cancelled = false;
     (async () => {
       try {
-        const { parsePatchFiles } = await import('@pierre/diffs');
+        const { parsePatchFiles, parseDiffFromFile } = await import('@pierre/diffs');
         const patches = parsePatchFiles(diffContent);
         if (!cancelled) {
-          const files = patches.flatMap((p) => p.files);
+          const files = patches
+            .flatMap((p) => p.files)
+            .map((f) => rebuildWithCollapsedContext(f, parseDiffFromFile));
           const fileNames = files.map((f) => f.name).join('\0');
           if (fileNames !== prevFileNamesRef.current) {
             setExpandedFiles(new Set());
@@ -213,10 +245,10 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
       theme: DIFF_THEMES,
       themeType: theme,
       diffStyle,
-      expandUnchanged,
+      expandUnchanged: false,
       disableFileHeader: true,
     }),
-    [theme, diffStyle, expandUnchanged],
+    [theme, diffStyle],
   );
 
   const toggleFile = useCallback((index: number) => {
@@ -299,20 +331,6 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
             </Button>
           </>
         )}
-
-        <Button
-          onClick={() => setExpandUnchanged(!expandUnchanged)}
-          variant="unstyled"
-          className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
-          title={expandUnchanged ? 'Show changes only' : 'Show full file'}
-          aria-label={expandUnchanged ? 'Show changes only' : 'Show full file'}
-        >
-          {expandUnchanged ? (
-            <FoldVertical className="h-3 w-3" />
-          ) : (
-            <UnfoldVertical className="h-3 w-3" />
-          )}
-        </Button>
 
         <Button
           onClick={() => setDiffStyle(diffStyle === 'unified' ? 'split' : 'unified')}
