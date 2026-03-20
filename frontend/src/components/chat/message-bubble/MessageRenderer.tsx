@@ -1,11 +1,14 @@
-import React, { memo, Suspense } from 'react';
+import React, { createContext, memo, Suspense } from 'react';
 import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import { ThinkingBlock } from './ThinkingBlock';
 import { PromptSuggestions } from './PromptSuggestions';
 import { getToolComponent } from '@/components/chat/tools/registry';
 import { buildSegments } from './segmentBuilder';
 import type { AssistantStreamEvent } from '@/types/chat.types';
+import type { ToolAggregate } from '@/types/tools.types';
 import { Spinner } from '@/components/ui/primitives/Spinner';
+
+export const AgentToolsContext = createContext<ToolAggregate[]>([]);
 
 interface MessageRendererProps {
   events?: AssistantStreamEvent[];
@@ -47,7 +50,17 @@ const MessageRendererInner: React.FC<MessageRendererProps> = ({
     };
   }, [events, isStreaming]);
 
+  const agentTools = React.useMemo(
+    () =>
+      segments.reduce<ToolAggregate[]>((acc, seg) => {
+        if (seg.kind === 'tool' && seg.tool.name === 'Agent') acc.push(seg.tool);
+        return acc;
+      }, []),
+    [segments],
+  );
+
   return (
+    <AgentToolsContext value={agentTools}>
     <div className={className}>
       {segments.map((segment) => {
         switch (segment.kind) {
@@ -109,6 +122,7 @@ const MessageRendererInner: React.FC<MessageRendererProps> = ({
         }
       })}
     </div>
+    </AgentToolsContext>
   );
 };
 
