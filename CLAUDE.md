@@ -106,6 +106,10 @@
 - `LayoutContext` (`components/layout/layoutState.tsx`) — sidebar state
 - `FileTreeProvider` (`components/editor/file-tree/FileTreeProvider.tsx`) — file tree selection and expansion state
 
+### File Placement
+- When extracting non-component code (contexts, utils, hooks) from a component file, place it in the project's canonical folder for that type (`contexts/`, `utils/`, `hooks/`) — do not leave it next to the component it was extracted from
+- The `components/chat/tools/` directory is exclusively for tool components (one per tool type) — helper modals, dialogs, and detail views triggered by tools belong in `components/chat/` or a relevant feature folder, not in `tools/`
+
 ### Component Variants
 - Create explicit variant components instead of one component with many boolean modes (e.g., `ThreadComposer`, `EditComposer` instead of `<Composer isThread isEditing />`)
 - Use `children` for composing static structure; use render props only when the parent needs to pass data back to the child (e.g., `renderItem` in lists)

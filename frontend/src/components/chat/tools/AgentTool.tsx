@@ -4,26 +4,10 @@ import type { ToolAggregate } from '@/types/tools.types';
 import { ToolCard } from './common/ToolCard';
 import { CollapsibleButton } from './common/CollapsibleButton';
 import { getToolComponent } from './registry';
-import { AgentToolsContext } from '@/components/chat/message-bubble/MessageRenderer';
+import { AgentToolsContext } from '@/contexts/AgentToolsContext';
+import { extractResultText } from '@/utils/agentTool';
 
-const LazyExpandedModal = lazy(() => import('./AgentToolExpandedModal'));
-
-export const extractResultText = (result: unknown): string | undefined => {
-  if (typeof result === 'string') return result || undefined;
-  if (Array.isArray(result)) {
-    const texts = result
-      .filter(
-        (block): block is { type: string; text: string } =>
-          typeof block === 'object' &&
-          block !== null &&
-          block.type === 'text' &&
-          typeof block.text === 'string',
-      )
-      .map((block) => block.text);
-    return texts.length > 0 ? texts.join('\n') : undefined;
-  }
-  return undefined;
-};
+const LazyExpandedModal = lazy(() => import('@/components/ui/AgentToolExpandedModal'));
 
 interface AgentToolProps {
   tool: ToolAggregate;

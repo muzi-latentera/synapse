@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { useLayoutSidebar } from '@/components/layout/layoutState';
 import { Input as ChatInput } from '@/components/chat/message-input/Input';
-import { WorkspaceSelector } from '@/components/chat/WorkspaceSelector';
+import { WorkspaceSelector } from '@/components/chat/workspace-selector/WorkspaceSelector';
 import { WorktreeToggle } from '@/components/chat/worktree-selector/WorktreeToggle';
 import { useChatStore } from '@/store/chatStore';
 import { useUIStore } from '@/store/uiStore';

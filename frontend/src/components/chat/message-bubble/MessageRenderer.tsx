@@ -1,14 +1,13 @@
-import React, { createContext, memo, Suspense } from 'react';
+import React, { memo, Suspense } from 'react';
 import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import { ThinkingBlock } from './ThinkingBlock';
 import { PromptSuggestions } from './PromptSuggestions';
 import { getToolComponent } from '@/components/chat/tools/registry';
 import { buildSegments } from './segmentBuilder';
+import { AgentToolsContext } from '@/contexts/AgentToolsContext';
 import type { AssistantStreamEvent } from '@/types/chat.types';
 import type { ToolAggregate } from '@/types/tools.types';
 import { Spinner } from '@/components/ui/primitives/Spinner';
-
-export const AgentToolsContext = createContext<ToolAggregate[]>([]);
 
 interface MessageRendererProps {
   events?: AssistantStreamEvent[];
@@ -61,67 +60,67 @@ const MessageRendererInner: React.FC<MessageRendererProps> = ({
 
   return (
     <AgentToolsContext value={agentTools}>
-    <div className={className}>
-      {segments.map((segment) => {
-        switch (segment.kind) {
-          case 'text':
-            return (
-              <div
-                key={segment.id}
-                className="prose prose-sm dark:prose-invert max-w-none break-words"
-              >
-                <LazyMarkDown content={segment.text} />
-              </div>
-            );
-          case 'thinking': {
-            return (
-              <div key={segment.id} className="mb-2 mt-0.5">
-                <ThinkingBlock
-                  content={segment.text}
-                  isActiveThinking={segment.eventIndex === activeThinkingIndex}
-                />
-              </div>
-            );
-          }
-          case 'tool': {
-            const Component = getToolComponent(segment.tool.name);
-            return (
-              <div key={segment.id} className="mb-2 mt-1">
-                <Suspense
-                  fallback={
-                    <div className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 dark:border-border-dark/50">
-                      <Spinner
-                        size="sm"
-                        className="text-text-quaternary dark:text-text-dark-quaternary"
-                      />
-                      <span className="text-xs text-text-tertiary dark:text-text-dark-tertiary">
-                        Loading tool output...
-                      </span>
-                    </div>
-                  }
+      <div className={className}>
+        {segments.map((segment) => {
+          switch (segment.kind) {
+            case 'text':
+              return (
+                <div
+                  key={segment.id}
+                  className="prose prose-sm dark:prose-invert max-w-none break-words"
                 >
-                  <Component tool={segment.tool} chatId={chatId} />
-                </Suspense>
-              </div>
-            );
-          }
-          case 'suggestions': {
-            if (!isLastBotMessage || !onSuggestionSelect) {
-              return null;
+                  <LazyMarkDown content={segment.text} />
+                </div>
+              );
+            case 'thinking': {
+              return (
+                <div key={segment.id} className="mb-2 mt-0.5">
+                  <ThinkingBlock
+                    content={segment.text}
+                    isActiveThinking={segment.eventIndex === activeThinkingIndex}
+                  />
+                </div>
+              );
             }
-            return (
-              <PromptSuggestions
-                key={segment.id}
-                suggestions={segment.suggestions}
-                onSelect={onSuggestionSelect}
-              />
-            );
+            case 'tool': {
+              const Component = getToolComponent(segment.tool.name);
+              return (
+                <div key={segment.id} className="mb-2 mt-1">
+                  <Suspense
+                    fallback={
+                      <div className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 dark:border-border-dark/50">
+                        <Spinner
+                          size="sm"
+                          className="text-text-quaternary dark:text-text-dark-quaternary"
+                        />
+                        <span className="text-xs text-text-tertiary dark:text-text-dark-tertiary">
+                          Loading tool output...
+                        </span>
+                      </div>
+                    }
+                  >
+                    <Component tool={segment.tool} chatId={chatId} />
+                  </Suspense>
+                </div>
+              );
+            }
+            case 'suggestions': {
+              if (!isLastBotMessage || !onSuggestionSelect) {
+                return null;
+              }
+              return (
+                <PromptSuggestions
+                  key={segment.id}
+                  suggestions={segment.suggestions}
+                  onSelect={onSuggestionSelect}
+                />
+              );
+            }
+            default:
+              return null;
           }
-          default:
-            return null;
-        }
-      })}
-    </div>
+        })}
+      </div>
     </AgentToolsContext>
   );
 };

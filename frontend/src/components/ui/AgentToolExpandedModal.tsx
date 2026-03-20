@@ -3,10 +3,10 @@ import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { ModalHeader } from '@/components/ui/shared/ModalHeader';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 import type { ToolAggregate } from '@/types/tools.types';
-import { AgentToolsContext } from '@/components/chat/message-bubble/MessageRenderer';
-import { statusIndicator } from './common/ToolCard';
-import { getToolComponent } from './registry';
-import { extractResultText } from './AgentTool';
+import { AgentToolsContext } from '@/contexts/AgentToolsContext';
+import { statusIndicator } from '@/components/chat/tools/common/ToolCard';
+import { getToolComponent } from '@/components/chat/tools/registry';
+import { extractResultText } from '@/utils/agentTool';
 
 interface AgentToolExpandedModalProps {
   agents: ToolAggregate[];
@@ -18,6 +18,12 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
   const [selectedId, setSelectedId] = useState(initialAgentId);
 
   const selectedAgent = agents.find((a) => a.id === selectedId) ?? agents[0];
+
+  const childAgentTools = useMemo(
+    () => selectedAgent?.children.filter((c) => c.name === 'Agent') ?? [],
+    [selectedAgent?.children],
+  );
+
   if (!selectedAgent) return null;
 
   const prompt = selectedAgent.input?.prompt as string | undefined;
@@ -26,11 +32,6 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
   const result = extractResultText(selectedAgent.result);
 
   const hasSidebar = agents.length > 1;
-
-  const childAgentTools = useMemo(
-    () => selectedAgent.children.filter((c) => c.name === 'Agent'),
-    [selectedAgent.children],
-  );
 
   return (
     <BaseModal isOpen={true} onClose={onClose} size="4xl" ariaLabel="Subagent detail view">
@@ -55,11 +56,17 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
                 >
                   {statusIndicator[agent.status]}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs text-text-primary dark:text-text-dark-primary" title={type}>
+                    <div
+                      className="truncate text-xs text-text-primary dark:text-text-dark-primary"
+                      title={type}
+                    >
                       {type}
                     </div>
                     {desc && (
-                      <div className="truncate text-2xs text-text-quaternary dark:text-text-dark-quaternary" title={desc}>
+                      <div
+                        className="truncate text-2xs text-text-quaternary dark:text-text-dark-quaternary"
+                        title={desc}
+                      >
                         {desc}
                       </div>
                     )}
@@ -70,7 +77,7 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           <div className="flex items-center gap-2">
             {!hasSidebar && statusIndicator[selectedAgent.status]}
             <span className="text-xs font-medium text-text-primary dark:text-text-dark-primary">
@@ -85,7 +92,7 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
 
           {prompt && (
             <div>
-              <h4 className="text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary mb-2">
+              <h4 className="mb-2 text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
                 Prompt
               </h4>
               <div className="whitespace-pre-wrap break-words rounded-lg bg-black/5 p-3 font-mono text-xs text-text-secondary dark:bg-white/5 dark:text-text-dark-tertiary">
@@ -96,7 +103,7 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
 
           {selectedAgent.children.length > 0 && (
             <div>
-              <h4 className="text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary mb-2">
+              <h4 className="mb-2 text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
                 Tool activity ({selectedAgent.children.length})
               </h4>
               <AgentToolsContext value={childAgentTools}>
@@ -126,7 +133,7 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
 
           {result && (
             <div>
-              <h4 className="text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary mb-2">
+              <h4 className="mb-2 text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
                 Result
               </h4>
               <div className="whitespace-pre-wrap break-words rounded-lg bg-black/5 p-3 font-mono text-xs text-text-secondary dark:bg-white/5 dark:text-text-dark-tertiary">
@@ -153,11 +160,15 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
             </div>
           )}
 
-          {!prompt && selectedAgent.children.length === 0 && !result && selectedAgent.status !== 'started' && selectedAgent.status !== 'failed' && (
-            <p className="text-xs text-text-quaternary dark:text-text-dark-quaternary">
-              No details available for this agent.
-            </p>
-          )}
+          {!prompt &&
+            selectedAgent.children.length === 0 &&
+            !result &&
+            selectedAgent.status !== 'started' &&
+            selectedAgent.status !== 'failed' && (
+              <p className="text-xs text-text-quaternary dark:text-text-dark-quaternary">
+                No details available for this agent.
+              </p>
+            )}
         </div>
       </div>
     </BaseModal>
