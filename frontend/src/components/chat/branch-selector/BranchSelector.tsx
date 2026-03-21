@@ -53,7 +53,7 @@ export const BranchSelector = memo(function BranchSelector({
         );
       }}
       leftIcon={GitBranch}
-      getItemShortLabel={(branch) => (branch.length > 24 ? branch.slice(0, 24) + '…' : branch)}
+      getItemShortLabel={(branch) => (branch.length > 16 ? branch.slice(0, 16) + '…' : branch)}
       width="w-48"
       dropdownPosition={dropdownPosition}
       disabled={disabled || checkoutBranch.isPending}
