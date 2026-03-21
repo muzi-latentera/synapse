@@ -81,6 +81,7 @@ export function CommandMenu() {
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
+  const activeItemRef = useRef<HTMLDivElement>(null);
   const listId = 'command-menu-list';
 
   const isOpen = useUIStore((state) => state.commandMenuOpen);
@@ -137,6 +138,10 @@ export function CommandMenu() {
     },
     [close],
   );
+
+  useEffect(() => {
+    activeItemRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -225,6 +230,7 @@ export function CommandMenu() {
             return (
               <div
                 key={cmd.id}
+                ref={index === activeIndex ? activeItemRef : undefined}
                 className={cn(
                   'flex w-full items-center gap-3 px-3 py-2 text-xs transition-colors duration-200',
                   'text-text-primary dark:text-text-dark-primary',
