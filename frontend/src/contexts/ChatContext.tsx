@@ -11,6 +11,7 @@ const EMPTY_PERSONAS: Persona[] = [];
 interface ChatProviderProps {
   chatId?: string;
   sandboxId?: string;
+  parentChatId?: string;
   fileStructure?: FileStructure[];
   customAgents?: CustomAgent[];
   customSlashCommands?: CustomCommand[];
@@ -21,6 +22,7 @@ interface ChatProviderProps {
 export function ChatProvider({
   chatId,
   sandboxId,
+  parentChatId,
   fileStructure = EMPTY_FILES,
   customAgents = EMPTY_AGENTS,
   customSlashCommands = EMPTY_COMMANDS,
@@ -31,12 +33,13 @@ export function ChatProvider({
     () => ({
       chatId,
       sandboxId,
+      parentChatId,
       fileStructure,
       customAgents,
       customSlashCommands,
       personas,
     }),
-    [chatId, sandboxId, fileStructure, customAgents, customSlashCommands, personas],
+    [chatId, sandboxId, parentChatId, fileStructure, customAgents, customSlashCommands, personas],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

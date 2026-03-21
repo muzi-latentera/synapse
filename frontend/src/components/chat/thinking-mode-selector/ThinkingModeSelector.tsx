@@ -14,7 +14,7 @@ export interface ThinkingModeOption {
   tokens: string;
 }
 
-const THINKING_MODES: ThinkingModeOption[] = [
+export const THINKING_MODES: ThinkingModeOption[] = [
   { value: null, label: 'Off', tokens: '0' },
   { value: 'low', label: 'Low', tokens: '4k' },
   { value: 'medium', label: 'Medium', tokens: '10k' },

@@ -218,6 +218,20 @@ async def get_chats(
     )
 
 
+@router.get("/chats/{chat_id}/sub-threads", response_model=list[ChatSchema])
+async def get_sub_threads(
+    chat_id: UUID,
+    current_user: User = Depends(get_current_user),
+    chat_service: ChatService = Depends(get_chat_service),
+) -> list[ChatSchema]:
+    try:
+        return await chat_service.get_sub_threads(chat_id, current_user)
+    except ChatException as e:
+        _raise_chat_http_exception(e)
+    except SQLAlchemyError as e:
+        _raise_database_http_exception(e, "retrieving sub-threads")
+
+
 @router.get(
     "/chats/{chat_id}",
     response_model=ChatSchema,

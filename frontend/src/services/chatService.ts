@@ -120,7 +120,7 @@ async function listChats(params?: {
   pinned?: boolean;
 }): Promise<PaginatedChats> {
   return serviceCall(async () => {
-    const queryString = buildQueryString(params as unknown as Record<string, string | number>);
+    const queryString = buildQueryString(params);
     const endpoint = `/chat/chats${queryString}`;
 
     const response = await apiClient.get<PaginatedChats>(endpoint);
@@ -240,6 +240,14 @@ function createEventSource(
   return eventSource;
 }
 
+async function getSubThreads(chatId: string): Promise<Chat[]> {
+  validateId(chatId, 'Chat ID');
+  return serviceCall(async () => {
+    const response = await apiClient.get<Chat[]>(`/chat/chats/${chatId}/sub-threads`);
+    return response ?? [];
+  });
+}
+
 async function pinChat(chatId: string): Promise<Chat> {
   validateId(chatId, 'Chat ID');
 
@@ -292,4 +300,5 @@ export const chatService = {
   enhancePrompt,
   pinChat,
   unpinChat,
+  getSubThreads,
 };

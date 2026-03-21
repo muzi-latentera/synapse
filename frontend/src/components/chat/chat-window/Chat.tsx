@@ -29,6 +29,7 @@ import {
 } from '@/hooks/useChatSessionContext';
 import { useChatInputMessageContext } from '@/hooks/useChatInputMessageContext';
 import { queryKeys } from '@/hooks/queries/queryKeys';
+import { SubThreadBanner } from '@/components/chat/sub-threads/SubThreadBanner';
 
 const AT_BOTTOM_THRESHOLD_PX = 200;
 const TOP_PAGINATION_TRIGGER_PX = 50;
@@ -397,6 +398,7 @@ export const Chat = memo(function Chat() {
 
   return (
     <div className="relative flex min-w-0 flex-1 flex-col">
+      <SubThreadBanner />
       <div className="flex-1 overflow-hidden">
         {isInitialLoading && messages.length === 0 ? (
           <ChatSkeleton messageCount={3} className="py-4" />

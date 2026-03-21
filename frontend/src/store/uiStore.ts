@@ -18,6 +18,8 @@ type UIStoreState = ThemeState &
   SplitViewActions & {
     commandMenuOpen: boolean;
     setCommandMenuOpen: (open: boolean) => void;
+    subThreadDialogOpen: boolean;
+    setSubThreadDialogOpen: (open: boolean) => void;
     pendingFilePath: string | null;
     openFileInEditor: (path: string) => void;
   };
@@ -43,6 +45,8 @@ export const useUIStore = create<UIStoreState>()(
 
       commandMenuOpen: false,
       setCommandMenuOpen: (open) => set({ commandMenuOpen: open }),
+      subThreadDialogOpen: false,
+      setSubThreadDialogOpen: (open) => set({ subThreadDialogOpen: open }),
 
       pendingFilePath: null,
       openFileInEditor: (path) => {
