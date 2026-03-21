@@ -171,30 +171,31 @@ const getAuthTokenConfig = (
       };
     case 'openrouter':
       return {
-        label: 'API Key',
+        label: 'API Key (optional in host mode)',
         placeholder: 'Enter your OpenRouter API key',
         helperText: {
-          prefix: 'Get your API key from',
+          prefix:
+            'Optional in host mode if OPENROUTER_API_KEY is set. Required for Docker. Get a key from',
           anchorText: 'openrouter.ai',
           href: 'https://openrouter.ai/keys',
         },
       };
     case 'openai':
       return {
-        label: 'OpenAI Authentication',
+        label: 'OpenAI Authentication (optional in host mode)',
         placeholder: '',
         helperText: {
-          prefix: 'Requires a',
+          prefix: 'Optional in host mode if already authenticated. Required for Docker. Requires a',
           anchorText: 'ChatGPT Pro/Plus subscription',
           href: 'https://openai.com',
         },
       };
     case 'copilot':
       return {
-        label: 'GitHub Authentication',
+        label: 'GitHub Authentication (optional in host mode)',
         placeholder: '',
         helperText: {
-          prefix: 'Requires a',
+          prefix: 'Optional in host mode if already authenticated. Required for Docker. Requires a',
           anchorText: 'GitHub Copilot subscription',
           href: 'https://github.com/features/copilot',
         },
@@ -249,11 +250,6 @@ export const ProviderDialog: React.FC<ProviderDialogProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const tokenRequiredTypes = ['openrouter', 'openai', 'copilot'];
-    if (tokenRequiredTypes.includes(form.provider_type) && !form.auth_token) {
-      setLocalError('Authentication is required for this provider type.');
-      return;
-    }
     onSave(form);
   };
 

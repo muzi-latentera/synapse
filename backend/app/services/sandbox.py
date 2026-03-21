@@ -590,10 +590,9 @@ class SandboxService:
         if openai_auth:
             tasks.append(self._setup_openai_auth(sandbox_id, openai_auth))
 
-        openrouter_api_key = self._get_openrouter_api_key(custom_providers)
-        openai_enabled = self._has_openai_provider(custom_providers)
-        copilot_token = self._get_copilot_token(custom_providers)
-        if openrouter_api_key or openai_enabled or copilot_token:
+        if self._has_bridge_provider(custom_providers):
+            openrouter_api_key = self._get_openrouter_api_key(custom_providers)
+            copilot_token = self._get_copilot_token(custom_providers)
             tasks.append(
                 self._setup_anthropic_bridge(
                     sandbox_id,
@@ -622,13 +621,18 @@ class SandboxService:
         return None
 
     @staticmethod
-    def _has_openai_provider(
+    def _has_bridge_provider(
         custom_providers: list[CustomProviderDict] | None,
     ) -> bool:
         if not custom_providers:
             return False
+        bridge_types = {
+            ProviderType.OPENROUTER.value,
+            ProviderType.OPENAI.value,
+            ProviderType.COPILOT.value,
+        }
         return any(
-            provider.get("provider_type") == ProviderType.OPENAI.value
+            provider.get("provider_type") in bridge_types
             and provider.get("enabled", True)
             for provider in custom_providers
         )
