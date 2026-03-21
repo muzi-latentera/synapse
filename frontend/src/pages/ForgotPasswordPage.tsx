@@ -74,7 +74,7 @@ export function ForgotPasswordPage() {
       setErrors(null);
       forgotPasswordMutation.mutate({ email: values.email.trim() });
     },
-    [forgotPasswordMutation, validateForm, values],
+    [forgotPasswordMutation, setErrors, validateForm, values],
   );
 
   if (forgotPasswordMutation.isSuccess) {

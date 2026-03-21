@@ -108,7 +108,7 @@ export function LoginPage() {
         },
       );
     },
-    [loginMutation, navigate, values],
+    [loginMutation, navigate, setErrors, values],
   );
 
   const title = 'Welcome to Agentrove';

@@ -94,7 +94,7 @@ export function SignupPage() {
       };
       signupMutation.mutate(signupData);
     },
-    [signupMutation, values],
+    [setErrors, signupMutation, values],
   );
 
   const title = 'Join Agentrove';

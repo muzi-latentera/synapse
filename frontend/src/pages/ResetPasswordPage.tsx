@@ -94,7 +94,7 @@ export function ResetPasswordPage() {
         password: attemptValues.password,
       });
     },
-    [resetPasswordMutation, token, values],
+    [resetPasswordMutation, setErrors, token, values],
   );
 
   const fieldConfigs = useMemo(

@@ -1,7 +1,8 @@
 import { ShieldAlert } from 'lucide-react';
 import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import type { PermissionRequest } from '@/types/chat.types';
-import { useApprovalState, ApprovalTextarea, ApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
+import { useApprovalState } from '@/hooks/useApprovalState';
+import { ApprovalTextarea, ApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return 'null';

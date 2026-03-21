@@ -318,7 +318,7 @@ export function Sidebar({
       next.delete(selectedChatWorkspaceId);
       return next;
     });
-  }, [selectedChatWorkspaceId]);
+  }, [selectedChatWorkspaceId, setCollapsedWorkspaces]);
 
   useEffect(() => {
     if (!selectedChatParentId) return;
@@ -326,7 +326,7 @@ export function Sidebar({
       if (prev.has(selectedChatParentId)) return prev;
       return new Set(prev).add(selectedChatParentId);
     });
-  }, [selectedChatParentId]);
+  }, [selectedChatParentId, setExpandedSubThreads]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

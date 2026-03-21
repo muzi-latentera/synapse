@@ -2,9 +2,6 @@ import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import type { ApprovalState } from '@/hooks/useApprovalState';
 
-export { useApprovalState } from '@/hooks/useApprovalState';
-export type { ApprovalState } from '@/hooks/useApprovalState';
-
 interface ApprovalTextareaProps {
   state: ApprovalState;
   textareaId: string;

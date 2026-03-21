@@ -239,7 +239,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
     return () => {
       cancelled = true;
     };
-  }, [diffContent]);
+  }, [diffContent, setExpandedFiles]);
 
   const options = useMemo(
     () => ({
@@ -261,7 +261,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
       }
       return new Set(parsedFiles.map((_, i) => i));
     });
-  }, [parsedFiles]);
+  }, [parsedFiles, setExpandedFiles]);
 
   if (!sandboxId) {
     return (

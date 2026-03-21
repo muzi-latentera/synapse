@@ -1,8 +1,8 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-export function lazyNamed<T extends ComponentType<any>>(
-  factory: () => Promise<Record<string, T>>,
+export function lazyNamed<P extends Record<string, unknown>>(
+  factory: () => Promise<Record<string, ComponentType<P>>>,
   name: string,
-): LazyExoticComponent<T> {
+): LazyExoticComponent<ComponentType<P>> {
   return lazy(() => factory().then((m) => ({ default: m[name] })));
 }
