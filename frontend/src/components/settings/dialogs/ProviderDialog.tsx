@@ -164,38 +164,37 @@ const getAuthTokenConfig = (
         label: 'OAuth Token (optional)',
         placeholder: 'Paste token from claude setup-token',
         helperText: {
-          prefix: 'Optional in host mode if already logged in via CLI. For Docker, run',
+          prefix: 'Optional if already logged in via CLI. Otherwise, run',
           code: 'claude setup-token',
           suffix: 'in terminal',
         },
       };
     case 'openrouter':
       return {
-        label: 'API Key (optional in host mode)',
+        label: 'API Key (optional)',
         placeholder: 'Enter your OpenRouter API key',
         helperText: {
-          prefix:
-            'Optional in host mode if OPENROUTER_API_KEY is set. Required for Docker. Get a key from',
+          prefix: 'Optional if OPENROUTER_API_KEY is already set. Get a key from',
           anchorText: 'openrouter.ai',
           href: 'https://openrouter.ai/keys',
         },
       };
     case 'openai':
       return {
-        label: 'OpenAI Authentication (optional in host mode)',
+        label: 'OpenAI Authentication',
         placeholder: '',
         helperText: {
-          prefix: 'Optional in host mode if already authenticated. Required for Docker. Requires a',
+          prefix: 'Optional if already authenticated via CLI. Requires a',
           anchorText: 'ChatGPT Pro/Plus subscription',
           href: 'https://openai.com',
         },
       };
     case 'copilot':
       return {
-        label: 'GitHub Authentication (optional in host mode)',
+        label: 'GitHub Authentication',
         placeholder: '',
         helperText: {
-          prefix: 'Optional in host mode if already authenticated. Required for Docker. Requires a',
+          prefix: 'Optional if already authenticated via CLI. Requires a',
           anchorText: 'GitHub Copilot subscription',
           href: 'https://github.com/features/copilot',
         },
