@@ -147,7 +147,10 @@ class WorkspaceService(BaseDbService[Workspace]):
                 )
                 .filter(Workspace.user_id == user.id, Workspace.deleted_at.is_(None))
                 .group_by(Workspace.id)
-                .order_by(func.max(Chat.updated_at).desc().nulls_last(), Workspace.updated_at.desc())
+                .order_by(
+                    func.max(Chat.updated_at).desc().nulls_last(),
+                    Workspace.updated_at.desc(),
+                )
             )
 
             if pagination:

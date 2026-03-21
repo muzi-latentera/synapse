@@ -5,7 +5,6 @@ import { validateRequired, validateId } from '@/utils/validation';
 import { chatStorage } from '@/utils/storage';
 import type { ChatRequest, Chat, CreateChatRequest, ContextUsage } from '@/types/chat.types';
 import type {
-  PaginationParams,
   CursorPaginationParams,
   PaginatedChats,
   PaginatedMessages,
