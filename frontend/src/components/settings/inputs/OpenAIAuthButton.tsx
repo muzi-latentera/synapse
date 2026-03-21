@@ -14,7 +14,8 @@ const OPENAI_CONFIG: DeviceAuthConfig = {
   labels: {
     login: 'Login with OpenAI',
     connected: 'OpenAI connected',
-    helperText: 'Optional if already authenticated via CLI. Requires a ChatGPT Pro/Plus subscription.',
+    helperText:
+      'Optional if already authenticated via CLI. Requires a ChatGPT Pro/Plus subscription.',
     errorPrefix: 'OpenAI',
   },
 };

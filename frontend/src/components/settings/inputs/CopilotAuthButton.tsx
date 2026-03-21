@@ -8,7 +8,8 @@ const COPILOT_CONFIG: DeviceAuthConfig = {
   labels: {
     login: 'Login with GitHub Copilot',
     connected: 'GitHub Copilot connected',
-    helperText: 'Optional if already authenticated via CLI. Requires a GitHub Copilot subscription.',
+    helperText:
+      'Optional if already authenticated via CLI. Requires a GitHub Copilot subscription.',
     errorPrefix: 'GitHub',
   },
 };
