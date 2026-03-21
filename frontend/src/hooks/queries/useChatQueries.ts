@@ -1,5 +1,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationOptions, UseQueryOptions, InfiniteData, Query } from '@tanstack/react-query';
+import type {
+  UseMutationOptions,
+  UseQueryOptions,
+  InfiniteData,
+  Query,
+} from '@tanstack/react-query';
 import { chatService } from '@/services/chatService';
 import { useMessageQueueStore } from '@/store/messageQueueStore';
 import type { Chat, ContextUsage, CreateChatRequest } from '@/types/chat.types';
@@ -25,7 +30,13 @@ export const useInfiniteChatsQuery = (options?: {
   const pinned = options?.pinned;
 
   return useInfiniteQuery({
-    queryKey: [queryKeys.chats, 'infinite', perPage, workspaceId ?? GLOBAL_WORKSPACE_SENTINEL, pinned ?? null] as const,
+    queryKey: [
+      queryKeys.chats,
+      'infinite',
+      perPage,
+      workspaceId ?? GLOBAL_WORKSPACE_SENTINEL,
+      pinned ?? null,
+    ] as const,
     queryFn: async ({ pageParam }) => {
       const page = pageParam as number;
       return chatService.listChats({

@@ -142,8 +142,7 @@ class WorkspaceService(BaseDbService[Workspace]):
                 select(Workspace, chat_count_col, last_chat_at_col)
                 .outerjoin(
                     Chat,
-                    (Chat.workspace_id == Workspace.id)
-                    & (Chat.deleted_at.is_(None)),
+                    (Chat.workspace_id == Workspace.id) & (Chat.deleted_at.is_(None)),
                 )
                 .filter(Workspace.user_id == user.id, Workspace.deleted_at.is_(None))
                 .group_by(Workspace.id)

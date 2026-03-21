@@ -101,12 +101,13 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
   // Each non-collapsed workspace fires its own query on mount. Collapsing a
   // workspace disables its query. If N simultaneous requests becomes a problem
   // with many workspaces, default new/inactive workspaces to collapsed.
-  const { data, hasNextPage, fetchNextPage, isFetchingNextPage, isLoading } =
-    useInfiniteChatsQuery({
+  const { data, hasNextPage, fetchNextPage, isFetchingNextPage, isLoading } = useInfiniteChatsQuery(
+    {
       workspaceId: workspace.id,
       pinned: false,
       enabled: !isCollapsed,
-    });
+    },
+  );
 
   const chats = useMemo(() => {
     if (!data?.pages) return [];
@@ -374,24 +375,21 @@ export function Sidebar({
     }
   }, [navigate, isMobile]);
 
-  const handleDropdownClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => {
-      e.stopPropagation();
-      const rect = e.currentTarget.getBoundingClientRect();
+  const handleDropdownClick = useCallback((e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
 
-      setHoveredChatId(null);
+    setHoveredChatId(null);
 
-      setDropdown((prev) => {
-        if (prev?.chat.id === chat.id) {
-          return null;
-        }
+    setDropdown((prev) => {
+      if (prev?.chat.id === chat.id) {
+        return null;
+      }
 
-        const position = calculateDropdownPosition(rect);
-        return { chat, position };
-      });
-    },
-    [],
-  );
+      const position = calculateDropdownPosition(rect);
+      return { chat, position };
+    });
+  }, []);
 
   const handleRenameClick = useCallback((chat: Chat) => {
     setChatToRename(chat);

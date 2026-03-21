@@ -146,17 +146,9 @@ export function LandingPage() {
     if (!isAuthenticated) return null;
 
     return (
-      <Sidebar
-        workspaces={workspaces}
-        selectedChatId={null}
-        onChatSelect={handleChatSelect}
-      />
+      <Sidebar workspaces={workspaces} selectedChatId={null} onChatSelect={handleChatSelect} />
     );
-  }, [
-    workspaces,
-    handleChatSelect,
-    isAuthenticated,
-  ]);
+  }, [workspaces, handleChatSelect, isAuthenticated]);
 
   useLayoutSidebar(sidebarContent);
 

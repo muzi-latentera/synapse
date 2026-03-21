@@ -1,8 +1,5 @@
 import { useMemo } from 'react';
-import {
-  useInfiniteMessagesQuery,
-  useChatQuery,
-} from '@/hooks/queries/useChatQueries';
+import { useInfiniteMessagesQuery, useChatQuery } from '@/hooks/queries/useChatQueries';
 import type { Message } from '@/types/chat.types';
 
 interface UseChatDataResult {

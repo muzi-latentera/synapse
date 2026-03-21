@@ -63,8 +63,7 @@ export function ChatPage() {
 
   const activeViews = useActiveViews();
 
-  const { currentChat, fetchedMessages, hasFetchedMessages, messagesQuery } =
-    useChatData(chatId);
+  const { currentChat, fetchedMessages, hasFetchedMessages, messagesQuery } = useChatData(chatId);
 
   const { fileStructure, isFileMetadataLoading, refetchFilesMetadata } = useSandboxFiles(
     currentChat,
@@ -169,13 +168,7 @@ export function ChatPage() {
         onChatSelect={handleChatSelect}
       />
     );
-  }, [
-    activeViews,
-    workspaces,
-    chatId,
-    currentChat?.workspace_id,
-    handleChatSelect,
-  ]);
+  }, [activeViews, workspaces, chatId, currentChat?.workspace_id, handleChatSelect]);
 
   useLayoutSidebar(sidebarContent);
 

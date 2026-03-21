@@ -4,11 +4,7 @@ import { authService } from '@/services/authService';
 import { validateRequired, validateId } from '@/utils/validation';
 import { chatStorage } from '@/utils/storage';
 import type { ChatRequest, Chat, CreateChatRequest, ContextUsage } from '@/types/chat.types';
-import type {
-  CursorPaginationParams,
-  PaginatedChats,
-  PaginatedMessages,
-} from '@/types/api.types';
+import type { CursorPaginationParams, PaginatedChats, PaginatedMessages } from '@/types/api.types';
 import { CONTEXT_WINDOW_TOKENS } from '@/config/constants';
 
 async function createCompletion(
@@ -124,9 +120,7 @@ async function listChats(params?: {
   pinned?: boolean;
 }): Promise<PaginatedChats> {
   return serviceCall(async () => {
-    const queryString = buildQueryString(
-      params as unknown as Record<string, string | number>,
-    );
+    const queryString = buildQueryString(params as unknown as Record<string, string | number>);
     const endpoint = `/chat/chats${queryString}`;
 
     const response = await apiClient.get<PaginatedChats>(endpoint);
