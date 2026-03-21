@@ -59,6 +59,9 @@
 - Module-level constants must be placed at the top of the file, immediately after imports and logger/settings initialization — never between classes or functions
 - Prefer simple env-var/config-based solutions over runtime introspection — e.g., use a `HOST_STORAGE_PATH` env var to map container paths to host paths instead of inspecting Docker container mounts at runtime
 - When two methods in the same class share the same lifecycle (one always calls the other), do not duplicate work in the caller that the callee already performs — let the callee handle it once
+- When refactoring code that has `try/catch/finally` blocks, preserve cleanup logic in `finally` — do not move cleanup after an `await` without wrapping it in `try/finally`, or it will be skipped on failure
+- When extracting a shared utility from multiple callers with slightly different semantics, verify behavioral equivalence for every caller — especially for edge-case inputs like `null`, `undefined`, `0`, and empty strings
+- When accepting a caller-provided options/config object and spreading it into a builder, use `Omit<>` to exclude keys the factory controls — prevents silent shadowing at the type level instead of runtime `_ignored` destructuring
 
 ## Naming Conventions
 
@@ -109,6 +112,7 @@
 ### File Placement
 - When extracting non-component code (contexts, utils, hooks) from a component file, place it in the project's canonical folder for that type (`contexts/`, `utils/`, `hooks/`) — do not leave it next to the component it was extracted from
 - The `components/chat/tools/` directory is exclusively for tool components (one per tool type) — helper modals, dialogs, and detail views triggered by tools belong in `components/chat/` or a relevant feature folder, not in `tools/`
+- Shared UI components used by 2+ feature areas belong in `components/ui/shared/` — do not place them loose in a feature folder just because the first consumer lives there
 
 ### Component Variants
 - Create explicit variant components instead of one component with many boolean modes (e.g., `ThreadComposer`, `EditComposer` instead of `<Composer isThread isEditing />`)
@@ -139,6 +143,7 @@
 ### Async Patterns
 - Use `Promise.all()` for independent async operations (e.g., multiple `queryClient.invalidateQueries()` calls)
 - When dynamically importing multiple libraries in the same function, parallelize with `Promise.all([import('a'), import('b')])`
+- When discarding a promise with `void`, attach `.catch()` to prevent silent error swallowing — `void fn().catch(err => console.error(err))`
 
 ## Frontend UI/UX Guidelines
 

@@ -3,7 +3,7 @@ import { Map, Terminal } from 'lucide-react';
 import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import type { ToolAggregate } from '@/types/tools.types';
 import { MessageActions } from '../message-bubble/MessageActions';
-import { useApprovalState, ApprovalTextarea, ApprovalButtons } from '../ApprovalFooter';
+import { useApprovalState, ApprovalTextarea, ApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
 import { ToolCard } from './common/ToolCard';
 import { useExitPlanMode } from '@/hooks/useExitPlanMode';
 
