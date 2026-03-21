@@ -1,5 +1,10 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationOptions, UseQueryOptions, InfiniteData } from '@tanstack/react-query';
+import type {
+  UseMutationOptions,
+  UseQueryOptions,
+  InfiniteData,
+  Query,
+} from '@tanstack/react-query';
 import { chatService } from '@/services/chatService';
 import { useMessageQueueStore } from '@/store/messageQueueStore';
 import type { Chat, ContextUsage, CreateChatRequest } from '@/types/chat.types';
@@ -7,15 +12,39 @@ import type { PaginatedChats } from '@/types/api.types';
 import { queryKeys } from './queryKeys';
 
 const CHATS_PER_PAGE = 25;
+const GLOBAL_WORKSPACE_SENTINEL = 'all';
 
-export const useInfiniteChatsQuery = (options?: { perPage?: number; enabled?: boolean }) => {
+function isGlobalChatsQuery(query: Query): boolean {
+  const key = query.queryKey;
+  return key.length >= 4 && key[3] === GLOBAL_WORKSPACE_SENTINEL;
+}
+
+export const useInfiniteChatsQuery = (options?: {
+  perPage?: number;
+  workspaceId?: string;
+  pinned?: boolean;
+  enabled?: boolean;
+}) => {
   const perPage = options?.perPage ?? CHATS_PER_PAGE;
+  const workspaceId = options?.workspaceId;
+  const pinned = options?.pinned;
 
   return useInfiniteQuery({
-    queryKey: [queryKeys.chats, 'infinite', perPage] as const,
+    queryKey: [
+      queryKeys.chats,
+      'infinite',
+      perPage,
+      workspaceId ?? GLOBAL_WORKSPACE_SENTINEL,
+      pinned ?? null,
+    ] as const,
     queryFn: async ({ pageParam }) => {
       const page = pageParam as number;
-      return chatService.listChats({ page, per_page: perPage });
+      return chatService.listChats({
+        page,
+        per_page: perPage,
+        workspace_id: workspaceId,
+        pinned,
+      });
     },
     getNextPageParam: (lastPage) => {
       const nextPage = lastPage.page + 1;
@@ -77,7 +106,7 @@ export const useCreateChatMutation = (
       queryClient.setQueryData(queryKeys.chat(newChat.id), newChat);
 
       queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
-        { queryKey: [queryKeys.chats, 'infinite'] },
+        { queryKey: [queryKeys.chats, 'infinite'], predicate: isGlobalChatsQuery },
         (oldData) => {
           if (!oldData) return oldData;
           return {
@@ -90,6 +119,13 @@ export const useCreateChatMutation = (
           };
         },
       );
+
+      queryClient.invalidateQueries({
+        queryKey: [queryKeys.chats, 'infinite'],
+        predicate: (query) => !isGlobalChatsQuery(query),
+      });
+
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
 
       if (onSuccess) {
         await onSuccess(newChat, variables, context, mutation);
@@ -124,6 +160,8 @@ export const useUpdateChatMutation = (
         },
       );
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+
       if (onSuccess) {
         await onSuccess(updatedChat, variables, context, mutation);
       }
@@ -144,39 +182,14 @@ export const usePinChatMutation = (
     onSuccess: async (updatedChat, variables, context, mutation) => {
       queryClient.setQueryData(queryKeys.chat(updatedChat.id), updatedChat);
 
-      queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
-        { queryKey: [queryKeys.chats, 'infinite'] },
-        (oldData) => {
-          if (!oldData) return oldData;
-
-          const updatedPages = oldData.pages.map((page) => ({
-            ...page,
-            items: page.items.map((chat) => (chat.id === updatedChat.id ? updatedChat : chat)),
-          }));
-
-          const allChats = updatedPages.flatMap((page) => page.items);
-          // TODO(perf): Replace [...arr].sort() with arr.toSorted() once tsconfig lib
-          // is upgraded from ES2020 to ES2023+. Build target is esnext so runtime supports it.
-          const sortedChats = [...allChats].sort((a, b) => {
-            if (a.pinned_at && b.pinned_at) {
-              return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime();
-            }
-            if (a.pinned_at && !b.pinned_at) return -1;
-            if (!a.pinned_at && b.pinned_at) return 1;
-            return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-          });
-
-          let chatIndex = 0;
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page) => {
-              const pageChats = sortedChats.slice(chatIndex, chatIndex + page.items.length);
-              chatIndex += page.items.length;
-              return { ...page, items: pageChats };
-            }),
-          };
-        },
-      );
+      // Invalidate all chat caches: global (pinned section needs re-sort and may need
+      // to include a chat that wasn't in the cache) and workspace-scoped (pinning/unpinning
+      // changes pinned_at and updated_at, which affects backend sort order).
+      // Also invalidate workspaces since last_chat_at may have changed.
+      queryClient.invalidateQueries({
+        queryKey: [queryKeys.chats, 'infinite'],
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
 
       if (onSuccess) {
         await onSuccess(updatedChat, variables, context, mutation);

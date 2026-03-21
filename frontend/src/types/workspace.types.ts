@@ -13,6 +13,8 @@ export interface Workspace {
   source_url?: string | null;
   created_at: string;
   updated_at: string;
+  chat_count: number;
+  last_chat_at: string | null;
 }
 
 export interface CreateWorkspaceRequest {

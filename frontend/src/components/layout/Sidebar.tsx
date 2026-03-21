@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FolderOpen, ChevronRight, MoreHorizontal, SquarePen } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,6 +12,7 @@ import {
   useDeleteChatMutation,
   useUpdateChatMutation,
   usePinChatMutation,
+  useInfiniteChatsQuery,
 } from '@/hooks/queries/useChatQueries';
 import {
   useDeleteWorkspaceMutation,
@@ -64,69 +65,176 @@ function calculateDropdownPosition(buttonRect: DOMRect): { top: number; left: nu
   return { top, left };
 }
 
-interface WorkspaceGroup {
+interface WorkspaceGroupProps {
   workspace: Workspace;
-  chats: Chat[];
-  latestActivity: number;
+  selectedChatId: string | null;
+  hoveredChatId: string | null;
+  dropdownChatId: string | null;
+  streamingChatIdSet: Set<string>;
+  isCollapsed: boolean;
+  onToggleCollapse: (workspaceId: string) => void;
+  onChatSelect: (chatId: string) => void;
+  onDropdownClick: (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => void;
+  onMouseEnter: (chatId: string) => void;
+  onMouseLeave: () => void;
+  onNewThread: (e: React.MouseEvent, workspaceId: string) => void;
+  onWorkspaceContextMenu: (e: React.MouseEvent<HTMLButtonElement>, workspaceId: string) => void;
 }
 
-function groupChatsByWorkspace(chats: Chat[], workspaces: Workspace[]): WorkspaceGroup[] {
-  const workspaceMap = new Map<string, Workspace>();
-  for (const ws of workspaces) {
-    workspaceMap.set(ws.id, ws);
-  }
+const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
+  workspace,
+  selectedChatId,
+  hoveredChatId,
+  dropdownChatId,
+  streamingChatIdSet,
+  isCollapsed,
+  onToggleCollapse,
+  onChatSelect,
+  onDropdownClick,
+  onMouseEnter,
+  onMouseLeave,
+  onNewThread,
+  onWorkspaceContextMenu,
+}: WorkspaceGroupProps) {
+  const [isChatsExpanded, setIsChatsExpanded] = useState(false);
 
-  const groups = new Map<string, Chat[]>();
-  for (const chat of chats) {
-    if (!chat.workspace_id) continue;
-    if (!groups.has(chat.workspace_id)) groups.set(chat.workspace_id, []);
-    groups.get(chat.workspace_id)!.push(chat);
-  }
+  // Each non-collapsed workspace fires its own query on mount. Collapsing a
+  // workspace disables its query. If N simultaneous requests becomes a problem
+  // with many workspaces, default new/inactive workspaces to collapsed.
+  const { data, hasNextPage, fetchNextPage, isFetchingNextPage, isLoading } = useInfiniteChatsQuery(
+    {
+      workspaceId: workspace.id,
+      pinned: false,
+      enabled: !isCollapsed,
+    },
+  );
 
-  const result: WorkspaceGroup[] = [];
-  for (const [workspaceId, groupChats] of groups) {
-    const workspace = workspaceMap.get(workspaceId);
-    if (!workspace) continue;
-    const latestActivity = Math.max(
-      ...groupChats.map((c) => new Date(c.updated_at || c.created_at).getTime()),
-    );
-    result.push({ workspace, chats: groupChats, latestActivity });
-  }
+  const chats = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap((page) => page.items);
+  }, [data?.pages]);
 
-  for (const ws of workspaces) {
-    if (!groups.has(ws.id)) {
-      result.push({
-        workspace: ws,
-        chats: [],
-        latestActivity: new Date(ws.updated_at || ws.created_at).getTime(),
-      });
-    }
-  }
+  const visibleChats = isChatsExpanded ? chats : chats.slice(0, CHATS_PER_WORKSPACE);
+  const hasMoreLocalChats = chats.length > CHATS_PER_WORKSPACE;
+  const showLoadMore = isChatsExpanded && hasNextPage;
 
-  result.sort((a, b) => b.latestActivity - a.latestActivity);
-  return result;
-}
+  return (
+    <div className="mb-1">
+      <div className="group flex items-center gap-0.5 px-1 pb-0.5 pt-2">
+        <button
+          type="button"
+          onClick={() => onToggleCollapse(workspace.id)}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
+        >
+          <ChevronRight
+            className={cn(
+              'h-3 w-3 shrink-0 text-text-quaternary transition-transform duration-200 dark:text-text-dark-quaternary',
+              !isCollapsed && 'rotate-90',
+            )}
+          />
+          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+          <span className="truncate text-xs font-medium text-text-secondary dark:text-text-dark-secondary">
+            {workspace.name}
+          </span>
+        </button>
+        <button
+          type="button"
+          title="New thread"
+          onClick={(e) => onNewThread(e, workspace.id)}
+          className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
+        >
+          <SquarePen className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          data-ws-dropdown-trigger
+          onClick={(e) => onWorkspaceContextMenu(e, workspace.id)}
+          className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {!isCollapsed && (
+        <div className="space-y-px pl-6">
+          {isLoading ? null : chats.length === 0 ? (
+            <p className="px-2.5 py-1 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+              No threads
+            </p>
+          ) : (
+            <>
+              {visibleChats.map((chat) => (
+                <SidebarChatItem
+                  key={chat.id}
+                  chat={chat}
+                  isSelected={chat.id === selectedChatId}
+                  isHovered={hoveredChatId === chat.id}
+                  isDropdownOpen={dropdownChatId === chat.id}
+                  isChatStreaming={streamingChatIdSet.has(chat.id)}
+                  onSelect={onChatSelect}
+                  onDropdownClick={onDropdownClick}
+                  onMouseEnter={onMouseEnter}
+                  onMouseLeave={onMouseLeave}
+                />
+              ))}
+              {hasMoreLocalChats && !isChatsExpanded && (
+                <button
+                  type="button"
+                  onClick={() => setIsChatsExpanded(true)}
+                  className="w-full px-2.5 py-1 text-left text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
+                >
+                  Show more ({chats.length - CHATS_PER_WORKSPACE})
+                </button>
+              )}
+              {(hasMoreLocalChats || showLoadMore) && isChatsExpanded && (
+                <div className="flex items-center gap-2 px-2.5 py-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsChatsExpanded(false)}
+                    className="text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
+                  >
+                    Show less
+                  </button>
+                  {showLoadMore && (
+                    <button
+                      type="button"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="flex items-center gap-1 text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary disabled:opacity-50 dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
+                    >
+                      {isFetchingNextPage ? (
+                        <>
+                          <Spinner size="xs" />
+                          Loading…
+                        </>
+                      ) : (
+                        'Load more'
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
 
 export interface SidebarProps {
-  chats: Chat[];
   workspaces: Workspace[];
   selectedChatId: string | null;
+  selectedChatWorkspaceId?: string | null;
   onChatSelect: (chatId: string) => void;
   onDeleteChat?: (chatId: string) => void;
-  hasNextPage?: boolean;
-  fetchNextPage?: () => void;
-  isFetchingNextPage?: boolean;
 }
 
 export function Sidebar({
-  chats,
   workspaces,
   selectedChatId,
+  selectedChatWorkspaceId,
   onChatSelect,
   onDeleteChat,
-  hasNextPage,
-  fetchNextPage,
-  isFetchingNextPage,
 }: SidebarProps) {
   const navigate = useNavigate();
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
@@ -143,7 +251,7 @@ export function Sidebar({
   const [workspaceToDelete, setWorkspaceToDelete] = useState<string | null>(null);
   const [workspaceToRename, setWorkspaceToRename] = useState<Workspace | null>(null);
   const [dropdown, setDropdown] = useState<{
-    chatId: string;
+    chat: Chat;
     position: { top: number; left: number };
   } | null>(null);
   const [workspaceDropdown, setWorkspaceDropdown] = useState<{
@@ -161,38 +269,13 @@ export function Sidebar({
   const deleteWorkspace = useDeleteWorkspaceMutation();
   const updateWorkspace = useUpdateWorkspaceMutation();
 
-  const dropdownChat = useMemo(() => {
-    if (!dropdown) return null;
-    return chats.find((c) => c.id === dropdown.chatId) || null;
-  }, [dropdown, chats]);
+  const { data: pinnedChatsData } = useInfiniteChatsQuery({ pinned: true });
+  const pinnedChats = useMemo(() => {
+    if (!pinnedChatsData?.pages) return [];
+    return pinnedChatsData.pages.flatMap((page) => page.items);
+  }, [pinnedChatsData?.pages]);
 
-  const [expandedWorkspaceChats, setExpandedWorkspaceChats] = useState<Set<string>>(new Set());
-
-  const toggleWorkspaceExpanded = useCallback((workspaceId: string) => {
-    setExpandedWorkspaceChats((prev) => {
-      const next = new Set(prev);
-      if (next.has(workspaceId)) {
-        next.delete(workspaceId);
-      } else {
-        next.add(workspaceId);
-      }
-      return next;
-    });
-  }, []);
-
-  const { pinnedChats, workspaceGroups } = useMemo(() => {
-    const pinned: Chat[] = [];
-    const unpinned: Chat[] = [];
-    for (const chat of chats) {
-      (chat.pinned_at ? pinned : unpinned).push(chat);
-    }
-    return {
-      pinnedChats: pinned,
-      workspaceGroups: groupChatsByWorkspace(unpinned, workspaces),
-    };
-  }, [chats, workspaces]);
-
-  const hasAnyChats = pinnedChats.length > 0 || workspaceGroups.length > 0;
+  const hasAnyContent = pinnedChats.length > 0 || workspaces.length > 0;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -292,24 +375,21 @@ export function Sidebar({
     }
   }, [navigate, isMobile]);
 
-  const handleDropdownClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>, chatId: string) => {
-      e.stopPropagation();
-      const rect = e.currentTarget.getBoundingClientRect();
+  const handleDropdownClick = useCallback((e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
 
-      setHoveredChatId(null);
+    setHoveredChatId(null);
 
-      setDropdown((prev) => {
-        if (prev?.chatId === chatId) {
-          return null;
-        }
+    setDropdown((prev) => {
+      if (prev?.chat.id === chat.id) {
+        return null;
+      }
 
-        const position = calculateDropdownPosition(rect);
-        return { chatId, position };
-      });
-    },
-    [],
-  );
+      const position = calculateDropdownPosition(rect);
+      return { chat, position };
+    });
+  }, []);
 
   const handleRenameClick = useCallback((chat: Chat) => {
     setChatToRename(chat);
@@ -419,18 +499,15 @@ export function Sidebar({
       await deleteWorkspace.mutateAsync(workspaceToDelete);
       toast.success('Workspace deleted');
 
-      if (selectedChatId) {
-        const selectedChat = chats.find((c) => c.id === selectedChatId);
-        if (selectedChat?.workspace_id === workspaceToDelete) {
-          navigate('/');
-        }
+      if (selectedChatId && selectedChatWorkspaceId === workspaceToDelete) {
+        navigate('/');
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete workspace');
     } finally {
       setWorkspaceToDelete(null);
     }
-  }, [workspaceToDelete, deleteWorkspace, chats, selectedChatId, navigate]);
+  }, [workspaceToDelete, deleteWorkspace, selectedChatId, selectedChatWorkspaceId, navigate]);
 
   return (
     <>
@@ -462,7 +539,7 @@ export function Sidebar({
         </div>
 
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-2 pt-1">
-          {!hasAnyChats ? (
+          {!hasAnyContent ? (
             <p className="py-8 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
               No chats yet
             </p>
@@ -482,7 +559,7 @@ export function Sidebar({
                         chat={chat}
                         isSelected={chat.id === selectedChatId}
                         isHovered={hoveredChatId === chat.id}
-                        isDropdownOpen={dropdown?.chatId === chat.id}
+                        isDropdownOpen={dropdown?.chat.id === chat.id}
                         isChatStreaming={streamingChatIdSet.has(chat.id)}
                         onSelect={handleChatSelect}
                         onDropdownClick={handleDropdownClick}
@@ -494,124 +571,33 @@ export function Sidebar({
                 </div>
               )}
 
-              {workspaceGroups.map((group) => {
-                const isCollapsed = collapsedWorkspaces.has(group.workspace.id);
-                const isChatsExpanded = expandedWorkspaceChats.has(group.workspace.id);
-                const visibleChats = isChatsExpanded
-                  ? group.chats
-                  : group.chats.slice(0, CHATS_PER_WORKSPACE);
-                const hasMoreChats = group.chats.length > CHATS_PER_WORKSPACE;
-                return (
-                  <div key={group.workspace.id} className="mb-1">
-                    <div className="group flex items-center gap-0.5 px-1 pb-0.5 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => toggleWorkspaceCollapse(group.workspace.id)}
-                        className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
-                      >
-                        <ChevronRight
-                          className={cn(
-                            'h-3 w-3 shrink-0 text-text-quaternary transition-transform duration-200 dark:text-text-dark-quaternary',
-                            !isCollapsed && 'rotate-90',
-                          )}
-                        />
-                        <FolderOpen className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-                        <span className="truncate text-xs font-medium text-text-secondary dark:text-text-dark-secondary">
-                          {group.workspace.name}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        title="New thread"
-                        onClick={(e) => handleNewWorkspaceThread(e, group.workspace.id)}
-                        className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
-                      >
-                        <SquarePen className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        data-ws-dropdown-trigger
-                        onClick={(e) => handleWorkspaceContextMenu(e, group.workspace.id)}
-                        className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    {!isCollapsed && (
-                      <div className="space-y-px pl-6">
-                        {group.chats.length === 0 ? (
-                          <p className="px-2.5 py-1 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-                            No threads
-                          </p>
-                        ) : (
-                          <>
-                            {visibleChats.map((chat) => (
-                              <SidebarChatItem
-                                key={chat.id}
-                                chat={chat}
-                                isSelected={chat.id === selectedChatId}
-                                isHovered={hoveredChatId === chat.id}
-                                isDropdownOpen={dropdown?.chatId === chat.id}
-                                isChatStreaming={streamingChatIdSet.has(chat.id)}
-                                onSelect={handleChatSelect}
-                                onDropdownClick={handleDropdownClick}
-                                onMouseEnter={handleMouseEnter}
-                                onMouseLeave={handleMouseLeave}
-                              />
-                            ))}
-                            {hasMoreChats && !isChatsExpanded && (
-                              <button
-                                type="button"
-                                onClick={() => toggleWorkspaceExpanded(group.workspace.id)}
-                                className="w-full px-2.5 py-1 text-left text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
-                              >
-                                Show more ({group.chats.length - CHATS_PER_WORKSPACE})
-                              </button>
-                            )}
-                            {hasMoreChats && isChatsExpanded && (
-                              <div className="flex items-center gap-2 px-2.5 py-1">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleWorkspaceExpanded(group.workspace.id)}
-                                  className="text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
-                                >
-                                  Show less
-                                </button>
-                                {hasNextPage && (
-                                  <button
-                                    type="button"
-                                    onClick={() => fetchNextPage?.()}
-                                    disabled={isFetchingNextPage}
-                                    className="flex items-center gap-1 text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary disabled:opacity-50 dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
-                                  >
-                                    {isFetchingNextPage ? (
-                                      <>
-                                        <Spinner size="xs" />
-                                        Loading…
-                                      </>
-                                    ) : (
-                                      'Load more'
-                                    )}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {workspaces.map((workspace) => (
+                <SidebarWorkspaceGroup
+                  key={workspace.id}
+                  workspace={workspace}
+                  selectedChatId={selectedChatId}
+                  hoveredChatId={hoveredChatId}
+                  dropdownChatId={dropdown?.chat.id ?? null}
+                  streamingChatIdSet={streamingChatIdSet}
+                  isCollapsed={collapsedWorkspaces.has(workspace.id)}
+                  onToggleCollapse={toggleWorkspaceCollapse}
+                  onChatSelect={handleChatSelect}
+                  onDropdownClick={handleDropdownClick}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                  onNewThread={handleNewWorkspaceThread}
+                  onWorkspaceContextMenu={handleWorkspaceContextMenu}
+                />
+              ))}
             </div>
           )}
         </div>
       </aside>
 
-      {dropdown && dropdownChat && (
+      {dropdown && (
         <ChatDropdown
           ref={dropdownRef}
-          chat={dropdownChat}
+          chat={dropdown.chat}
           position={dropdown.position}
           onRename={handleRenameClick}
           onDelete={handleDeleteChat}

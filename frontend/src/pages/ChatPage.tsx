@@ -63,8 +63,7 @@ export function ChatPage() {
 
   const activeViews = useActiveViews();
 
-  const { chats, currentChat, fetchedMessages, hasFetchedMessages, chatsQueryMeta, messagesQuery } =
-    useChatData(chatId);
+  const { currentChat, fetchedMessages, hasFetchedMessages, messagesQuery } = useChatData(chatId);
 
   const { fileStructure, isFileMetadataLoading, refetchFilesMetadata } = useSandboxFiles(
     currentChat,
@@ -163,25 +162,13 @@ export function ChatPage() {
     if (!activeViews.includes('agent')) return null;
     return (
       <Sidebar
-        chats={chats}
         workspaces={workspaces}
         selectedChatId={chatId || null}
+        selectedChatWorkspaceId={currentChat?.workspace_id}
         onChatSelect={handleChatSelect}
-        hasNextPage={chatsQueryMeta.hasNextPage}
-        fetchNextPage={chatsQueryMeta.fetchNextPage}
-        isFetchingNextPage={chatsQueryMeta.isFetchingNextPage}
       />
     );
-  }, [
-    activeViews,
-    chats,
-    workspaces,
-    chatId,
-    chatsQueryMeta.fetchNextPage,
-    handleChatSelect,
-    chatsQueryMeta.hasNextPage,
-    chatsQueryMeta.isFetchingNextPage,
-  ]);
+  }, [activeViews, workspaces, chatId, currentChat?.workspace_id, handleChatSelect]);
 
   useLayoutSidebar(sidebarContent);
 

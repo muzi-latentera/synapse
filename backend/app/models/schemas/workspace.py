@@ -32,6 +32,8 @@ class Workspace(BaseModel):
     source_url: str | None = None
     created_at: datetime
     updated_at: datetime
+    chat_count: int = 0
+    last_chat_at: datetime | None = None
 
 
 class WorkspaceResources(BaseModel):

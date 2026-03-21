@@ -11,7 +11,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useModelStore } from '@/store/modelStore';
 import { useChatSettingsStore } from '@/store/chatSettingsStore';
 import { useAuthStore } from '@/store/authStore';
-import { useInfiniteChatsQuery, useCreateChatMutation } from '@/hooks/queries/useChatQueries';
+import { useCreateChatMutation } from '@/hooks/queries/useChatQueries';
 import { useWorkspacesQuery } from '@/hooks/queries/useWorkspaceQueries';
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
@@ -31,30 +31,8 @@ export function LandingPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { selectedModelId, selectModel } = useModelSelection({ enabled: isAuthenticated });
 
-  const {
-    data: chatsData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteChatsQuery({
-    enabled: isAuthenticated,
-  });
-
   const { data: workspacesData } = useWorkspacesQuery({ enabled: isAuthenticated });
   const workspaces = workspacesData?.items ?? [];
-
-  const chats = useMemo(() => {
-    if (!isAuthenticated || !chatsData?.pages?.length) return [];
-    return chatsData.pages.flatMap((page) => page.items);
-  }, [chatsData?.pages, isAuthenticated]);
-
-  const chatCountByWorkspace = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const chat of chats) {
-      counts.set(chat.workspace_id, (counts.get(chat.workspace_id) ?? 0) + 1);
-    }
-    return counts;
-  }, [chats]);
 
   const createChat = useCreateChatMutation();
   const [message, setMessage] = useState('');
@@ -168,25 +146,9 @@ export function LandingPage() {
     if (!isAuthenticated) return null;
 
     return (
-      <Sidebar
-        chats={chats}
-        workspaces={workspaces}
-        selectedChatId={null}
-        onChatSelect={handleChatSelect}
-        hasNextPage={hasNextPage}
-        fetchNextPage={fetchNextPage}
-        isFetchingNextPage={isFetchingNextPage}
-      />
+      <Sidebar workspaces={workspaces} selectedChatId={null} onChatSelect={handleChatSelect} />
     );
-  }, [
-    chats,
-    workspaces,
-    fetchNextPage,
-    handleChatSelect,
-    hasNextPage,
-    isAuthenticated,
-    isFetchingNextPage,
-  ]);
+  }, [workspaces, handleChatSelect, isAuthenticated]);
 
   useLayoutSidebar(sidebarContent);
 
@@ -200,7 +162,6 @@ export function LandingPage() {
                 selectedWorkspaceId={selectedWorkspaceId}
                 onWorkspaceChange={setSelectedWorkspaceId}
                 enabled={isAuthenticated}
-                chatCountByWorkspace={chatCountByWorkspace}
               />
               <WorktreeToggle disabled={isLoading} />
             </div>
