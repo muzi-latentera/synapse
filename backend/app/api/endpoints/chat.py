@@ -207,11 +207,15 @@ async def enhance_prompt(
 
 @router.get("/chats", response_model=PaginatedResponse[ChatSchema])
 async def get_chats(
+    workspace_id: UUID | None = None,
+    pinned: bool | None = None,
     pagination: PaginationParams = Depends(),
     current_user: User = Depends(get_current_user),
     chat_service: ChatService = Depends(get_chat_service),
 ) -> PaginatedResponse[ChatSchema]:
-    return await chat_service.get_user_chats(current_user, pagination)
+    return await chat_service.get_user_chats(
+        current_user, pagination, workspace_id=workspace_id, pinned=pinned
+    )
 
 
 @router.get(

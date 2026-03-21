@@ -85,16 +85,28 @@ class ChatService(BaseDbService[Chat]):
         return SandboxService(provider)
 
     async def get_user_chats(
-        self, user: User, pagination: PaginationParams | None = None
+        self,
+        user: User,
+        pagination: PaginationParams | None = None,
+        workspace_id: UUID | None = None,
+        pinned: bool | None = None,
     ) -> PaginatedResponse[ChatSchema]:
         # Paginated list of non-deleted chats, pinned first, then by most recent.
+        # When workspace_id is provided, results are scoped to that workspace only.
+        # When pinned is provided, results are filtered to pinned (True) or unpinned (False).
         if pagination is None:
             pagination = PaginationParams()
 
         async with self.session_factory() as db:
-            count_query = select(func.count(Chat.id)).filter(
-                Chat.user_id == user.id, Chat.deleted_at.is_(None)
-            )
+            base_filters = [Chat.user_id == user.id, Chat.deleted_at.is_(None)]
+            if workspace_id is not None:
+                base_filters.append(Chat.workspace_id == workspace_id)
+            if pinned is True:
+                base_filters.append(Chat.pinned_at.isnot(None))
+            elif pinned is False:
+                base_filters.append(Chat.pinned_at.is_(None))
+
+            count_query = select(func.count(Chat.id)).filter(*base_filters)
             count_result = await db.execute(count_query)
             total = count_result.scalar()
 
@@ -103,7 +115,7 @@ class ChatService(BaseDbService[Chat]):
             query = (
                 select(Chat)
                 .options(selectinload(Chat.workspace))
-                .filter(Chat.user_id == user.id, Chat.deleted_at.is_(None))
+                .filter(*base_filters)
                 .order_by(Chat.pinned_at.desc().nulls_last(), Chat.updated_at.desc())
                 .offset(offset)
                 .limit(pagination.per_page)

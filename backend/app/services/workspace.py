@@ -135,10 +135,19 @@ class WorkspaceService(BaseDbService[Workspace]):
         self, user: User, pagination: PaginationParams | None = None
     ) -> PaginatedResponse[WorkspaceSchema]:
         async with self._session_factory() as db:
+            chat_count_col = func.count(Chat.id).label("chat_count")
+            last_chat_at_col = func.max(Chat.updated_at).label("last_chat_at")
+
             query = (
-                select(Workspace)
+                select(Workspace, chat_count_col, last_chat_at_col)
+                .outerjoin(
+                    Chat,
+                    (Chat.workspace_id == Workspace.id)
+                    & (Chat.deleted_at.is_(None)),
+                )
                 .filter(Workspace.user_id == user.id, Workspace.deleted_at.is_(None))
-                .order_by(Workspace.updated_at.desc())
+                .group_by(Workspace.id)
+                .order_by(func.max(Chat.updated_at).desc().nulls_last(), Workspace.updated_at.desc())
             )
 
             if pagination:
@@ -152,16 +161,22 @@ class WorkspaceService(BaseDbService[Workspace]):
                 total = None
 
             result = await db.execute(query)
-            workspaces = list(result.scalars().all())
+            rows = result.all()
+            workspace_schemas = []
+            for workspace, chat_count, last_chat_at in rows:
+                ws = WorkspaceSchema.model_validate(workspace)
+                ws.chat_count = chat_count or 0
+                ws.last_chat_at = last_chat_at
+                workspace_schemas.append(ws)
 
             if total is None:
-                total = len(workspaces)
+                total = len(workspace_schemas)
 
             page = pagination.page if pagination else 1
             per_page = pagination.per_page if pagination else total or 1
 
             return PaginatedResponse[WorkspaceSchema](
-                items=workspaces,
+                items=workspace_schemas,
                 page=page,
                 per_page=per_page,
                 total=total,

@@ -86,6 +86,9 @@ export const useDeleteWorkspaceMutation = (options?: UseMutationOptions<void, Er
         queryClient.invalidateQueries({ queryKey: queryKeys.workspaces }),
         queryClient.invalidateQueries({ queryKey: [queryKeys.chats] }),
       ]);
+      // Remove per-chat caches so deleted chats can't be served from stale cache
+      queryClient.removeQueries({ queryKey: ['chat'] });
+      queryClient.removeQueries({ queryKey: ['messages'] });
 
       if (onSuccess) {
         await onSuccess(data, workspaceId, context);

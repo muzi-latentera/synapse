@@ -334,14 +334,12 @@ interface WorkspaceSelectorProps {
   selectedWorkspaceId: string | null;
   onWorkspaceChange: (workspaceId: string | null) => void;
   enabled: boolean;
-  chatCountByWorkspace?: Map<string, number>;
 }
 
 export function WorkspaceSelector({
   selectedWorkspaceId,
   onWorkspaceChange,
   enabled,
-  chatCountByWorkspace,
 }: WorkspaceSelectorProps) {
   const isDesktop = isTauri();
   const { data: workspacesData } = useWorkspacesQuery({ enabled });
@@ -525,7 +523,7 @@ export function WorkspaceSelector({
                     key={ws.id}
                     ws={ws}
                     isSelected={ws.id === selectedWorkspaceId}
-                    chatCount={chatCountByWorkspace?.get(ws.id) ?? 0}
+                    chatCount={ws.chat_count}
                     isModalOpen={isModalOpen}
                     onSelect={selectWorkspace}
                   />

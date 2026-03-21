@@ -28,7 +28,7 @@ interface SidebarChatItemProps {
   isDropdownOpen: boolean;
   isChatStreaming: boolean;
   onSelect: (chatId: string) => void;
-  onDropdownClick: (e: React.MouseEvent<HTMLButtonElement>, chatId: string) => void;
+  onDropdownClick: (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => void;
   onMouseEnter: (chatId: string) => void;
   onMouseLeave: () => void;
 }
@@ -84,7 +84,7 @@ export const SidebarChatItem = memo(function SidebarChatItem({
       </Button>
 
       <Button
-        onClick={(e) => onDropdownClick(e, chat.id)}
+        onClick={(e) => onDropdownClick(e, chat)}
         onMouseDown={(e) => e.stopPropagation()}
         variant="unstyled"
         className={cn(
