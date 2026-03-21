@@ -9,6 +9,7 @@ export function useChatContext() {
     context ?? {
       chatId: undefined,
       sandboxId: undefined,
+      parentChatId: undefined,
       fileStructure: EMPTY,
       customAgents: EMPTY,
       customSlashCommands: EMPTY,

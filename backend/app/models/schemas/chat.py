@@ -62,6 +62,7 @@ class ChatBase(BaseModel):
 class ChatCreate(ChatBase):
     model_id: str = Field(..., min_length=1, max_length=255)
     workspace_id: UUID
+    parent_chat_id: UUID | None = None
 
 
 class ChatUpdate(BaseModel):
@@ -81,6 +82,8 @@ class Chat(ChatBase):
     context_token_usage: int | None = None
     pinned_at: datetime | None = None
     worktree_cwd: str | None = None
+    parent_chat_id: UUID | None = None
+    sub_thread_count: int = 0
 
 
 class ContextUsage(BaseModel):

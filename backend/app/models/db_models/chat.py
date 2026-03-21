@@ -53,17 +53,32 @@ class Chat(Base):
     pinned_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    parent_chat_id: Mapped[UUID | None] = mapped_column(
+        GUID(), ForeignKey("chats.id", ondelete="SET NULL"), nullable=True
+    )
 
     user = relationship("User", back_populates="chats")
     workspace = relationship("Workspace", back_populates="chats")
     messages = relationship(
         "Message", back_populates="chat", cascade="all, delete-orphan"
     )
+    sub_threads = relationship(
+        "Chat",
+        back_populates="parent_chat",
+        foreign_keys="[Chat.parent_chat_id]",
+    )
+    parent_chat = relationship(
+        "Chat",
+        back_populates="sub_threads",
+        remote_side="[Chat.id]",
+        foreign_keys="[Chat.parent_chat_id]",
+    )
 
     __table_args__ = (
         Index("idx_chats_workspace_id_deleted_at", "workspace_id", "deleted_at"),
         Index("idx_chats_user_id_deleted_at", "user_id", "deleted_at"),
         Index("idx_chats_user_id_updated_at_desc", "user_id", "updated_at"),
+        Index("idx_chats_parent_chat_id", "parent_chat_id"),
     )
 
     @property

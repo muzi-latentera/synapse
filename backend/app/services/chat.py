@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import exists, func, select, update
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 
 from app.constants import REDIS_KEY_CHAT_STREAM_LIVE
 from app.core.config import get_settings
@@ -91,14 +91,19 @@ class ChatService(BaseDbService[Chat]):
         workspace_id: UUID | None = None,
         pinned: bool | None = None,
     ) -> PaginatedResponse[ChatSchema]:
-        # Paginated list of non-deleted chats, pinned first, then by most recent.
+        # Paginated list of non-deleted top-level chats (sub-threads excluded),
+        # pinned first, then by most recent.
         # When workspace_id is provided, results are scoped to that workspace only.
         # When pinned is provided, results are filtered to pinned (True) or unpinned (False).
         if pagination is None:
             pagination = PaginationParams()
 
         async with self.session_factory() as db:
-            base_filters = [Chat.user_id == user.id, Chat.deleted_at.is_(None)]
+            base_filters = [
+                Chat.user_id == user.id,
+                Chat.deleted_at.is_(None),
+                Chat.parent_chat_id.is_(None),
+            ]
             if workspace_id is not None:
                 base_filters.append(Chat.workspace_id == workspace_id)
             if pinned is True:
@@ -112,8 +117,21 @@ class ChatService(BaseDbService[Chat]):
 
             offset = (pagination.page - 1) * pagination.per_page
 
+            SubThread = aliased(Chat)
+            sub_count_sq = (
+                select(func.count())
+                .where(
+                    SubThread.parent_chat_id == Chat.id,
+                    SubThread.user_id == user.id,
+                    SubThread.deleted_at.is_(None),
+                )
+                .correlate(Chat)
+                .scalar_subquery()
+                .label("sub_thread_count")
+            )
+
             query = (
-                select(Chat)
+                select(Chat, sub_count_sq)
                 .options(selectinload(Chat.workspace))
                 .filter(*base_filters)
                 .order_by(Chat.pinned_at.desc().nulls_last(), Chat.updated_at.desc())
@@ -121,10 +139,16 @@ class ChatService(BaseDbService[Chat]):
                 .limit(pagination.per_page)
             )
             result = await db.execute(query)
-            chats = result.scalars().all()
+            rows = result.all()
+
+            items = []
+            for chat, sub_thread_count in rows:
+                schema = ChatSchema.model_validate(chat)
+                schema.sub_thread_count = sub_thread_count
+                items.append(schema)
 
             return PaginatedResponse[ChatSchema](
-                items=chats,
+                items=items,
                 page=pagination.page,
                 per_page=pagination.per_page,
                 total=total,
@@ -133,6 +157,8 @@ class ChatService(BaseDbService[Chat]):
 
     async def create_chat(self, user: User, chat_data: ChatCreate) -> Chat:
         # Validate API keys, verify workspace ownership, and create a new chat.
+        # If parent_chat_id is set, this is a sub-thread — force workspace_id
+        # to match the parent's workspace.
         user_settings = await self._user_service.get_user_settings(user.id)
         try:
             validate_model_api_keys(user_settings, chat_data.model_id)
@@ -142,9 +168,36 @@ class ChatService(BaseDbService[Chat]):
             ) from e
 
         async with self.session_factory() as db:
+            workspace_id = chat_data.workspace_id
+
+            if chat_data.parent_chat_id:
+                parent_result = await db.execute(
+                    select(Chat).filter(
+                        Chat.id == chat_data.parent_chat_id,
+                        Chat.user_id == user.id,
+                        Chat.deleted_at.is_(None),
+                    )
+                )
+                parent = parent_result.scalar_one_or_none()
+                if not parent:
+                    raise ChatException(
+                        "Parent chat not found",
+                        error_code=ErrorCode.CHAT_NOT_FOUND,
+                        details={"parent_chat_id": str(chat_data.parent_chat_id)},
+                        status_code=404,
+                    )
+                if parent.parent_chat_id is not None:
+                    raise ChatException(
+                        "Cannot create a sub-thread of a sub-thread",
+                        error_code=ErrorCode.VALIDATION_ERROR,
+                        status_code=400,
+                    )
+                workspace_id = parent.workspace_id
+                parent.updated_at = datetime.now(timezone.utc)
+
             ws_result = await db.execute(
                 select(Workspace).filter(
-                    Workspace.id == chat_data.workspace_id,
+                    Workspace.id == workspace_id,
                     Workspace.user_id == user.id,
                     Workspace.deleted_at.is_(None),
                 )
@@ -154,7 +207,7 @@ class ChatService(BaseDbService[Chat]):
                 raise ChatException(
                     "Workspace not found",
                     error_code=ErrorCode.WORKSPACE_NOT_FOUND,
-                    details={"workspace_id": str(chat_data.workspace_id)},
+                    details={"workspace_id": str(workspace_id)},
                     status_code=404,
                 )
 
@@ -162,6 +215,7 @@ class ChatService(BaseDbService[Chat]):
                 title=chat_data.title,
                 user_id=user.id,
                 workspace_id=workspace.id,
+                parent_chat_id=chat_data.parent_chat_id,
             )
 
             db.add(chat)
@@ -176,6 +230,38 @@ class ChatService(BaseDbService[Chat]):
             loaded_chat: Chat = result.scalar_one()
 
             return loaded_chat
+
+    async def get_sub_threads(self, chat_id: UUID, user: User) -> list[Chat]:
+        # Returns ORM objects — sub_thread_count defaults to 0 in ChatSchema,
+        # which is correct since nesting is limited to one level (sub-threads
+        # cannot have their own sub-threads).
+        async with self.session_factory() as db:
+            parent_exists = await db.execute(
+                select(Chat.id).filter(
+                    Chat.id == chat_id,
+                    Chat.user_id == user.id,
+                    Chat.deleted_at.is_(None),
+                )
+            )
+            if not parent_exists.scalar_one_or_none():
+                raise ChatException(
+                    "Chat not found",
+                    error_code=ErrorCode.CHAT_NOT_FOUND,
+                    details={"chat_id": str(chat_id)},
+                    status_code=404,
+                )
+
+            result = await db.execute(
+                select(Chat)
+                .options(selectinload(Chat.workspace))
+                .filter(
+                    Chat.parent_chat_id == chat_id,
+                    Chat.user_id == user.id,
+                    Chat.deleted_at.is_(None),
+                )
+                .order_by(Chat.updated_at.desc())
+            )
+            return list(result.scalars().all())
 
     async def update_chat(
         self, chat_id: UUID, chat_update: ChatUpdate, user: User
@@ -216,6 +302,8 @@ class ChatService(BaseDbService[Chat]):
 
     async def get_chat(self, chat_id: UUID, user: User) -> Chat:
         # Fetch a single chat with its messages (non-deleted) and workspace eagerly loaded.
+        # Also computes sub_thread_count as a transient attribute on the ORM object
+        # so ChatSchema.model_validate() picks it up via from_attributes=True.
         async with self.session_factory() as db:
             query = (
                 select(Chat)
@@ -241,6 +329,15 @@ class ChatService(BaseDbService[Chat]):
                     details={"chat_id": str(chat_id)},
                     status_code=404,
                 )
+
+            sub_count_result = await db.execute(
+                select(func.count(Chat.id)).filter(
+                    Chat.parent_chat_id == chat_id,
+                    Chat.user_id == user.id,
+                    Chat.deleted_at.is_(None),
+                )
+            )
+            chat.sub_thread_count = sub_count_result.scalar() or 0
 
             return chat
 
@@ -280,6 +377,30 @@ class ChatService(BaseDbService[Chat]):
             now = datetime.now(timezone.utc)
             chat.deleted_at = now
 
+            sub_thread_result = await db.execute(
+                select(Chat.id).filter(
+                    Chat.parent_chat_id == chat_id,
+                    Chat.user_id == user.id,
+                    Chat.deleted_at.is_(None),
+                )
+            )
+            sub_thread_ids = [row[0] for row in sub_thread_result.fetchall()]
+
+            if sub_thread_ids:
+                await db.execute(
+                    update(Chat)
+                    .where(Chat.id.in_(sub_thread_ids))
+                    .values(deleted_at=now, updated_at=now)
+                )
+                await db.execute(
+                    update(Message)
+                    .where(
+                        Message.chat_id.in_(sub_thread_ids),
+                        Message.deleted_at.is_(None),
+                    )
+                    .values(deleted_at=now)
+                )
+
             messages_update = (
                 update(Message)
                 .where(Message.chat_id == chat_id, Message.deleted_at.is_(None))
@@ -290,6 +411,8 @@ class ChatService(BaseDbService[Chat]):
             await db.commit()
 
             asyncio.create_task(session_registry.terminate(str(chat_id)))
+            for sub_id in sub_thread_ids:
+                asyncio.create_task(session_registry.terminate(str(sub_id)))
 
             # Destroy the workspace container if no chats remain
             remaining = await db.execute(
@@ -662,6 +785,15 @@ class ChatService(BaseDbService[Chat]):
             ) from e
 
         chat = await self.get_chat(request.chat_id, current_user)
+
+        if chat.parent_chat_id:
+            async with self.session_factory() as db:
+                await db.execute(
+                    update(Chat)
+                    .where(Chat.id == chat.parent_chat_id)
+                    .values(updated_at=datetime.now(timezone.utc))
+                )
+                await db.commit()
 
         chat_id = chat.id
 

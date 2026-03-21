@@ -8,12 +8,15 @@ import {
   Globe,
   Smartphone,
   GitCompareArrows,
+  GitBranch,
   Monitor,
   Search,
   PanelRight,
   PanelBottom,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useUIStore } from '@/store/uiStore';
+import { useChatStore } from '@/store/chatStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useActiveViews } from '@/hooks/useActiveViews';
 import { fuzzySearch } from '@/utils/fuzzySearch';
@@ -37,24 +40,41 @@ function VSCodeIcon({ className }: { className?: string }) {
   );
 }
 
-interface CommandItem {
+interface ViewCommandItem {
+  type: 'view';
   id: ViewType;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   hideOnMobile?: boolean;
 }
 
-const VIEW_COMMANDS: CommandItem[] = [
-  { id: 'agent', label: 'Agent', icon: MessagesSquare },
-  { id: 'ide', label: 'IDE', icon: VSCodeIcon, hideOnMobile: true },
-  { id: 'editor', label: 'Editor', icon: Code },
-  { id: 'terminal', label: 'Terminal', icon: SquareTerminal },
-  { id: 'diff', label: 'Diff', icon: GitCompareArrows },
-  { id: 'secrets', label: 'Secrets', icon: KeyRound },
-  { id: 'webPreview', label: 'Web Preview', icon: Globe },
-  { id: 'mobilePreview', label: 'Mobile Preview', icon: Smartphone },
-  { id: 'browser', label: 'Browser', icon: Monitor },
+interface ActionCommandItem {
+  type: 'action';
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  hideOnMobile?: boolean;
+}
+
+type CommandItem = ViewCommandItem | ActionCommandItem;
+
+const VIEW_COMMANDS: ViewCommandItem[] = [
+  { type: 'view', id: 'agent', label: 'Agent', icon: MessagesSquare },
+  { type: 'view', id: 'ide', label: 'IDE', icon: VSCodeIcon, hideOnMobile: true },
+  { type: 'view', id: 'editor', label: 'Editor', icon: Code },
+  { type: 'view', id: 'terminal', label: 'Terminal', icon: SquareTerminal },
+  { type: 'view', id: 'diff', label: 'Diff', icon: GitCompareArrows },
+  { type: 'view', id: 'secrets', label: 'Secrets', icon: KeyRound },
+  { type: 'view', id: 'webPreview', label: 'Web Preview', icon: Globe },
+  { type: 'view', id: 'mobilePreview', label: 'Mobile Preview', icon: Smartphone },
+  { type: 'view', id: 'browser', label: 'Browser', icon: Monitor },
 ];
+
+const ACTION_COMMANDS: ActionCommandItem[] = [
+  { type: 'action', id: 'new-sub-thread', label: 'New sub-thread', icon: GitBranch },
+];
+
+const ALL_COMMANDS: CommandItem[] = [...ACTION_COMMANDS, ...VIEW_COMMANDS];
 
 export function CommandMenu() {
   const [query, setQuery] = useState('');
@@ -68,7 +88,7 @@ export function CommandMenu() {
   const activeLeaves = useActiveViews();
 
   const visibleCommands = useMemo(
-    () => VIEW_COMMANDS.filter((cmd) => !isMobile || !cmd.hideOnMobile),
+    () => ALL_COMMANDS.filter((cmd) => !isMobile || !cmd.hideOnMobile),
     [isMobile],
   );
 
@@ -93,9 +113,18 @@ export function CommandMenu() {
     useUIStore.getState().setCommandMenuOpen(false);
   }, []);
 
-  const handleSelect = useCallback(
-    (viewId: ViewType) => {
-      useUIStore.getState().handleViewClick(viewId, true);
+  const handleSelectItem = useCallback(
+    (cmd: CommandItem) => {
+      if (cmd.type === 'view') {
+        useUIStore.getState().handleViewClick(cmd.id, true);
+      } else if (cmd.id === 'new-sub-thread') {
+        const chat = useChatStore.getState().currentChat;
+        if (!chat || chat.parent_chat_id) {
+          toast.error('Open a top-level thread first');
+        } else {
+          useUIStore.getState().setSubThreadDialogOpen(true);
+        }
+      }
       close();
     },
     [close],
@@ -136,7 +165,7 @@ export function CommandMenu() {
         case 'Enter':
           e.preventDefault();
           if (filteredCommands[activeIndex]) {
-            handleSelect(filteredCommands[activeIndex].id);
+            handleSelectItem(filteredCommands[activeIndex]);
           }
           break;
       }
@@ -144,7 +173,7 @@ export function CommandMenu() {
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [isOpen, activeIndex, filteredCommands, handleSelect, close]);
+  }, [isOpen, activeIndex, filteredCommands, handleSelectItem, close]);
 
   if (!isOpen) return null;
 
@@ -175,7 +204,7 @@ export function CommandMenu() {
               setQuery(e.target.value);
               setActiveIndex(0);
             }}
-            placeholder="Search views..."
+            placeholder="Search commands..."
             className="h-10 w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-quaternary dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary"
             role="combobox"
             aria-expanded="true"
@@ -191,7 +220,7 @@ export function CommandMenu() {
         <div className="max-h-64 overflow-y-auto py-1" role="listbox" id={listId}>
           {filteredCommands.map((cmd, index) => {
             const Icon = cmd.icon;
-            const isActive = activeLeaves.includes(cmd.id);
+            const isActive = cmd.type === 'view' && activeLeaves.includes(cmd.id);
 
             return (
               <div
@@ -211,7 +240,7 @@ export function CommandMenu() {
                   aria-selected={index === activeIndex}
                   className="flex flex-1 items-center gap-3"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelect(cmd.id)}
+                  onClick={() => handleSelectItem(cmd)}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
                   <HighlightMatch
@@ -223,7 +252,7 @@ export function CommandMenu() {
                     <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
                   )}
                 </button>
-                {!isMobile && !isActive && (
+                {cmd.type === 'view' && !isMobile && !isActive && (
                   <div className="flex items-center gap-0.5">
                     <button
                       onMouseDown={(e) => e.preventDefault()}
@@ -249,7 +278,7 @@ export function CommandMenu() {
 
           {filteredCommands.length === 0 && (
             <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
-              No matching views
+              No matching commands
             </p>
           )}
         </div>

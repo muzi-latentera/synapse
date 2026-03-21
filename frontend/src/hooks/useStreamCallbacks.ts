@@ -505,6 +505,10 @@ export function useStreamCallbacks({
 
       if (chatId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.chat(chatId), exact: true });
+        if (currentChat?.parent_chat_id) {
+          queryClient.invalidateQueries({ queryKey: [queryKeys.chats, 'infinite'] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+        }
         timerIdsRef.current.push(
           setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: queryKeys.contextUsage(chatId) });
@@ -517,6 +521,7 @@ export function useStreamCallbacks({
       chatId,
       clearStreamSession,
       currentChat?.sandbox_id,
+      currentChat?.parent_chat_id,
       queryClient,
       refetchFilesMetadata,
       resolveStreamIdForMessage,

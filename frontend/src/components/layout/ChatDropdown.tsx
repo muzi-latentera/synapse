@@ -24,6 +24,7 @@ export const ChatDropdown = memo(function ChatDropdown({
   onClose,
 }: ChatDropdownProps) {
   const isPinned = !!chat.pinned_at;
+  const isSubThread = !!chat.parent_chat_id;
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -57,29 +58,31 @@ export const ChatDropdown = memo(function ChatDropdown({
         left: `${position.left}px`,
       }}
     >
-      <Button
-        onClick={() => onTogglePin(chat)}
-        role="menuitem"
-        variant="unstyled"
-        className={cn(
-          'w-full px-3 py-2 text-left text-xs',
-          'text-text-primary dark:text-text-dark-primary',
-          'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-          'flex items-center gap-2 transition-colors',
-        )}
-      >
-        {isPinned ? (
-          <>
-            <PinOff className="h-3 w-3" />
-            Unpin
-          </>
-        ) : (
-          <>
-            <Pin className="h-3 w-3" />
-            Pin
-          </>
-        )}
-      </Button>
+      {!isSubThread && (
+        <Button
+          onClick={() => onTogglePin(chat)}
+          role="menuitem"
+          variant="unstyled"
+          className={cn(
+            'w-full px-3 py-2 text-left text-xs',
+            'text-text-primary dark:text-text-dark-primary',
+            'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+            'flex items-center gap-2 transition-colors',
+          )}
+        >
+          {isPinned ? (
+            <>
+              <PinOff className="h-3 w-3" />
+              Unpin
+            </>
+          ) : (
+            <>
+              <Pin className="h-3 w-3" />
+              Pin
+            </>
+          )}
+        </Button>
+      )}
       <Button
         onClick={() => onRename(chat)}
         role="menuitem"

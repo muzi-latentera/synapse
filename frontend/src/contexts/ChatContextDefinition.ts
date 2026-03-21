@@ -5,6 +5,7 @@ import type { CustomAgent, CustomCommand, Persona } from '@/types/user.types';
 interface ChatContextValue {
   chatId: string | undefined;
   sandboxId: string | undefined;
+  parentChatId: string | undefined;
   fileStructure: FileStructure[];
   customAgents: CustomAgent[];
   customSlashCommands: CustomCommand[];

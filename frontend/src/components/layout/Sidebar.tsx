@@ -23,6 +23,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useStreamStore } from '@/store/streamStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { SidebarChatItem } from './SidebarChatItem';
+import { SubThreadList } from './SubThreadList';
 import { ChatDropdown } from './ChatDropdown';
 import { DROPDOWN_WIDTH, DROPDOWN_HEIGHT, DROPDOWN_MARGIN } from '@/config/constants';
 
@@ -68,35 +69,36 @@ function calculateDropdownPosition(buttonRect: DOMRect): { top: number; left: nu
 interface WorkspaceGroupProps {
   workspace: Workspace;
   selectedChatId: string | null;
-  hoveredChatId: string | null;
   dropdownChatId: string | null;
   streamingChatIdSet: Set<string>;
   isCollapsed: boolean;
   onToggleCollapse: (workspaceId: string) => void;
   onChatSelect: (chatId: string) => void;
   onDropdownClick: (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => void;
-  onMouseEnter: (chatId: string) => void;
-  onMouseLeave: () => void;
   onNewThread: (e: React.MouseEvent, workspaceId: string) => void;
   onWorkspaceContextMenu: (e: React.MouseEvent<HTMLButtonElement>, workspaceId: string) => void;
+  expandedSubThreads: Set<string>;
+  onToggleSubThreads: (chatId: string) => void;
 }
 
 const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
   workspace,
   selectedChatId,
-  hoveredChatId,
   dropdownChatId,
   streamingChatIdSet,
   isCollapsed,
   onToggleCollapse,
   onChatSelect,
   onDropdownClick,
-  onMouseEnter,
-  onMouseLeave,
   onNewThread,
   onWorkspaceContextMenu,
+  expandedSubThreads,
+  onToggleSubThreads,
 }: WorkspaceGroupProps) {
   const [isChatsExpanded, setIsChatsExpanded] = useState(false);
+  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
+  const handleMouseEnter = useCallback((chatId: string) => setHoveredChatId(chatId), []);
+  const handleMouseLeave = useCallback(() => setHoveredChatId(null), []);
 
   // Each non-collapsed workspace fires its own query on mount. Collapsing a
   // workspace disables its query. If N simultaneous requests becomes a problem
@@ -163,18 +165,30 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
           ) : (
             <>
               {visibleChats.map((chat) => (
-                <SidebarChatItem
-                  key={chat.id}
-                  chat={chat}
-                  isSelected={chat.id === selectedChatId}
-                  isHovered={hoveredChatId === chat.id}
-                  isDropdownOpen={dropdownChatId === chat.id}
-                  isChatStreaming={streamingChatIdSet.has(chat.id)}
-                  onSelect={onChatSelect}
-                  onDropdownClick={onDropdownClick}
-                  onMouseEnter={onMouseEnter}
-                  onMouseLeave={onMouseLeave}
-                />
+                <div key={chat.id}>
+                  <SidebarChatItem
+                    chat={chat}
+                    isSelected={chat.id === selectedChatId}
+                    isHovered={hoveredChatId === chat.id}
+                    isDropdownOpen={dropdownChatId === chat.id}
+                    isChatStreaming={streamingChatIdSet.has(chat.id)}
+                    isSubThreadsExpanded={expandedSubThreads.has(chat.id)}
+                    onSelect={onChatSelect}
+                    onDropdownClick={onDropdownClick}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
+                    onToggleSubThreads={onToggleSubThreads}
+                  />
+                  {(chat.sub_thread_count ?? 0) > 0 && expandedSubThreads.has(chat.id) && (
+                    <SubThreadList
+                      parentChatId={chat.id}
+                      selectedChatId={selectedChatId}
+                      onSelect={onChatSelect}
+                      onDropdownClick={onDropdownClick}
+                      streamingChatIdSet={streamingChatIdSet}
+                    />
+                  )}
+                </div>
               ))}
               {hasMoreLocalChats && !isChatsExpanded && (
                 <button
@@ -225,6 +239,7 @@ export interface SidebarProps {
   workspaces: Workspace[];
   selectedChatId: string | null;
   selectedChatWorkspaceId?: string | null;
+  selectedChatParentId?: string | null;
   onChatSelect: (chatId: string) => void;
   onDeleteChat?: (chatId: string) => void;
 }
@@ -233,6 +248,7 @@ export function Sidebar({
   workspaces,
   selectedChatId,
   selectedChatWorkspaceId,
+  selectedChatParentId,
   onChatSelect,
   onDeleteChat,
 }: SidebarProps) {
@@ -245,7 +261,7 @@ export function Sidebar({
     [activeStreamMetadata],
   );
   const [collapsedWorkspaces, setCollapsedWorkspaces] = useState<Set<string>>(new Set());
-  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
+  const [pinnedHoveredId, setPinnedHoveredId] = useState<string | null>(null);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
   const [chatToRename, setChatToRename] = useState<Chat | null>(null);
   const [workspaceToDelete, setWorkspaceToDelete] = useState<string | null>(null);
@@ -258,6 +274,7 @@ export function Sidebar({
     workspaceId: string;
     position: { top: number; left: number };
   } | null>(null);
+  const [expandedSubThreads, setExpandedSubThreads] = useState<Set<string>>(new Set());
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -276,6 +293,33 @@ export function Sidebar({
   }, [pinnedChatsData?.pages]);
 
   const hasAnyContent = pinnedChats.length > 0 || workspaces.length > 0;
+
+  const toggleSubThreads = useCallback((chatId: string) => {
+    setExpandedSubThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(chatId)) next.delete(chatId);
+      else next.add(chatId);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedChatWorkspaceId) return;
+    setCollapsedWorkspaces((prev) => {
+      if (!prev.has(selectedChatWorkspaceId)) return prev;
+      const next = new Set(prev);
+      next.delete(selectedChatWorkspaceId);
+      return next;
+    });
+  }, [selectedChatWorkspaceId]);
+
+  useEffect(() => {
+    if (!selectedChatParentId) return;
+    setExpandedSubThreads((prev) => {
+      if (prev.has(selectedChatParentId)) return prev;
+      return new Set(prev).add(selectedChatParentId);
+    });
+  }, [selectedChatParentId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -328,7 +372,7 @@ export function Sidebar({
   const handleChatSelect = useCallback(
     (chatId: string) => {
       onChatSelect(chatId);
-      setHoveredChatId(null);
+      setPinnedHoveredId(null);
       if (isMobile) {
         useUIStore.getState().setSidebarOpen(false);
       }
@@ -341,12 +385,12 @@ export function Sidebar({
     setDropdown(null);
   }, []);
 
-  const handleMouseEnter = useCallback((chatId: string) => {
-    setHoveredChatId(chatId);
+  const handlePinnedMouseEnter = useCallback((chatId: string) => {
+    setPinnedHoveredId(chatId);
   }, []);
 
-  const handleMouseLeave = useCallback(() => {
-    setHoveredChatId(null);
+  const handlePinnedMouseLeave = useCallback(() => {
+    setPinnedHoveredId(null);
   }, []);
 
   const confirmDeleteChat = useCallback(async () => {
@@ -355,7 +399,7 @@ export function Sidebar({
         await deleteChat.mutateAsync(chatToDelete);
         toast.success('Chat deleted successfully');
 
-        if (chatToDelete === selectedChatId) {
+        if (chatToDelete === selectedChatId || chatToDelete === selectedChatParentId) {
           navigate('/');
         }
 
@@ -366,7 +410,7 @@ export function Sidebar({
         setChatToDelete(null);
       }
     }
-  }, [chatToDelete, deleteChat, selectedChatId, navigate, onDeleteChat]);
+  }, [chatToDelete, deleteChat, selectedChatId, selectedChatParentId, navigate, onDeleteChat]);
 
   const handleNewChat = useCallback(() => {
     navigate('/');
@@ -379,7 +423,7 @@ export function Sidebar({
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
 
-    setHoveredChatId(null);
+    setPinnedHoveredId(null);
 
     setDropdown((prev) => {
       if (prev?.chat.id === chat.id) {
@@ -554,18 +598,30 @@ export function Sidebar({
                   </div>
                   <div className="space-y-px">
                     {pinnedChats.map((chat) => (
-                      <SidebarChatItem
-                        key={chat.id}
-                        chat={chat}
-                        isSelected={chat.id === selectedChatId}
-                        isHovered={hoveredChatId === chat.id}
-                        isDropdownOpen={dropdown?.chat.id === chat.id}
-                        isChatStreaming={streamingChatIdSet.has(chat.id)}
-                        onSelect={handleChatSelect}
-                        onDropdownClick={handleDropdownClick}
-                        onMouseEnter={handleMouseEnter}
-                        onMouseLeave={handleMouseLeave}
-                      />
+                      <div key={chat.id}>
+                        <SidebarChatItem
+                          chat={chat}
+                          isSelected={chat.id === selectedChatId}
+                          isHovered={pinnedHoveredId === chat.id}
+                          isDropdownOpen={dropdown?.chat.id === chat.id}
+                          isChatStreaming={streamingChatIdSet.has(chat.id)}
+                          isSubThreadsExpanded={expandedSubThreads.has(chat.id)}
+                          onSelect={handleChatSelect}
+                          onDropdownClick={handleDropdownClick}
+                          onMouseEnter={handlePinnedMouseEnter}
+                          onMouseLeave={handlePinnedMouseLeave}
+                          onToggleSubThreads={toggleSubThreads}
+                        />
+                        {(chat.sub_thread_count ?? 0) > 0 && expandedSubThreads.has(chat.id) && (
+                          <SubThreadList
+                            parentChatId={chat.id}
+                            selectedChatId={selectedChatId}
+                            onSelect={handleChatSelect}
+                            onDropdownClick={handleDropdownClick}
+                            streamingChatIdSet={streamingChatIdSet}
+                          />
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -576,17 +632,16 @@ export function Sidebar({
                   key={workspace.id}
                   workspace={workspace}
                   selectedChatId={selectedChatId}
-                  hoveredChatId={hoveredChatId}
                   dropdownChatId={dropdown?.chat.id ?? null}
                   streamingChatIdSet={streamingChatIdSet}
                   isCollapsed={collapsedWorkspaces.has(workspace.id)}
                   onToggleCollapse={toggleWorkspaceCollapse}
                   onChatSelect={handleChatSelect}
                   onDropdownClick={handleDropdownClick}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseLeave={handleMouseLeave}
                   onNewThread={handleNewWorkspaceThread}
                   onWorkspaceContextMenu={handleWorkspaceContextMenu}
+                  expandedSubThreads={expandedSubThreads}
+                  onToggleSubThreads={toggleSubThreads}
                 />
               ))}
             </div>

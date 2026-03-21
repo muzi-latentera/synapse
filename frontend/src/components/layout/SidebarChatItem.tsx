@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { MoreHorizontal, Loader2, Pin } from 'lucide-react';
+import { ChevronRight, MoreHorizontal, Loader2, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { cn } from '@/utils/cn';
 import type { Chat } from '@/types/chat.types';
@@ -27,10 +27,12 @@ interface SidebarChatItemProps {
   isHovered: boolean;
   isDropdownOpen: boolean;
   isChatStreaming: boolean;
+  isSubThreadsExpanded?: boolean;
   onSelect: (chatId: string) => void;
   onDropdownClick: (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => void;
   onMouseEnter: (chatId: string) => void;
   onMouseLeave: () => void;
+  onToggleSubThreads?: (chatId: string) => void;
 }
 
 export const SidebarChatItem = memo(function SidebarChatItem({
@@ -39,31 +41,49 @@ export const SidebarChatItem = memo(function SidebarChatItem({
   isHovered,
   isDropdownOpen,
   isChatStreaming,
+  isSubThreadsExpanded,
   onSelect,
   onDropdownClick,
   onMouseEnter,
   onMouseLeave,
+  onToggleSubThreads,
 }: SidebarChatItemProps) {
   const isPinned = !!chat.pinned_at;
+  const hasSubThreads = (chat.sub_thread_count ?? 0) > 0;
 
   return (
     <div
-      className="group relative flex items-center"
+      className={cn(
+        'group relative flex items-center rounded-lg px-2.5 py-1.5 transition-colors duration-200',
+        isSelected
+          ? 'bg-surface-hover text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'
+          : 'text-text-secondary hover:bg-surface-hover/50 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover/50 dark:hover:text-text-dark-secondary',
+      )}
       onMouseEnter={() => onMouseEnter(chat.id)}
       onMouseLeave={onMouseLeave}
     >
+      {hasSubThreads && onToggleSubThreads && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSubThreads(chat.id);
+          }}
+          className="mr-1 flex-shrink-0 rounded p-0.5 text-text-quaternary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
+        >
+          <ChevronRight
+            className={cn(
+              'h-2.5 w-2.5 transition-transform duration-200',
+              isSubThreadsExpanded && 'rotate-90',
+            )}
+          />
+        </button>
+      )}
       <Button
         onClick={() => onSelect(chat.id)}
         aria-current={isSelected ? 'page' : undefined}
         variant="unstyled"
-        className={cn(
-          'flex-1 px-2.5 py-1.5 text-left text-xs',
-          'rounded-lg transition-colors duration-200',
-          'flex min-w-0 items-center gap-2',
-          isSelected
-            ? 'bg-surface-hover text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'
-            : 'text-text-secondary hover:bg-surface-hover/50 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover/50 dark:hover:text-text-dark-secondary',
-        )}
+        className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
       >
         {isChatStreaming && (
           <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-text-tertiary dark:text-text-dark-tertiary" />

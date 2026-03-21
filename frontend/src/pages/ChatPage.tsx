@@ -23,6 +23,7 @@ import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { mergeAgents, mergeByName, mergeCommands } from '@/utils/settings';
 import { findFileByToolPath } from '@/utils/file';
 import { ChatProvider } from '@/contexts/ChatContext';
+import { CreateSubThreadDialog } from '@/components/chat/sub-threads/CreateSubThreadDialog';
 
 const Editor = lazy(() =>
   import('@/components/editor/editor-core/Editor').then((m) => ({ default: m.Editor })),
@@ -58,8 +59,8 @@ const viewLoadingFallback = (
 export function ChatPage() {
   const { chatId } = useParams();
   const navigate = useNavigate();
-
   useCommandMenu();
+  const subThreadDialogOpen = useUIStore((s) => s.subThreadDialogOpen);
 
   const activeViews = useActiveViews();
 
@@ -138,7 +139,7 @@ export function ChatPage() {
   useEffect(() => {
     setSelectedFile(null);
     useUIStore.getState().setCurrentView('agent');
-    useUIStore.setState({ pendingFilePath: null });
+    useUIStore.setState({ pendingFilePath: null, subThreadDialogOpen: false });
   }, [chatId, setSelectedFile]);
 
   const pendingFilePath = useUIStore((s) => s.pendingFilePath);
@@ -165,10 +166,18 @@ export function ChatPage() {
         workspaces={workspaces}
         selectedChatId={chatId || null}
         selectedChatWorkspaceId={currentChat?.workspace_id}
+        selectedChatParentId={currentChat?.parent_chat_id}
         onChatSelect={handleChatSelect}
       />
     );
-  }, [activeViews, workspaces, chatId, currentChat?.workspace_id, handleChatSelect]);
+  }, [
+    activeViews,
+    workspaces,
+    chatId,
+    currentChat?.workspace_id,
+    currentChat?.parent_chat_id,
+    handleChatSelect,
+  ]);
 
   useLayoutSidebar(sidebarContent);
 
@@ -274,6 +283,7 @@ export function ChatPage() {
     <ChatProvider
       chatId={chatId}
       sandboxId={currentChat?.sandbox_id}
+      parentChatId={currentChat?.parent_chat_id ?? undefined}
       fileStructure={fileStructure}
       customAgents={allAgents}
       customSlashCommands={enabledSlashCommands}
@@ -292,6 +302,12 @@ export function ChatPage() {
             <SplitViewContainer renderView={renderView} />
           </div>
           <CommandMenu />
+          {subThreadDialogOpen && currentChat && !currentChat.parent_chat_id && (
+            <CreateSubThreadDialog
+              parentChat={currentChat}
+              onClose={() => useUIStore.getState().setSubThreadDialogOpen(false)}
+            />
+          )}
         </div>
       </ChatSessionOrchestrator>
     </ChatProvider>

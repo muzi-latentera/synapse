@@ -14,7 +14,7 @@ export interface PermissionModeOption {
   description: string;
 }
 
-const PERMISSION_MODES: PermissionModeOption[] = [
+export const PERMISSION_MODES: PermissionModeOption[] = [
   { value: 'plan', label: 'Plan', description: 'Review steps before running' },
   { value: 'ask', label: 'Ask', description: 'Ask permission for each action' },
   { value: 'auto', label: 'Auto', description: 'Auto-approve all actions' },

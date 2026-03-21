@@ -60,6 +60,8 @@ export interface Chat {
   context_token_usage?: number;
   pinned_at?: string | null;
   worktree_cwd?: string | null;
+  parent_chat_id?: string | null;
+  sub_thread_count?: number;
 }
 
 export interface ChatRequest {
@@ -77,6 +79,7 @@ export interface CreateChatRequest {
   title: string;
   model_id: string;
   workspace_id: string;
+  parent_chat_id?: string;
 }
 
 export interface PreviewLinksResponse {

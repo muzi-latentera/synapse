@@ -8,6 +8,7 @@ import type {
   UpdateWorkspaceRequest,
 } from '@/types/workspace.types';
 import type { PaginatedResponse } from '@/types/api.types';
+import type { Chat } from '@/types/chat.types';
 import { queryKeys } from './queryKeys';
 
 export const useWorkspaceResourcesQuery = (
@@ -82,13 +83,20 @@ export const useDeleteWorkspaceMutation = (options?: UseMutationOptions<void, Er
   return useMutation({
     mutationFn: (workspaceId: string) => workspaceService.deleteWorkspace(workspaceId),
     onSuccess: async (data, workspaceId, context) => {
+      const allCachedChats = queryClient.getQueriesData<Chat>({ queryKey: ['chat'] });
+      for (const [, chat] of allCachedChats) {
+        if (chat?.workspace_id === workspaceId) {
+          queryClient.removeQueries({ queryKey: queryKeys.chat(chat.id) });
+          queryClient.removeQueries({ queryKey: queryKeys.messages(chat.id) });
+          queryClient.removeQueries({ queryKey: queryKeys.contextUsage(chat.id) });
+          queryClient.removeQueries({ queryKey: queryKeys.subThreads(chat.id) });
+        }
+      }
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.workspaces }),
         queryClient.invalidateQueries({ queryKey: [queryKeys.chats] }),
       ]);
-      // Remove per-chat caches so deleted chats can't be served from stale cache
-      queryClient.removeQueries({ queryKey: ['chat'] });
-      queryClient.removeQueries({ queryKey: ['messages'] });
 
       if (onSuccess) {
         await onSuccess(data, workspaceId, context);

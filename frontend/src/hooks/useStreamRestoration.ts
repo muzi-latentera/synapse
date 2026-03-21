@@ -23,41 +23,52 @@ export function useStreamRestoration({
       return;
     }
 
+    hasRestoredRef.current = true;
+
     const restoreStreamMetadata = async () => {
       const chatsToCheck = chats.slice(0, 20);
 
-      const checkPromises = chatsToCheck.map(async (chat) => {
+      const checkAndRestore = async (chatId: string) => {
         try {
-          if (!chat || !chat.id) {
-            return;
-          }
-
-          const status = await chatService.checkChatStatus(chat.id);
-
-          if (status?.has_active_task) {
-            const messageId = status.message_id;
-            if (!messageId) {
-              return;
-            }
-
+          const status = await chatService.checkChatStatus(chatId);
+          if (status?.has_active_task && status.message_id) {
             const metadata: StreamMetadata = {
-              chatId: chat.id,
-              messageId,
+              chatId,
+              messageId: status.message_id,
               startTime: Date.now(),
             };
-
             useStreamStore.getState().addStreamMetadata(metadata);
           }
         } catch (error) {
           logger.error('Failed to check chat status', 'useStreamRestoration', {
-            chatId: chat.id,
+            chatId,
             error,
           });
         }
-      });
+      };
 
-      await Promise.allSettled(checkPromises);
-      hasRestoredRef.current = true;
+      const checkPromises = chatsToCheck
+        .filter((chat) => chat?.id)
+        .map((chat) => checkAndRestore(chat.id));
+
+      // Fetch sub-threads for parents that have them and check each for active
+      // streams. This fans out into N additional requests per parent — acceptable
+      // for a single-user app. A bulk active-streams endpoint would reduce this.
+      const subThreadPromises = chatsToCheck
+        .filter((chat) => chat?.id && (chat.sub_thread_count ?? 0) > 0)
+        .map(async (chat) => {
+          try {
+            const subThreads = await chatService.getSubThreads(chat.id);
+            await Promise.allSettled(subThreads.map((sub) => checkAndRestore(sub.id)));
+          } catch (error) {
+            logger.error('Failed to restore sub-thread streams', 'useStreamRestoration', {
+              chatId: chat.id,
+              error,
+            });
+          }
+        });
+
+      await Promise.allSettled([...checkPromises, ...subThreadPromises]);
     };
 
     restoreStreamMetadata().catch((error) => {
