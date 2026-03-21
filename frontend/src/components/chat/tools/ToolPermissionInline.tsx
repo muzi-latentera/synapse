@@ -74,10 +74,19 @@ export function ToolPermissionInline({
           </p>
         )}
 
-        <ApprovalTextarea state={approvalState} textareaId="permission-feedback" isLoading={isLoading} />
+        <ApprovalTextarea
+          state={approvalState}
+          textareaId="permission-feedback"
+          isLoading={isLoading}
+        />
       </div>
 
-      <ApprovalButtons state={approvalState} onApprove={onApprove} isLoading={isLoading} error={error} />
+      <ApprovalButtons
+        state={approvalState}
+        onApprove={onApprove}
+        isLoading={isLoading}
+        error={error}
+      />
     </div>
   );
 }

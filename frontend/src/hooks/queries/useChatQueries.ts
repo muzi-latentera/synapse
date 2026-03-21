@@ -170,13 +170,8 @@ export const useUpdateChatMutation = createMutation<
   },
 );
 
-export const usePinChatMutation = createMutation<
-  Chat,
-  Error,
-  { chatId: string; pinned: boolean }
->(
-  ({ chatId, pinned }) =>
-    pinned ? chatService.pinChat(chatId) : chatService.unpinChat(chatId),
+export const usePinChatMutation = createMutation<Chat, Error, { chatId: string; pinned: boolean }>(
+  ({ chatId, pinned }) => (pinned ? chatService.pinChat(chatId) : chatService.unpinChat(chatId)),
   (queryClient, updatedChat) => {
     queryClient.setQueryData(queryKeys.chat(updatedChat.id), updatedChat);
 

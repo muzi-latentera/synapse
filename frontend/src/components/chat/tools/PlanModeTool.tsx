@@ -101,10 +101,19 @@ const ExitPlanModeInner: React.FC<PlanModeToolProps> = ({ tool, chatId }) => {
             </div>
           )}
 
-          <ApprovalTextarea state={approvalState} textareaId="plan-feedback" isLoading={isLoading} />
+          <ApprovalTextarea
+            state={approvalState}
+            textareaId="plan-feedback"
+            isLoading={isLoading}
+          />
         </div>
 
-        <ApprovalButtons state={approvalState} onApprove={handleApprove} isLoading={isLoading} error={error} />
+        <ApprovalButtons
+          state={approvalState}
+          onApprove={handleApprove}
+          isLoading={isLoading}
+          error={error}
+        />
       </div>
     );
   }

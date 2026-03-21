@@ -26,10 +26,11 @@ function SuggestionPanelInner<T>({
   itemRefs.current.length = totalItems;
 
   const sectionOffsets = useMemo(
-    () => sections.reduce<number[]>((acc, s, i) => {
-      acc.push(i === 0 ? 0 : acc[i - 1] + sections[i - 1].items.length);
-      return acc;
-    }, []),
+    () =>
+      sections.reduce<number[]>((acc, s, i) => {
+        acc.push(i === 0 ? 0 : acc[i - 1] + sections[i - 1].items.length);
+        return acc;
+      }, []),
     [sections],
   );
 

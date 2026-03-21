@@ -9,10 +9,7 @@ const McpSettingsTab = lazyNamed(
   () => import('@/components/settings/tabs/McpSettingsTab'),
   'McpSettingsTab',
 );
-const McpDialog = lazyNamed(
-  () => import('@/components/settings/dialogs/McpDialog'),
-  'McpDialog',
-);
+const McpDialog = lazyNamed(() => import('@/components/settings/dialogs/McpDialog'), 'McpDialog');
 
 export function McpSection() {
   const { localSettings, persistSettings, setLocalSettings } = useSettingsContext();

@@ -84,9 +84,7 @@ const NotebookEditToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </div>
           )}
           {newSource && editMode !== 'delete' && (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>
-              {newSource}
-            </pre>
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>{newSource}</pre>
           )}
         </div>
       )}

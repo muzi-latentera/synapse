@@ -56,9 +56,7 @@ const WebFetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             <p className="text-2xs text-text-tertiary dark:text-text-dark-tertiary">{prompt}</p>
           )}
           {result.length > 0 && tool.status === 'completed' && (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>
-              {result}
-            </pre>
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>
           )}
         </div>
       )}

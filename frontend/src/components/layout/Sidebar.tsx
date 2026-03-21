@@ -276,7 +276,8 @@ export function Sidebar({
     () => new Set(activeStreamMetadata.map((meta) => meta.chatId)),
     [activeStreamMetadata],
   );
-  const [collapsedWorkspaces, toggleWorkspaceCollapse, setCollapsedWorkspaces] = useToggleSet<string>();
+  const [collapsedWorkspaces, toggleWorkspaceCollapse, setCollapsedWorkspaces] =
+    useToggleSet<string>();
   const [pinnedHoveredId, setPinnedHoveredId] = useState<string | null>(null);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
   const [chatToRename, setChatToRename] = useState<Chat | null>(null);
@@ -452,7 +453,8 @@ export function Sidebar({
       if (!chatToRename) return;
       try {
         await mutateWithToast(
-          () => updateChat.mutateAsync({ chatId: chatToRename.id, updateData: { title: newTitle } }),
+          () =>
+            updateChat.mutateAsync({ chatId: chatToRename.id, updateData: { title: newTitle } }),
           'Chat renamed successfully',
           'Failed to rename chat',
         );
@@ -517,7 +519,10 @@ export function Sidebar({
       try {
         await mutateWithToast(
           () =>
-            updateWorkspace.mutateAsync({ workspaceId: workspaceToRename.id, data: { name: newName } }),
+            updateWorkspace.mutateAsync({
+              workspaceId: workspaceToRename.id,
+              data: { name: newName },
+            }),
           'Workspace renamed',
           'Failed to rename workspace',
         );

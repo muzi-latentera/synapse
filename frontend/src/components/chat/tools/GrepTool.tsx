@@ -48,11 +48,7 @@ const GrepToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       error={tool.error}
       expandable={hasResult}
     >
-      {hasResult && (
-        <pre className={TOOL_OUTPUT_PRE_CLASS}>
-          {result}
-        </pre>
-      )}
+      {hasResult && <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>}
     </ToolCard>
   );
 };

@@ -77,9 +77,7 @@ const MCPToolInner: React.FC<MCPToolProps> = ({ tool }) => {
               ))
             : null}
           {hasResult && toolStatus === 'completed' ? (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>
-              {formatResult(tool.result)}
-            </pre>
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>{formatResult(tool.result)}</pre>
           ) : null}
         </div>
       ) : null}

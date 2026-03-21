@@ -84,10 +84,6 @@ export const MentionSuggestionsPanel = memo(function MentionSuggestionsPanel({
   );
 
   return (
-    <SuggestionPanel
-      sections={sections}
-      highlightedIndex={highlightedIndex}
-      onSelect={onSelect}
-    />
+    <SuggestionPanel sections={sections} highlightedIndex={highlightedIndex} onSelect={onSelect} />
   );
 });

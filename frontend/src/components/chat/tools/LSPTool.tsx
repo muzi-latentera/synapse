@@ -66,9 +66,7 @@ const LSPToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </div>
           )}
           {result.length > 0 && tool.status === 'completed' && (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>
-              {result}
-            </pre>
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>
           )}
         </div>
       )}

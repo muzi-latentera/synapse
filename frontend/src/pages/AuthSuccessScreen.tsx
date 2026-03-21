@@ -49,12 +49,7 @@ export function AuthSuccessScreen({
                 </div>
               )}
 
-              <Button
-                onClick={onButtonClick}
-                variant="primary"
-                size="lg"
-                className="w-full"
-              >
+              <Button onClick={onButtonClick} variant="primary" size="lg" className="w-full">
                 {buttonIcon}
                 {buttonLabel}
               </Button>

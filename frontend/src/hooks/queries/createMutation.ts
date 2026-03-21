@@ -3,9 +3,15 @@ import type { QueryClient, UseMutationOptions } from '@tanstack/react-query';
 
 export function createMutation<TData, TError, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
-  onCacheUpdate: (queryClient: QueryClient, data: TData, variables: TVariables) => void | Promise<void>,
+  onCacheUpdate: (
+    queryClient: QueryClient,
+    data: TData,
+    variables: TVariables,
+  ) => void | Promise<void>,
 ) {
-  return function useMutationHook(options?: Omit<UseMutationOptions<TData, TError, TVariables>, 'mutationFn'>) {
+  return function useMutationHook(
+    options?: Omit<UseMutationOptions<TData, TError, TVariables>, 'mutationFn'>,
+  ) {
     const queryClient = useQueryClient();
     const { onSuccess, ...restOptions } = options ?? {};
 

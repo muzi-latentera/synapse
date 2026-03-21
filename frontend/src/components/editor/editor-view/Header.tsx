@@ -72,9 +72,7 @@ export const Header = memo(function Header({
           </div>
         )}
 
-        {onSave && hasUnsavedChanges && (
-          <SaveButton onClick={onSave} isSaving={isSaving} />
-        )}
+        {onSave && hasUnsavedChanges && <SaveButton onClick={onSave} isSaving={isSaving} />}
 
         {isPreviewable && (
           <Button

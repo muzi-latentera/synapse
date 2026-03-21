@@ -69,7 +69,12 @@ export function ApprovalButtons({ state, onApprove, isLoading, error }: Approval
           </>
         ) : (
           <>
-            <Button onClick={state.handleRejectClick} variant="ghost" size="sm" disabled={isLoading}>
+            <Button
+              onClick={state.handleRejectClick}
+              variant="ghost"
+              size="sm"
+              disabled={isLoading}
+            >
               Reject
             </Button>
             <Button onClick={onApprove} variant="primary" size="sm" disabled={isLoading}>

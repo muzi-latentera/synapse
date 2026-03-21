@@ -8,7 +8,9 @@ export interface ApprovalState {
   handleJustReject: () => void;
 }
 
-export function useApprovalState(onReject: (alternativeInstruction?: string) => void): ApprovalState {
+export function useApprovalState(
+  onReject: (alternativeInstruction?: string) => void,
+): ApprovalState {
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [alternativeInstruction, setAlternativeInstruction] = useState('');
 

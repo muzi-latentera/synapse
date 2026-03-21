@@ -49,10 +49,6 @@ export const SlashCommandsPanel = memo(function SlashCommandsPanel({
   );
 
   return (
-    <SuggestionPanel
-      sections={sections}
-      highlightedIndex={highlightedIndex}
-      onSelect={onSelect}
-    />
+    <SuggestionPanel sections={sections} highlightedIndex={highlightedIndex} onSelect={onSelect} />
   );
 });

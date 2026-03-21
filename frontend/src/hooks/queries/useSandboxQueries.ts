@@ -99,12 +99,9 @@ type SecretMutationVariables = { sandboxId: string; key: string; value?: string 
 function createSecretMutation<TVariables extends { sandboxId: string }>(
   mutationFn: (variables: TVariables) => Promise<void>,
 ) {
-  return createMutation<void, Error, TVariables>(
-    mutationFn,
-    (queryClient, _data, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.secrets(variables.sandboxId) });
-    },
-  );
+  return createMutation<void, Error, TVariables>(mutationFn, (queryClient, _data, variables) => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.secrets(variables.sandboxId) });
+  });
 }
 
 export const useAddSecretMutation = createSecretMutation<SecretMutationVariables>(

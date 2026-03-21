@@ -73,9 +73,10 @@ export function LoginPage() {
     },
   });
 
-  const { values, errors, setErrors, handleChange } = useAuthForm<LoginFormData>(
-    { email: '', password: '' },
-  );
+  const { values, errors, setErrors, handleChange } = useAuthForm<LoginFormData>({
+    email: '',
+    password: '',
+  });
 
   const handleForgotPassword = () => {
     navigate('/forgot-password');

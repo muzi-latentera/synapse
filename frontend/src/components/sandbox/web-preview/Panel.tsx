@@ -98,11 +98,7 @@ export const Panel = memo(function Panel({
     <div className="flex flex-1 flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
       <div className="flex h-9 items-center border-b border-border/50 px-3 dark:border-border-dark/50">
         <div className="flex flex-1 items-center gap-2">
-          <RefreshButton
-            onClick={handleReload}
-            title="Reload preview"
-            ariaLabel="Reload preview"
-          />
+          <RefreshButton onClick={handleReload} title="Reload preview" ariaLabel="Reload preview" />
 
           <p
             className="flex-1 truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-tertiary"
@@ -141,11 +137,7 @@ export const Panel = memo(function Panel({
 
         {ports.length > 0 && selectedPort && onPortChange && (
           <div className="ml-2 border-l border-border/30 pl-2 dark:border-border-dark/30">
-            <PortSelector
-              ports={ports}
-              selectedPort={selectedPort}
-              onPortChange={onPortChange}
-            />
+            <PortSelector ports={ports} selectedPort={selectedPort} onPortChange={onPortChange} />
           </div>
         )}
       </div>

@@ -54,9 +54,7 @@ const BashToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </pre>
           )}
           {output.length > 0 && tool.status === 'completed' && (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>
-              {output}
-            </pre>
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>{output}</pre>
           )}
         </div>
       )}
