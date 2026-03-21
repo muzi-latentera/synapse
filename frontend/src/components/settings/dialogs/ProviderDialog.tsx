@@ -174,7 +174,8 @@ const getAuthTokenConfig = (
         label: 'API Key (optional in host mode)',
         placeholder: 'Enter your OpenRouter API key',
         helperText: {
-          prefix: 'Optional in host mode if OPENROUTER_API_KEY is set. Required for Docker. Get a key from',
+          prefix:
+            'Optional in host mode if OPENROUTER_API_KEY is set. Required for Docker. Get a key from',
           anchorText: 'openrouter.ai',
           href: 'https://openrouter.ai/keys',
         },
