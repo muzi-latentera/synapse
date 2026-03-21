@@ -126,9 +126,9 @@ function DropdownInner<T>({
   const showIconOnly = (compactOnMobile || forceCompact) && LeftIcon;
   const labelClasses = showIconOnly
     ? forceCompact
-      ? 'hidden whitespace-nowrap text-2xs font-medium text-text-primary dark:text-text-dark-secondary'
-      : 'hidden sm:inline whitespace-nowrap text-2xs font-medium text-text-primary dark:text-text-dark-secondary'
-    : 'whitespace-nowrap text-2xs font-medium text-text-primary dark:text-text-dark-secondary';
+      ? 'hidden truncate text-2xs font-medium text-text-primary dark:text-text-dark-secondary'
+      : 'hidden sm:inline truncate text-2xs font-medium text-text-primary dark:text-text-dark-secondary'
+    : 'truncate text-2xs font-medium text-text-primary dark:text-text-dark-secondary';
   const chevronClasses = showIconOnly
     ? forceCompact
       ? 'hidden'
@@ -144,12 +144,12 @@ function DropdownInner<T>({
         variant="unstyled"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors duration-200 ${isOpen && !disabled ? 'bg-surface-hover dark:bg-surface-dark-hover' : 'hover:bg-surface-hover/60 dark:hover:bg-surface-dark-hover/60'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+        className={`flex min-w-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors duration-200 ${isOpen && !disabled ? 'bg-surface-hover dark:bg-surface-dark-hover' : 'hover:bg-surface-hover/60 dark:hover:bg-surface-dark-hover/60'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
       >
         {LeftIcon && (
           <LeftIcon
             className={cn(
-              'h-3 w-3 text-text-tertiary dark:text-text-dark-tertiary',
+              'h-3 w-3 flex-shrink-0 text-text-tertiary dark:text-text-dark-tertiary',
               !forceCompact && 'sm:hidden',
             )}
           />
