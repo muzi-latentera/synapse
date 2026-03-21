@@ -1,7 +1,8 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import type { FileStructure } from '@/types/file-system.types';
+import { useAsyncEffect } from '@/hooks/useAsyncEffect';
 import { PreviewContainer } from './PreviewContainer';
-import { previewBackgroundClass } from './previewConstants';
+import { PreviewEmptyState } from './PreviewEmptyState';
 import { getDisplayFileName } from './previewUtils';
 
 interface HtmlPreviewProps {
@@ -17,18 +18,16 @@ export const HtmlPreview = memo(function HtmlPreview({
 }: HtmlPreviewProps) {
   const [sanitizedContent, setSanitizedContent] = useState('');
 
-  useEffect(() => {
-    setSanitizedContent('');
+  useAsyncEffect(
+    async (cancelled) => {
+      setSanitizedContent('');
 
-    if (!file.content) {
-      return;
-    }
+      if (!file.content) {
+        return;
+      }
 
-    let cancelled = false;
-
-    (async () => {
       const DOMPurify = (await import('dompurify')).default;
-      if (cancelled) return;
+      if (cancelled()) return;
       setSanitizedContent(
         DOMPurify.sanitize(file.content, {
           WHOLE_DOCUMENT: true,
@@ -36,25 +35,18 @@ export const HtmlPreview = memo(function HtmlPreview({
           ADD_ATTR: ['target', 'rel'],
         }),
       );
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [file.content]);
+    },
+    [file.content],
+  );
 
   if (!file.content) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={getDisplayFileName(file)}
+        message="No content to preview"
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <span className="text-text-tertiary dark:text-text-dark-tertiary">
-          No content to preview
-        </span>
-      </PreviewContainer>
+      />
     );
   }
 

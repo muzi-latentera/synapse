@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import { BookOpen } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
+import { extractFilename } from '@/utils/format';
+import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from './common/ToolCard';
 
 type EditMode = 'replace' | 'insert' | 'delete';
@@ -12,8 +14,6 @@ interface NotebookEditInput {
   cell_type?: 'code' | 'markdown';
   edit_mode?: EditMode;
 }
-
-const extractFilename = (path: string): string => path.split('/').pop() ?? path;
 
 const NotebookEditToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as NotebookEditInput | undefined;
@@ -84,7 +84,7 @@ const NotebookEditToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </div>
           )}
           {newSource && editMode !== 'delete' && (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs leading-relaxed text-text-tertiary dark:text-text-dark-quaternary">
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>
               {newSource}
             </pre>
           )}

@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import type { FileStructure } from '@/types/file-system.types';
 import { PreviewContainer } from './PreviewContainer';
+import { PreviewEmptyState } from './PreviewEmptyState';
 import {
   previewBackgroundClass,
   tableBorderClass,
@@ -38,14 +39,12 @@ export const CsvPreview = memo(function CsvPreview({
 
   if (headers.length === 0) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={getDisplayFileName(file)}
+        message="No CSV data to display"
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <p className="text-text-tertiary dark:text-text-dark-tertiary">No CSV data to display</p>
-      </PreviewContainer>
+      />
     );
   }
 

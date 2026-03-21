@@ -1,13 +1,16 @@
-import { memo, type ReactNode, useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ArrowLeft, Mail, ArrowRight, CheckCircle } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+import { Loader2, ArrowLeft, Mail, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { FieldMessage } from '@/components/ui/primitives/FieldMessage';
 import { Input } from '@/components/ui/primitives/Input';
 import { Label } from '@/components/ui/primitives/Label';
 import { useForgotPasswordMutation } from '@/hooks/queries/useAuthQueries';
+import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidEmail } from '@/utils/validation';
+import { AuthPageLayout } from '@/pages/AuthPageLayout';
+import { AuthErrorBanner } from '@/pages/AuthErrorBanner';
+import { AuthSuccessScreen } from '@/pages/AuthSuccessScreen';
 
 interface ForgotPasswordFormData {
   email: string;
@@ -15,45 +18,21 @@ interface ForgotPasswordFormData {
 
 type ForgotPasswordFormErrors = Partial<Record<keyof ForgotPasswordFormData, string>>;
 
-interface ForgotPasswordPageLayoutProps {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}
-
-const ForgotPasswordPageLayout = memo(function ForgotPasswordPageLayout({
-  title,
-  subtitle,
-  children,
-}: ForgotPasswordPageLayoutProps) {
-  return (
-    <Layout isAuthPage={true}>
-      <div className="flex h-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-        <div className="flex flex-1 flex-col items-center justify-center p-4">
-          <div className="relative z-10 w-full max-w-sm space-y-5">
-            <div className="space-y-1.5 text-center">
-              <h2 className="animate-fadeIn text-xl font-semibold text-text-primary dark:text-text-dark-primary">
-                {title}
-              </h2>
-              <p className="text-sm text-text-tertiary dark:text-text-dark-tertiary">{subtitle}</p>
-            </div>
-
-            <div className="rounded-xl border border-border/50 bg-surface-tertiary p-6 shadow-medium dark:border-border-dark/50 dark:bg-surface-dark-tertiary">
-              {children}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Layout>
-  );
-});
-
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
-  const [values, setValues] = useState<ForgotPasswordFormData>({ email: '' });
-  const [errors, setErrors] = useState<ForgotPasswordFormErrors | null>(null);
 
   const forgotPasswordMutation = useForgotPasswordMutation();
+
+  const resetMutation = useCallback(() => {
+    if (forgotPasswordMutation.isError) {
+      forgotPasswordMutation.reset();
+    }
+  }, [forgotPasswordMutation]);
+
+  const { values, errors, setErrors, handleChange } = useAuthForm<ForgotPasswordFormData>(
+    { email: '' },
+    resetMutation,
+  );
 
   const validators = useMemo(
     () => ({
@@ -82,26 +61,6 @@ export function ForgotPasswordPage() {
     [validators],
   );
 
-  const handleChange = useCallback(
-    (name: keyof ForgotPasswordFormData, value: string) => {
-      setValues((prev) => ({ ...prev, [name]: value }));
-
-      if (errors?.[name]) {
-        setErrors((prev) => {
-          if (!prev) return prev;
-          const rest = { ...prev };
-          delete rest[name];
-          return Object.keys(rest).length ? rest : null;
-        });
-      }
-
-      if (forgotPasswordMutation.isError) {
-        forgotPasswordMutation.reset();
-      }
-    },
-    [errors, forgotPasswordMutation],
-  );
-
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
@@ -120,49 +79,15 @@ export function ForgotPasswordPage() {
 
   if (forgotPasswordMutation.isSuccess) {
     return (
-      <Layout isAuthPage={true}>
-        <div className="flex h-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-          <div className="flex flex-1 flex-col items-center justify-center p-4">
-            <div className="relative z-10 w-full max-w-sm space-y-5">
-              <div className="flex justify-center">
-                <CheckCircle className="h-6 w-6 text-text-primary dark:text-text-dark-primary" />
-              </div>
-
-              <div className="rounded-xl border border-border/50 bg-surface-tertiary p-6 shadow-medium dark:border-border-dark/50 dark:bg-surface-dark-tertiary">
-                <div className="mb-5 space-y-1.5 text-center">
-                  <h2 className="text-lg font-semibold text-text-primary dark:text-text-dark-primary">
-                    Check Your Email
-                  </h2>
-                  <p className="text-xs text-text-tertiary dark:text-text-dark-tertiary">
-                    We've sent a password reset link to your email
-                  </p>
-                </div>
-
-                <div className="mb-5 rounded-lg border border-border/50 bg-surface-hover/50 p-3 dark:border-border-dark/50 dark:bg-surface-dark-hover/50">
-                  <p className="text-xs text-text-secondary dark:text-text-dark-secondary">
-                    Check your email and follow the link to reset your password. The link will
-                    expire in 24 hours.
-                  </p>
-                </div>
-
-                <Button
-                  onClick={() => navigate('/login')}
-                  variant="primary"
-                  size="lg"
-                  className="w-full"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Back to Sign in
-                </Button>
-              </div>
-
-              <p className="text-center text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-                Can't find the email? Check your spam folder.
-              </p>
-            </div>
-          </div>
-        </div>
-      </Layout>
+      <AuthSuccessScreen
+        title="Check Your Email"
+        description="We've sent a password reset link to your email"
+        infoMessage="Check your email and follow the link to reset your password. The link will expire in 24 hours."
+        buttonLabel="Back to Sign in"
+        buttonIcon={<ArrowLeft className="h-3.5 w-3.5" />}
+        onButtonClick={() => navigate('/login')}
+        footer="Can't find the email? Check your spam folder."
+      />
     );
   }
 
@@ -170,10 +95,10 @@ export function ForgotPasswordPage() {
   const subtitle = 'Enter your email to receive a reset link';
 
   return (
-    <ForgotPasswordPageLayout title={title} subtitle={subtitle}>
+    <AuthPageLayout title={title} subtitle={subtitle}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {forgotPasswordMutation.error && (
-          <div className="animate-fadeIn rounded-lg border border-error-500/20 bg-error-500/10 p-3">
+          <AuthErrorBanner>
             <p className="text-xs font-medium text-error-600 dark:text-error-400">
               {forgotPasswordMutation.error.message.includes('contact@agentrove.pro') ? (
                 <>
@@ -189,7 +114,7 @@ export function ForgotPasswordPage() {
                 forgotPasswordMutation.error.message
               )}
             </p>
-          </div>
+          </AuthErrorBanner>
         )}
 
         <div className="space-y-3.5">
@@ -238,6 +163,6 @@ export function ForgotPasswordPage() {
           Back to Sign in
         </Button>
       </div>
-    </ForgotPasswordPageLayout>
+    </AuthPageLayout>
   );
 }

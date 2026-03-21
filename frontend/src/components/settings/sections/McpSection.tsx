@@ -1,16 +1,17 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { useSettingsContext } from '@/hooks/useSettingsContext';
 import { useCrudForm } from '@/hooks/useCrudForm';
 import { mcpService } from '@/services/mcpService';
 import { createDefaultMcpForm, validateMcpForm } from '@/utils/settings';
+import { lazyNamed } from '@/utils/lazyNamed';
 
-const McpSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/McpSettingsTab').then((m) => ({
-    default: m.McpSettingsTab,
-  })),
+const McpSettingsTab = lazyNamed(
+  () => import('@/components/settings/tabs/McpSettingsTab'),
+  'McpSettingsTab',
 );
-const McpDialog = lazy(() =>
-  import('@/components/settings/dialogs/McpDialog').then((m) => ({ default: m.McpDialog })),
+const McpDialog = lazyNamed(
+  () => import('@/components/settings/dialogs/McpDialog'),
+  'McpDialog',
 );
 
 export function McpSection() {

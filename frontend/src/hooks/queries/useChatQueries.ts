@@ -9,6 +9,7 @@ import { chatService } from '@/services/chatService';
 import { useMessageQueueStore } from '@/store/messageQueueStore';
 import type { Chat, ContextUsage, CreateChatRequest } from '@/types/chat.types';
 import type { PaginatedChats } from '@/types/api.types';
+import { createMutation } from './createMutation';
 import { queryKeys } from './queryKeys';
 
 const CHATS_PER_PAGE = 25;
@@ -98,202 +99,154 @@ export const useContextUsageQuery = (
   });
 };
 
-export const useCreateChatMutation = (
-  options?: UseMutationOptions<Chat, Error, CreateChatRequest>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
+export const useCreateChatMutation = createMutation<Chat, Error, CreateChatRequest>(
+  (data) => chatService.createChat(data),
+  async (queryClient, newChat) => {
+    queryClient.setQueryData(queryKeys.chat(newChat.id), newChat);
 
-  return useMutation({
-    mutationFn: (data: CreateChatRequest) => chatService.createChat(data),
-    onSuccess: async (newChat, variables, context, mutation) => {
-      queryClient.setQueryData(queryKeys.chat(newChat.id), newChat);
+    if (newChat.parent_chat_id) {
+      await queryClient.invalidateQueries({ queryKey: [queryKeys.chats, 'infinite'] });
+      return;
+    }
 
-      if (newChat.parent_chat_id) {
-        await queryClient.invalidateQueries({ queryKey: [queryKeys.chats, 'infinite'] });
-        if (onSuccess) await onSuccess(newChat, variables, context, mutation);
-        return;
-      }
+    queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
+      { queryKey: [queryKeys.chats, 'infinite'], predicate: isGlobalChatsQuery },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page, index) =>
+            index === 0
+              ? { ...page, items: [newChat, ...page.items], total: page.total + 1 }
+              : page,
+          ),
+        };
+      },
+    );
 
-      queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
-        { queryKey: [queryKeys.chats, 'infinite'], predicate: isGlobalChatsQuery },
-        (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page, index) =>
-              index === 0
-                ? { ...page, items: [newChat, ...page.items], total: page.total + 1 }
-                : page,
+    queryClient.invalidateQueries({
+      queryKey: [queryKeys.chats, 'infinite'],
+      predicate: (query) => !isGlobalChatsQuery(query),
+    });
+
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+  },
+);
+
+export const useUpdateChatMutation = createMutation<
+  Chat,
+  Error,
+  { chatId: string; updateData: { title?: string } }
+>(
+  ({ chatId, updateData }) => chatService.updateChat(chatId, updateData),
+  (queryClient, updatedChat) => {
+    queryClient.setQueryData(queryKeys.chat(updatedChat.id), updatedChat);
+
+    queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
+      { queryKey: [queryKeys.chats, 'infinite'] },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            items: page.items.map((chat) =>
+              chat.id === updatedChat.id
+                ? { ...updatedChat, sub_thread_count: chat.sub_thread_count }
+                : chat,
             ),
-          };
-        },
-      );
+          })),
+        };
+      },
+    );
 
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+
+    if (updatedChat.parent_chat_id) {
       queryClient.invalidateQueries({
-        queryKey: [queryKeys.chats, 'infinite'],
-        predicate: (query) => !isGlobalChatsQuery(query),
+        queryKey: queryKeys.subThreads(updatedChat.parent_chat_id),
       });
+    }
+  },
+);
 
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+export const usePinChatMutation = createMutation<
+  Chat,
+  Error,
+  { chatId: string; pinned: boolean }
+>(
+  ({ chatId, pinned }) =>
+    pinned ? chatService.pinChat(chatId) : chatService.unpinChat(chatId),
+  (queryClient, updatedChat) => {
+    queryClient.setQueryData(queryKeys.chat(updatedChat.id), updatedChat);
 
-      if (onSuccess) {
-        await onSuccess(newChat, variables, context, mutation);
+    // Invalidate all chat caches: global (pinned section needs re-sort and may need
+    // to include a chat that wasn't in the cache) and workspace-scoped (pinning/unpinning
+    // changes pinned_at and updated_at, which affects backend sort order).
+    // Also invalidate workspaces since last_chat_at may have changed.
+    queryClient.invalidateQueries({
+      queryKey: [queryKeys.chats, 'infinite'],
+    });
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+  },
+);
+
+export const useDeleteChatMutation = createMutation<void, Error, string>(
+  (chatId) => chatService.deleteChat(chatId),
+  (queryClient, _data, chatId) => {
+    queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
+      { queryKey: [queryKeys.chats, 'infinite'] },
+      (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            items: page.items.filter((chat) => chat.id !== chatId),
+            total: Math.max(0, page.total - 1),
+          })),
+        };
+      },
+    );
+
+    // Single scan of all ['chat', ...] entries to:
+    // 1. Find the parent of the deleted chat (if it's a sub-thread)
+    // 2. Clean up caches for child sub-threads (if deleting a parent)
+    let parentId = queryClient.getQueryData<Chat>(queryKeys.chat(chatId))?.parent_chat_id;
+    const allCachedEntries = queryClient.getQueriesData<Chat | Chat[]>({ queryKey: ['chat'] });
+    for (const [key, data] of allCachedEntries) {
+      if (!parentId && Array.isArray(data) && data.some((sub) => sub.id === chatId)) {
+        parentId = key[1] as string;
       }
-    },
-    ...restOptions,
-  });
-};
-
-export const useUpdateChatMutation = (
-  options?: UseMutationOptions<Chat, Error, { chatId: string; updateData: { title?: string } }>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: ({ chatId, updateData }) => chatService.updateChat(chatId, updateData),
-    onSuccess: async (updatedChat, variables, context, mutation) => {
-      queryClient.setQueryData(queryKeys.chat(updatedChat.id), updatedChat);
-
-      queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
-        { queryKey: [queryKeys.chats, 'infinite'] },
-        (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page) => ({
-              ...page,
-              items: page.items.map((chat) =>
-                chat.id === updatedChat.id
-                  ? { ...updatedChat, sub_thread_count: chat.sub_thread_count }
-                  : chat,
-              ),
-            })),
-          };
-        },
-      );
-
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
-
-      if (updatedChat.parent_chat_id) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.subThreads(updatedChat.parent_chat_id),
-        });
+      if (!Array.isArray(data) && data?.parent_chat_id === chatId) {
+        queryClient.removeQueries({ queryKey: queryKeys.chat(data.id) });
+        queryClient.removeQueries({ queryKey: queryKeys.messages(data.id) });
+        queryClient.removeQueries({ queryKey: queryKeys.contextUsage(data.id) });
+        useMessageQueueStore.getState().cleanupChat(data.id);
       }
+    }
 
-      if (onSuccess) {
-        await onSuccess(updatedChat, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
+    if (parentId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.subThreads(parentId) });
+    }
 
-export const usePinChatMutation = (
-  options?: UseMutationOptions<Chat, Error, { chatId: string; pinned: boolean }>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
+    queryClient.removeQueries({ queryKey: queryKeys.chat(chatId) });
+    queryClient.removeQueries({ queryKey: queryKeys.messages(chatId) });
+    queryClient.removeQueries({ queryKey: queryKeys.contextUsage(chatId) });
+    queryClient.removeQueries({ queryKey: queryKeys.subThreads(chatId) });
+    queryClient.invalidateQueries({ queryKey: [queryKeys.chats, 'infinite'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+    useMessageQueueStore.getState().cleanupChat(chatId);
+  },
+);
 
-  return useMutation({
-    mutationFn: ({ chatId, pinned }) =>
-      pinned ? chatService.pinChat(chatId) : chatService.unpinChat(chatId),
-    onSuccess: async (updatedChat, variables, context, mutation) => {
-      queryClient.setQueryData(queryKeys.chat(updatedChat.id), updatedChat);
-
-      // Invalidate all chat caches: global (pinned section needs re-sort and may need
-      // to include a chat that wasn't in the cache) and workspace-scoped (pinning/unpinning
-      // changes pinned_at and updated_at, which affects backend sort order).
-      // Also invalidate workspaces since last_chat_at may have changed.
-      queryClient.invalidateQueries({
-        queryKey: [queryKeys.chats, 'infinite'],
-      });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
-
-      if (onSuccess) {
-        await onSuccess(updatedChat, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
-
-export const useDeleteChatMutation = (options?: UseMutationOptions<void, Error, string>) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: (chatId: string) => chatService.deleteChat(chatId),
-    onSuccess: async (data, chatId, context, mutation) => {
-      queryClient.setQueriesData<InfiniteData<PaginatedChats>>(
-        { queryKey: [queryKeys.chats, 'infinite'] },
-        (oldData) => {
-          if (!oldData) return oldData;
-          return {
-            ...oldData,
-            pages: oldData.pages.map((page) => ({
-              ...page,
-              items: page.items.filter((chat) => chat.id !== chatId),
-              total: Math.max(0, page.total - 1),
-            })),
-          };
-        },
-      );
-
-      // Single scan of all ['chat', ...] entries to:
-      // 1. Find the parent of the deleted chat (if it's a sub-thread)
-      // 2. Clean up caches for child sub-threads (if deleting a parent)
-      let parentId = queryClient.getQueryData<Chat>(queryKeys.chat(chatId))?.parent_chat_id;
-      const allCachedEntries = queryClient.getQueriesData<Chat | Chat[]>({ queryKey: ['chat'] });
-      for (const [key, data] of allCachedEntries) {
-        if (!parentId && Array.isArray(data) && data.some((sub) => sub.id === chatId)) {
-          parentId = key[1] as string;
-        }
-        if (!Array.isArray(data) && data?.parent_chat_id === chatId) {
-          queryClient.removeQueries({ queryKey: queryKeys.chat(data.id) });
-          queryClient.removeQueries({ queryKey: queryKeys.messages(data.id) });
-          queryClient.removeQueries({ queryKey: queryKeys.contextUsage(data.id) });
-          useMessageQueueStore.getState().cleanupChat(data.id);
-        }
-      }
-
-      if (parentId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.subThreads(parentId) });
-      }
-
-      queryClient.removeQueries({ queryKey: queryKeys.chat(chatId) });
-      queryClient.removeQueries({ queryKey: queryKeys.messages(chatId) });
-      queryClient.removeQueries({ queryKey: queryKeys.contextUsage(chatId) });
-      queryClient.removeQueries({ queryKey: queryKeys.subThreads(chatId) });
-      queryClient.invalidateQueries({ queryKey: [queryKeys.chats, 'infinite'] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
-      useMessageQueueStore.getState().cleanupChat(chatId);
-
-      if (onSuccess) {
-        await onSuccess(data, chatId, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
-
-export const useDeleteAllChatsMutation = (options?: UseMutationOptions<void, Error, void>) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: () => chatService.deleteAllChats(),
-    onSuccess: async (data, variables, context, mutation) => {
-      queryClient.removeQueries({ queryKey: [queryKeys.chats] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
-      if (onSuccess) {
-        await onSuccess(data, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
+export const useDeleteAllChatsMutation = createMutation<void, Error, void>(
+  () => chatService.deleteAllChats(),
+  (queryClient) => {
+    queryClient.removeQueries({ queryKey: [queryKeys.chats] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+  },
+);
 
 interface EnhancePromptParams {
   prompt: string;

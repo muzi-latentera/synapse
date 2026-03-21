@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import { Code } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
+import { extractFilename, formatResult } from '@/utils/format';
+import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from './common/ToolCard';
 
 type LSPOperation =
@@ -20,14 +22,6 @@ interface LSPInput {
   line?: number;
   character?: number;
 }
-
-const formatResult = (result: unknown): string => {
-  if (typeof result === 'string') return result;
-  if (result === null || result === undefined) return '';
-  return JSON.stringify(result, null, 2);
-};
-
-const extractFilename = (path: string): string => path.split('/').pop() ?? path;
 
 const LSPToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as LSPInput | undefined;
@@ -72,7 +66,7 @@ const LSPToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </div>
           )}
           {result.length > 0 && tool.status === 'completed' && (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs leading-relaxed text-text-tertiary dark:text-text-dark-quaternary">
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>
               {result}
             </pre>
           )}

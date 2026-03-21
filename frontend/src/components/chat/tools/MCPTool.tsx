@@ -1,6 +1,8 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Wrench } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
+import { formatResult, formatValue } from '@/utils/format';
+import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from './common/ToolCard';
 
 interface MCPToolProps {
@@ -25,13 +27,6 @@ const formatToolName = (toolName: string): string => {
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
-};
-
-const formatValue = (value: unknown): React.ReactNode => {
-  if (value === null || value === undefined) return 'null';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'boolean' || typeof value === 'number') return String(value);
-  return JSON.stringify(value, null, 2);
 };
 
 const MCPToolInner: React.FC<MCPToolProps> = ({ tool }) => {
@@ -82,8 +77,8 @@ const MCPToolInner: React.FC<MCPToolProps> = ({ tool }) => {
               ))
             : null}
           {hasResult && toolStatus === 'completed' ? (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs leading-relaxed text-text-tertiary dark:text-text-dark-quaternary">
-              {formatValue(tool.result)}
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>
+              {formatResult(tool.result)}
             </pre>
           ) : null}
         </div>

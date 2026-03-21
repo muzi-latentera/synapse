@@ -1,18 +1,17 @@
-import { useState, useCallback, Suspense, lazy } from 'react';
+import { useState, useCallback, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSettingsContext } from '@/hooks/useSettingsContext';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import type { CustomProvider } from '@/types/user.types';
+import { lazyNamed } from '@/utils/lazyNamed';
 
-const ProvidersSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/ProvidersSettingsTab').then((m) => ({
-    default: m.ProvidersSettingsTab,
-  })),
+const ProvidersSettingsTab = lazyNamed(
+  () => import('@/components/settings/tabs/ProvidersSettingsTab'),
+  'ProvidersSettingsTab',
 );
-const ProviderDialog = lazy(() =>
-  import('@/components/settings/dialogs/ProviderDialog').then((m) => ({
-    default: m.ProviderDialog,
-  })),
+const ProviderDialog = lazyNamed(
+  () => import('@/components/settings/dialogs/ProviderDialog'),
+  'ProviderDialog',
 );
 
 export function ProvidersSection() {

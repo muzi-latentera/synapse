@@ -1,18 +1,14 @@
 import { memo } from 'react';
 import { Globe } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
+import { formatResult } from '@/utils/format';
+import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from './common/ToolCard';
 
 interface WebFetchInput {
   url: string;
   prompt: string;
 }
-
-const formatResult = (result: unknown): string => {
-  if (typeof result === 'string') return result;
-  if (result === null || result === undefined) return '';
-  return JSON.stringify(result, null, 2);
-};
 
 const extractDomain = (url: string): string => {
   try {
@@ -60,7 +56,7 @@ const WebFetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             <p className="text-2xs text-text-tertiary dark:text-text-dark-tertiary">{prompt}</p>
           )}
           {result.length > 0 && tool.status === 'completed' && (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs leading-relaxed text-text-tertiary dark:text-text-dark-quaternary">
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>
               {result}
             </pre>
           )}

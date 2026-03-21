@@ -1,30 +1,24 @@
-import { use } from 'react';
 import {
   InputContext,
   InputStateContext,
   InputActionsContext,
 } from '@/components/chat/message-input/InputContext';
+import { createContextHook } from '@/hooks/createContextHook';
 
-export function useInputContext() {
-  const context = use(InputContext);
-  if (!context) {
-    throw new Error('useInputContext must be used within an InputProvider');
-  }
-  return context;
-}
+export const useInputContext = createContextHook(
+  InputContext,
+  'useInputContext',
+  'InputProvider',
+);
 
-export function useInputState() {
-  const state = use(InputStateContext);
-  if (!state) {
-    throw new Error('useInputState must be used within an InputProvider');
-  }
-  return state;
-}
+export const useInputState = createContextHook(
+  InputStateContext,
+  'useInputState',
+  'InputProvider',
+);
 
-export function useInputActions() {
-  const actions = use(InputActionsContext);
-  if (!actions) {
-    throw new Error('useInputActions must be used within an InputProvider');
-  }
-  return actions;
-}
+export const useInputActions = createContextHook(
+  InputActionsContext,
+  'useInputActions',
+  'InputProvider',
+);

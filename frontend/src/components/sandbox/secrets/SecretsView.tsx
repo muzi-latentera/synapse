@@ -1,6 +1,6 @@
 import { memo, useState, useEffect, useCallback } from 'react';
 import { logger } from '@/utils/logger';
-import { Plus, Trash2, Save, EyeOff, Eye, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
+import { Plus, Trash2, EyeOff, Eye, AlertTriangle } from 'lucide-react';
 import {
   useSecretsQuery,
   useAddSecretMutation,
@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/primitives/Button';
 import { Input } from '@/components/ui/primitives/Input';
 import { Spinner } from '@/components/ui/primitives/Spinner';
+import { RefreshButton } from '@/components/ui/shared/RefreshButton';
+import { SaveButton } from '@/components/ui/shared/SaveButton';
 import type { Secret } from '@/types/sandbox.types';
 import toast from 'react-hot-toast';
 import { cn } from '@/utils/cn';
@@ -181,30 +183,18 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
           Environment Variables
         </span>
         <div className="flex items-center gap-1">
-          <Button
+          <RefreshButton
             onClick={loadEnvironmentVariables}
-            disabled={isLoading || !sandboxId}
-            title="Refresh"
-            aria-label="Refresh secrets"
-            variant="unstyled"
-            className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary disabled:opacity-50 dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
-          >
-            <RefreshCw className={cn('h-3 w-3', isLoading && 'animate-spin')} />
-          </Button>
+            disabled={!sandboxId}
+            isRefreshing={isLoading}
+            ariaLabel="Refresh secrets"
+          />
           {hasChanges && (
-            <Button
+            <SaveButton
               onClick={handleSaveSecrets}
+              isSaving={isSaving}
               disabled={isSaving || !sandboxId}
-              variant="unstyled"
-              className="flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary disabled:opacity-50 dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
-            >
-              {isSaving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Save className="h-3 w-3" />
-              )}
-              {isSaving ? 'Saving' : 'Save'}
-            </Button>
+            />
           )}
         </div>
       </div>

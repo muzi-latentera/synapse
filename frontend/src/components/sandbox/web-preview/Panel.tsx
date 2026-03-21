@@ -1,10 +1,11 @@
 import { memo, useState, useCallback, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { Smartphone, Monitor, ExternalLink, RotateCcw } from 'lucide-react';
+import { Smartphone, Monitor, ExternalLink } from 'lucide-react';
 import type { PortInfo } from '@/types/sandbox.types';
 import { Button } from '@/components/ui/primitives/Button';
-import { Select } from '@/components/ui/primitives/Select';
 import { Spinner } from '@/components/ui/primitives/Spinner';
+import { RefreshButton } from '@/components/ui/shared/RefreshButton';
+import { PortSelector } from '@/components/sandbox/shared/PortSelector';
 import { cn } from '@/utils/cn';
 
 interface DeviceButtonProps {
@@ -97,15 +98,11 @@ export const Panel = memo(function Panel({
     <div className="flex flex-1 flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
       <div className="flex h-9 items-center border-b border-border/50 px-3 dark:border-border-dark/50">
         <div className="flex flex-1 items-center gap-2">
-          <Button
+          <RefreshButton
             onClick={handleReload}
-            variant="unstyled"
-            className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
             title="Reload preview"
-            aria-label="Reload preview"
-          >
-            <RotateCcw className="h-3 w-3" />
-          </Button>
+            ariaLabel="Reload preview"
+          />
 
           <p
             className="flex-1 truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-tertiary"
@@ -142,25 +139,13 @@ export const Panel = memo(function Panel({
           </div>
         </div>
 
-        {ports.length > 0 && (
-          <div className="ml-2 flex items-center gap-1.5 border-l border-border/30 pl-2 dark:border-border-dark/30">
-            <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              Port
-            </span>
-            <Select
-              value={selectedPort?.port?.toString() ?? ''}
-              onChange={(e) => {
-                const port = ports.find((p) => p.port === Number(e.target.value));
-                if (port && onPortChange) onPortChange(port);
-              }}
-              className="h-6 border-border/30 bg-transparent text-2xs dark:border-border-dark/30"
-            >
-              {ports.map((port) => (
-                <option key={port.port} value={port.port}>
-                  {port.port}
-                </option>
-              ))}
-            </Select>
+        {ports.length > 0 && selectedPort && onPortChange && (
+          <div className="ml-2 border-l border-border/30 pl-2 dark:border-border-dark/30">
+            <PortSelector
+              ports={ports}
+              selectedPort={selectedPort}
+              onPortChange={onPortChange}
+            />
           </div>
         )}
       </div>

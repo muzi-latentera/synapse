@@ -1,30 +1,24 @@
-import { use } from 'react';
 import {
   ChatSessionContext,
   ChatSessionStateContext,
   ChatSessionActionsContext,
 } from '@/contexts/ChatSessionContextDefinition';
+import { createContextHook } from '@/hooks/createContextHook';
 
-export function useChatSessionContext() {
-  const context = use(ChatSessionContext);
-  if (!context) {
-    throw new Error('useChatSessionContext must be used within a ChatSessionProvider');
-  }
-  return context;
-}
+export const useChatSessionContext = createContextHook(
+  ChatSessionContext,
+  'useChatSessionContext',
+  'ChatSessionProvider',
+);
 
-export function useChatSessionState() {
-  const context = use(ChatSessionStateContext);
-  if (!context) {
-    throw new Error('useChatSessionState must be used within a ChatSessionProvider');
-  }
-  return context;
-}
+export const useChatSessionState = createContextHook(
+  ChatSessionStateContext,
+  'useChatSessionState',
+  'ChatSessionProvider',
+);
 
-export function useChatSessionActions() {
-  const context = use(ChatSessionActionsContext);
-  if (!context) {
-    throw new Error('useChatSessionActions must be used within a ChatSessionProvider');
-  }
-  return context;
-}
+export const useChatSessionActions = createContextHook(
+  ChatSessionActionsContext,
+  'useChatSessionActions',
+  'ChatSessionProvider',
+);

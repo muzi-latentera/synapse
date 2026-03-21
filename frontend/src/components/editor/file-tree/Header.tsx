@@ -1,5 +1,6 @@
-import { Download, Loader2, PanelLeftClose, RefreshCw } from 'lucide-react';
+import { Download, Loader2, PanelLeftClose } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
+import { RefreshButton } from '@/components/ui/shared/RefreshButton';
 import { SearchInput } from './SearchInput';
 
 export interface HeaderProps {
@@ -32,20 +33,12 @@ export function Header({
 
         <div className="flex items-center gap-0.5">
           {onRefresh && (
-            <Button
+            <RefreshButton
               onClick={onRefresh}
-              disabled={isRefreshing}
-              variant="unstyled"
-              className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary disabled:cursor-wait disabled:opacity-50 dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
-              title="Refresh"
-              aria-label="Refresh files"
-            >
-              {isRefreshing ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3 w-3" />
-              )}
-            </Button>
+              isRefreshing={isRefreshing}
+              ariaLabel="Refresh files"
+              useLoader
+            />
           )}
 
           {onDownload && (

@@ -1,63 +1,47 @@
-import { Suspense, lazy } from 'react';
 import { FileText } from 'lucide-react';
-import { useSettingsContext } from '@/hooks/useSettingsContext';
-import { useFileResourceManagement } from '@/hooks/useFileResourceManagement';
 import { agentService } from '@/services/agentService';
-import { SettingsUploadModal } from '@/components/ui/SettingsUploadModal';
+import { FileResourceSection } from '@/components/settings/sections/FileResourceSection';
+import { lazyNamed } from '@/utils/lazyNamed';
 
-const AgentsSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/AgentsSettingsTab').then((m) => ({
-    default: m.AgentsSettingsTab,
-  })),
+const AgentsSettingsTab = lazyNamed(
+  () => import('@/components/settings/tabs/AgentsSettingsTab'),
+  'AgentsSettingsTab',
 );
-const AgentEditDialog = lazy(() =>
-  import('@/components/settings/dialogs/AgentEditDialog').then((m) => ({
-    default: m.AgentEditDialog,
-  })),
+const AgentEditDialog = lazyNamed(
+  () => import('@/components/settings/dialogs/AgentEditDialog'),
+  'AgentEditDialog',
 );
 
 export function AgentsSection() {
-  const { localSettings, setLocalSettings } = useSettingsContext();
-
-  const agentManagement = useFileResourceManagement(localSettings, setLocalSettings, {
-    settingsKey: 'custom_agents',
-    itemName: 'Agent',
-    uploadFn: agentService.uploadAgent,
-    deleteFn: agentService.deleteAgent,
-    updateFn: agentService.updateAgent,
-  });
-
   return (
-    <>
-      <AgentsSettingsTab
-        agents={localSettings.custom_agents ?? null}
-        onAddAgent={agentManagement.handleAdd}
-        onEditAgent={agentManagement.handleEdit}
-        onDeleteAgent={agentManagement.handleDelete}
-      />
-      <SettingsUploadModal
-        isOpen={agentManagement.isDialogOpen}
-        error={agentManagement.uploadError}
-        uploading={agentManagement.isUploading}
-        onClose={agentManagement.handleDialogClose}
-        onUpload={agentManagement.handleUpload}
-        title="Upload Agent"
-        acceptedExtension=".md"
-        icon={FileText}
-        hintText="The .md file must include YAML frontmatter with name and description fields. Optional fields: model, allowed_tools."
-      />
-      {agentManagement.isEditDialogOpen && (
-        <Suspense fallback={null}>
-          <AgentEditDialog
-            isOpen={agentManagement.isEditDialogOpen}
-            agent={agentManagement.editingItem}
-            error={agentManagement.editError}
-            saving={agentManagement.isSavingEdit}
-            onClose={agentManagement.handleEditDialogClose}
-            onSave={agentManagement.handleSaveEdit}
-          />
-        </Suspense>
+    <FileResourceSection
+      settingsKey="custom_agents"
+      itemName="Agent"
+      uploadFn={agentService.uploadAgent}
+      deleteFn={agentService.deleteAgent}
+      updateFn={agentService.updateAgent}
+      uploadTitle="Upload Agent"
+      acceptedExtension=".md"
+      uploadIcon={FileText}
+      uploadHint="The .md file must include YAML frontmatter with name and description fields. Optional fields: model, allowed_tools."
+      renderTab={({ items, onAdd, onEdit, onDelete }) => (
+        <AgentsSettingsTab
+          agents={items}
+          onAddAgent={onAdd}
+          onEditAgent={onEdit}
+          onDeleteAgent={onDelete}
+        />
       )}
-    </>
+      renderEditDialog={({ isOpen, item, error, saving, onClose, onSave }) => (
+        <AgentEditDialog
+          isOpen={isOpen}
+          agent={item}
+          error={error}
+          saving={saving}
+          onClose={onClose}
+          onSave={onSave}
+        />
+      )}
+    />
   );
 }

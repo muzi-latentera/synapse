@@ -4,7 +4,7 @@ import type { FileStructure } from '@/types/file-system.types';
 
 const IMAGE_STYLE: CSSProperties = { imageRendering: 'auto' };
 import { PreviewContainer } from './PreviewContainer';
-import { previewBackgroundClass } from './previewConstants';
+import { PreviewEmptyState } from './PreviewEmptyState';
 import { getDisplayFileName, isValidBase64 } from './previewUtils';
 
 export interface ImagePreviewProps {
@@ -53,14 +53,12 @@ export const ImagePreview = memo(function ImagePreview({
 
   if (!imageUrl) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={fileName}
+        message="Unable to load image"
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <p className="text-text-tertiary dark:text-text-dark-tertiary">Unable to load image</p>
-      </PreviewContainer>
+      />
     );
   }
 

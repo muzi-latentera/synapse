@@ -1,14 +1,15 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { useModelsQuery } from '@/hooks/queries/useModelQueries';
 import { useTaskManagement } from '@/hooks/useTaskManagement';
+import { lazyNamed } from '@/utils/lazyNamed';
 
-const TasksSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/TasksSettingsTab').then((m) => ({
-    default: m.TasksSettingsTab,
-  })),
+const TasksSettingsTab = lazyNamed(
+  () => import('@/components/settings/tabs/TasksSettingsTab'),
+  'TasksSettingsTab',
 );
-const TaskDialog = lazy(() =>
-  import('@/components/settings/dialogs/TaskDialog').then((m) => ({ default: m.TaskDialog })),
+const TaskDialog = lazyNamed(
+  () => import('@/components/settings/dialogs/TaskDialog'),
+  'TaskDialog',
 );
 
 interface TasksSectionProps {

@@ -1,17 +1,16 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { useSettingsContext } from '@/hooks/useSettingsContext';
 import { useCrudForm } from '@/hooks/useCrudForm';
 import { createDefaultPersonaForm, validatePersonaForm } from '@/utils/settings';
+import { lazyNamed } from '@/utils/lazyNamed';
 
-const PersonasSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/PersonasSettingsTab').then((m) => ({
-    default: m.PersonasSettingsTab,
-  })),
+const PersonasSettingsTab = lazyNamed(
+  () => import('@/components/settings/tabs/PersonasSettingsTab'),
+  'PersonasSettingsTab',
 );
-const PersonaEditDialog = lazy(() =>
-  import('@/components/settings/dialogs/PersonaEditDialog').then((m) => ({
-    default: m.PersonaEditDialog,
-  })),
+const PersonaEditDialog = lazyNamed(
+  () => import('@/components/settings/dialogs/PersonaEditDialog'),
+  'PersonaEditDialog',
 );
 
 export function PersonasSection() {
