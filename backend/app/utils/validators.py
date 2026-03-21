@@ -29,17 +29,6 @@ def validate_model_api_keys(
         raise APIKeyValidationError(f"Provider '{provider.get('name')}' is disabled.")
 
     provider_type = provider.get("provider_type", "custom")
-    # Anthropic provider doesn't require a token in host mode — the CLI
-    # uses the user's existing login.  All other built-in providers still
-    # need an explicit key.
-    token_optional_types = {"anthropic"}
-    if provider_type not in ("custom", *token_optional_types) and not provider.get(
-        "auth_token"
-    ):
-        raise APIKeyValidationError(
-            f"API key is required for provider '{provider.get('name')}'. "
-            "Please configure it in Settings."
-        )
 
     if provider_type == "custom" and not provider.get("base_url"):
         raise APIKeyValidationError(
