@@ -1,15 +1,16 @@
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import { useSettingsContext } from '@/hooks/useSettingsContext';
 import { useCrudForm } from '@/hooks/useCrudForm';
 import { createDefaultEnvVarForm, validateEnvVarForm } from '@/utils/settings';
+import { lazyNamed } from '@/utils/lazyNamed';
 
-const EnvVarsSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/EnvVarsSettingsTab').then((m) => ({
-    default: m.EnvVarsSettingsTab,
-  })),
+const EnvVarsSettingsTab = lazyNamed(
+  () => import('@/components/settings/tabs/EnvVarsSettingsTab'),
+  'EnvVarsSettingsTab',
 );
-const EnvVarDialog = lazy(() =>
-  import('@/components/settings/dialogs/EnvVarDialog').then((m) => ({ default: m.EnvVarDialog })),
+const EnvVarDialog = lazyNamed(
+  () => import('@/components/settings/dialogs/EnvVarDialog'),
+  'EnvVarDialog',
 );
 
 export function EnvVarsSection() {

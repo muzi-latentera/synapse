@@ -1,10 +1,11 @@
 import type { CustomEnvVar } from '@/types/user.types';
-import { Button } from '@/components/ui/primitives/Button';
 import { Input } from '@/components/ui/primitives/Input';
 import { Label } from '@/components/ui/primitives/Label';
 import { SecretInput } from '../inputs/SecretInput';
 import { useState } from 'react';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
+import { DialogFooter } from '@/components/ui/shared/DialogFooter';
+import { DialogError } from '@/components/ui/shared/DialogError';
 
 interface EnvVarDialogProps {
   isOpen: boolean;
@@ -34,11 +35,7 @@ export const EnvVarDialog: React.FC<EnvVarDialogProps> = ({
           {isEditing ? 'Edit Environment Variable' : 'Add Environment Variable'}
         </h3>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-border p-3 dark:border-border-dark">
-            <p className="text-xs text-text-secondary dark:text-text-dark-secondary">{error}</p>
-          </div>
-        )}
+        <DialogError error={error} className="mb-4" />
 
         <div className="space-y-4">
           <div>
@@ -78,21 +75,12 @@ export const EnvVarDialog: React.FC<EnvVarDialogProps> = ({
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" onClick={onClose} variant="outline" size="sm">
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            variant="outline"
-            size="sm"
-            className="border-text-primary bg-text-primary text-surface hover:bg-text-secondary dark:border-text-dark-primary dark:bg-text-dark-primary dark:text-surface-dark dark:hover:bg-text-dark-secondary"
-            disabled={!envVar.key.trim() || !envVar.value.trim()}
-          >
-            {isEditing ? 'Update' : 'Add Variable'}
-          </Button>
-        </div>
+        <DialogFooter
+          onCancel={onClose}
+          onSave={onSubmit}
+          saveLabel={isEditing ? 'Update' : 'Add Variable'}
+          disabled={!envVar.key.trim() || !envVar.value.trim()}
+        />
       </div>
     </BaseModal>
   );

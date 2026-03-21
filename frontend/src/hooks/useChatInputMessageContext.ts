@@ -1,10 +1,8 @@
-import { use } from 'react';
 import { ChatInputMessageContext } from '@/contexts/ChatInputMessageContextDefinition';
+import { createContextHook } from '@/hooks/createContextHook';
 
-export function useChatInputMessageContext() {
-  const context = use(ChatInputMessageContext);
-  if (!context) {
-    throw new Error('useChatInputMessageContext must be used within a ChatInputMessageProvider');
-  }
-  return context;
-}
+export const useChatInputMessageContext = createContextHook(
+  ChatInputMessageContext,
+  'useChatInputMessageContext',
+  'ChatInputMessageProvider',
+);

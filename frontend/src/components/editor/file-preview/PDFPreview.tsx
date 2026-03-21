@@ -3,7 +3,7 @@ import { logger } from '@/utils/logger';
 import { base64ToUint8Array } from '@/utils/base64';
 import type { FileStructure } from '@/types/file-system.types';
 import { PreviewContainer } from './PreviewContainer';
-import { previewBackgroundClass } from './previewConstants';
+import { PreviewEmptyState } from './PreviewEmptyState';
 import { getDisplayFileName, isValidBase64 } from './previewUtils';
 
 export interface PDFPreviewProps {
@@ -53,27 +53,23 @@ export const PDFPreview = memo(function PDFPreview({
 
   if (isLoading) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={fileName}
+        message="Loading PDF..."
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <span className="text-text-tertiary dark:text-text-dark-tertiary">Loading PDF...</span>
-      </PreviewContainer>
+      />
     );
   }
 
   if (error || !pdfUrl) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={fileName}
+        message="Unable to load PDF"
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <span className="text-text-tertiary dark:text-text-dark-tertiary">Unable to load PDF</span>
-      </PreviewContainer>
+      />
     );
   }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense, useMemo, useCallback } from 'react';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
-import { Button } from '@/components/ui/primitives/Button';
+import { DialogFooter } from '@/components/ui/shared/DialogFooter';
+import { DialogError } from '@/components/ui/shared/DialogError';
 import { Tree } from '@/components/editor/file-tree/Tree';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { CustomSkill } from '@/types/user.types';
@@ -215,31 +216,16 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
         </div>
       </div>
 
-      {(error || loadError) && (
-        <div className="px-5 pb-2">
-          <div className="rounded-xl border border-border p-3 dark:border-border-dark">
-            <p className="text-xs text-text-secondary dark:text-text-dark-secondary">
-              {error || loadError}
-            </p>
-          </div>
-        </div>
-      )}
+      <DialogError error={error || loadError} />
 
-      <div className="flex justify-end gap-2 border-t border-border px-5 py-3 dark:border-border-dark">
-        <Button onClick={onClose} variant="outline" size="sm" disabled={saving}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSave}
-          variant="outline"
-          size="sm"
-          className="border-text-primary bg-text-primary text-surface hover:bg-text-secondary dark:border-text-dark-primary dark:bg-text-dark-primary dark:text-surface-dark dark:hover:bg-text-dark-secondary"
-          isLoading={saving}
-          disabled={!hasChanges}
-        >
-          Save Changes
-        </Button>
-      </div>
+      <DialogFooter
+        onCancel={onClose}
+        onSave={handleSave}
+        saveLabel="Save Changes"
+        saving={saving}
+        disabled={!hasChanges}
+        bordered
+      />
     </BaseModal>
   );
 };

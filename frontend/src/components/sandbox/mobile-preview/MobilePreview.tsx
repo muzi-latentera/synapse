@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Smartphone, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/primitives/Button';
-import { Select } from '@/components/ui/primitives/Select';
+import { Smartphone } from 'lucide-react';
 import { Spinner } from '@/components/ui/primitives/Spinner';
+import { RefreshButton } from '@/components/ui/shared/RefreshButton';
+import { PortSelector } from '@/components/sandbox/shared/PortSelector';
 import { usePreviewLinksQuery } from '@/hooks/queries/useSandboxQueries';
 import { NoOpenPortsState } from '../shared/NoOpenPortsState';
-import { cn } from '@/utils/cn';
 
 export interface MobilePreviewProps {
   sandboxId?: string;
@@ -82,30 +81,16 @@ export const MobilePreview = ({ sandboxId }: MobilePreviewProps) => {
       <div className="relative flex flex-1 items-center justify-center p-8">
         {ports.length > 0 && (
           <div className="absolute right-3 top-3 flex items-center gap-1.5">
-            <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              Port
-            </span>
-            <Select
-              value={selectedPort?.port?.toString() ?? ''}
-              onChange={(e) => setSelectedPortId(Number(e.target.value))}
-              className="h-6 border-border/30 bg-transparent text-2xs dark:border-border-dark/30"
-            >
-              {ports.map((p) => (
-                <option key={p.port} value={p.port}>
-                  {p.port}
-                </option>
-              ))}
-            </Select>
-            <Button
+            <PortSelector
+              ports={ports}
+              selectedPort={selectedPort}
+              onPortChange={(port) => setSelectedPortId(port.port)}
+            />
+            <RefreshButton
               onClick={handleRefresh}
-              disabled={loadingPorts}
-              variant="unstyled"
-              className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:hover:text-text-dark-secondary"
-              title="Refresh"
-              aria-label="Refresh preview"
-            >
-              <RefreshCw className={cn('h-3 w-3', loadingPorts && 'animate-spin')} />
-            </Button>
+              isRefreshing={loadingPorts}
+              ariaLabel="Refresh preview"
+            />
           </div>
         )}
 

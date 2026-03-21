@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useToggleSet } from '@/hooks/useToggleSet';
 import {
   AlertCircle,
   ChevronRight,
@@ -190,7 +191,7 @@ interface DiffViewProps {
 
 export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps) {
   const theme = useResolvedTheme();
-  const [expandedFiles, setExpandedFiles] = useState<Set<number>>(new Set());
+  const [expandedFiles, toggleFile, setExpandedFiles] = useToggleSet<number>();
   const [parsedFiles, setParsedFiles] = useState<FileDiffMetadata[]>([]);
   const [parsingDone, setParsingDone] = useState(false);
   const [mode, setMode] = useState<DiffMode>('all');
@@ -238,7 +239,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
     return () => {
       cancelled = true;
     };
-  }, [diffContent]);
+  }, [diffContent, setExpandedFiles]);
 
   const options = useMemo(
     () => ({
@@ -251,15 +252,6 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
     [theme, diffStyle],
   );
 
-  const toggleFile = useCallback((index: number) => {
-    setExpandedFiles((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-  }, []);
-
   const allExpanded = parsedFiles.length > 0 && expandedFiles.size === parsedFiles.length;
 
   const toggleAll = useCallback(() => {
@@ -269,7 +261,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
       }
       return new Set(parsedFiles.map((_, i) => i));
     });
-  }, [parsedFiles]);
+  }, [parsedFiles, setExpandedFiles]);
 
   if (!sandboxId) {
     return (

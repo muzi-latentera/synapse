@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { SquareTerminal } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
+import { formatResult } from '@/utils/format';
 import { ToolCard } from './common/ToolCard';
 
 interface AgentOutputInput {
@@ -10,19 +11,17 @@ interface AgentOutputInput {
   timeout?: number;
 }
 
-const formatOutput = (result: unknown): string => {
-  if (typeof result === 'string') return result;
-  if (result === null || result === undefined) return '';
-  return JSON.stringify(result, null, 2);
-};
-
-const AgentOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
+const OutputToolInner: React.FC<{
+  tool: ToolAggregate;
+  idField: 'task_id' | 'bash_id';
+  label: string;
+}> = ({ tool, idField, label }) => {
   const input = tool.input as AgentOutputInput | undefined;
-  const taskId = input?.task_id ?? '';
-  const truncatedId = taskId.length > 12 ? `${taskId.slice(0, 12)}\u2026` : taskId;
-  const idSuffix = taskId ? `: ${truncatedId}` : '';
+  const id = input?.[idField] ?? '';
+  const truncatedId = id.length > 12 ? `${id.slice(0, 12)}\u2026` : id;
+  const idSuffix = id ? `: ${truncatedId}` : '';
 
-  const output = formatOutput(tool.result);
+  const output = formatResult(tool.result);
   const hasOutput = output.length > 0 && tool.status === 'completed';
 
   return (
@@ -34,14 +33,14 @@ const AgentOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       title={(status) => {
         switch (status) {
           case 'completed':
-            return `Got agent output${idSuffix}`;
+            return `Got ${label} output${idSuffix}`;
           case 'failed':
-            return `Failed to get agent output${idSuffix}`;
+            return `Failed to get ${label} output${idSuffix}`;
           default:
-            return `Getting agent output${idSuffix}`;
+            return `Getting ${label} output${idSuffix}`;
         }
       }}
-      loadingContent="Waiting for agent output\u2026"
+      loadingContent={`Waiting for ${label} output\u2026`}
       error={tool.error}
       expandable={hasOutput}
     >
@@ -54,43 +53,10 @@ const AgentOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   );
 };
 
-const BashOutputToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
-  const input = tool.input as AgentOutputInput | undefined;
-  const bashId = input?.bash_id ?? '';
-  const truncatedId = bashId.length > 12 ? `${bashId.slice(0, 12)}\u2026` : bashId;
-  const idSuffix = bashId ? `: ${truncatedId}` : '';
+export const AgentOutputTool = memo<{ tool: ToolAggregate }>(({ tool }) => (
+  <OutputToolInner tool={tool} idField="task_id" label="agent" />
+));
 
-  const output = formatOutput(tool.result);
-  const hasOutput = output.length > 0 && tool.status === 'completed';
-
-  return (
-    <ToolCard
-      icon={
-        <SquareTerminal className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />
-      }
-      status={tool.status}
-      title={(status) => {
-        switch (status) {
-          case 'completed':
-            return `Got bash output${idSuffix}`;
-          case 'failed':
-            return `Failed to get bash output${idSuffix}`;
-          default:
-            return `Getting bash output${idSuffix}`;
-        }
-      }}
-      loadingContent="Waiting for bash output\u2026"
-      error={tool.error}
-      expandable={hasOutput}
-    >
-      {hasOutput && (
-        <div className="max-h-48 overflow-auto rounded bg-black/5 px-2 py-1.5 font-mono text-xs text-text-secondary dark:bg-white/5 dark:text-text-dark-secondary">
-          <pre className="whitespace-pre-wrap break-all">{output}</pre>
-        </div>
-      )}
-    </ToolCard>
-  );
-};
-
-export const AgentOutputTool = memo(AgentOutputToolInner);
-export const BashOutputTool = memo(BashOutputToolInner);
+export const BashOutputTool = memo<{ tool: ToolAggregate }>(({ tool }) => (
+  <OutputToolInner tool={tool} idField="bash_id" label="bash" />
+));

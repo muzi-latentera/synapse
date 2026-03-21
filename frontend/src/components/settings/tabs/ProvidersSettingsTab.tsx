@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, Circle } from 'lucide-react';
+import { useToggleSet } from '@/hooks/useToggleSet';
 import { Button } from '@/components/ui/primitives/Button';
 import { Switch } from '@/components/ui/primitives/Switch';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -29,20 +30,8 @@ export const ProvidersSettingsTab: React.FC<ProvidersSettingsTabProps> = ({
   onDeleteProvider,
   onToggleProvider,
 }) => {
-  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(() => new Set());
+  const [expandedProviders, toggleExpanded] = useToggleSet<string>();
   const [providerPendingDelete, setProviderPendingDelete] = useState<CustomProvider | null>(null);
-
-  const toggleExpanded = (providerId: string) => {
-    setExpandedProviders((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(providerId)) {
-        newSet.delete(providerId);
-      } else {
-        newSet.add(providerId);
-      }
-      return newSet;
-    });
-  };
 
   const sortedProviders = [...(providers ?? [])].sort((a, b) => {
     const order: Record<ProviderType, number> = {

@@ -1,9 +1,10 @@
 import type { Persona } from '@/types/user.types';
-import { Button } from '@/components/ui/primitives/Button';
 import { Input } from '@/components/ui/primitives/Input';
 import { Label } from '@/components/ui/primitives/Label';
 import { Textarea } from '@/components/ui/primitives/Textarea';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
+import { DialogFooter } from '@/components/ui/shared/DialogFooter';
+import { DialogError } from '@/components/ui/shared/DialogError';
 
 interface PersonaEditDialogProps {
   isOpen: boolean;
@@ -36,11 +37,7 @@ export const PersonaEditDialog: React.FC<PersonaEditDialogProps> = ({
           {isEditing ? 'Edit Persona' : 'Add Persona'}
         </h3>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-border p-3 dark:border-border-dark">
-            <p className="text-xs text-text-secondary dark:text-text-dark-secondary">{error}</p>
-          </div>
-        )}
+        <DialogError error={error} className="mb-4" />
 
         <div className="space-y-4">
           <div>
@@ -72,21 +69,12 @@ export const PersonaEditDialog: React.FC<PersonaEditDialogProps> = ({
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" onClick={onClose} variant="outline" size="sm">
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            variant="outline"
-            size="sm"
-            className="border-text-primary bg-text-primary text-surface hover:bg-text-secondary dark:border-text-dark-primary dark:bg-text-dark-primary dark:text-surface-dark dark:hover:bg-text-dark-secondary"
-            disabled={!persona.name.trim() || !persona.content.trim()}
-          >
-            {isEditing ? 'Update' : 'Add Persona'}
-          </Button>
-        </div>
+        <DialogFooter
+          onCancel={onClose}
+          onSave={onSubmit}
+          saveLabel={isEditing ? 'Update' : 'Add Persona'}
+          disabled={!persona.name.trim() || !persona.content.trim()}
+        />
       </div>
     </BaseModal>
   );

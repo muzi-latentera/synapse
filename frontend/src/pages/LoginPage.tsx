@@ -1,14 +1,16 @@
-import { memo, type ReactNode, useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ArrowRight } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/primitives/Button';
 import { FieldMessage } from '@/components/ui/primitives/FieldMessage';
 import { Input } from '@/components/ui/primitives/Input';
 import { Label } from '@/components/ui/primitives/Label';
 import { useAuthStore } from '@/store/authStore';
 import { useLoginMutation } from '@/hooks/queries/useAuthQueries';
+import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidEmail } from '@/utils/validation';
+import { AuthPageLayout } from '@/pages/AuthPageLayout';
+import { AuthErrorBanner } from '@/pages/AuthErrorBanner';
 
 interface LoginFormData {
   email: string;
@@ -16,39 +18,6 @@ interface LoginFormData {
 }
 
 type LoginFormErrors = Partial<Record<keyof LoginFormData, string>>;
-
-interface LoginPageLayoutProps {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}
-
-const LoginPageLayout = memo(function LoginPageLayout({
-  title,
-  subtitle,
-  children,
-}: LoginPageLayoutProps) {
-  return (
-    <Layout isAuthPage={true}>
-      <div className="flex h-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-        <div className="flex flex-1 flex-col items-center justify-center p-4">
-          <div className="relative z-10 w-full max-w-sm space-y-5">
-            <div className="space-y-1.5 text-center">
-              <h2 className="animate-fadeIn text-xl font-semibold text-text-primary dark:text-text-dark-primary">
-                {title}
-              </h2>
-              <p className="text-sm text-text-tertiary dark:text-text-dark-tertiary">{subtitle}</p>
-            </div>
-
-            <div className="rounded-xl border border-border/50 bg-surface-tertiary p-6 shadow-medium dark:border-border-dark/50 dark:bg-surface-dark-tertiary">
-              {children}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Layout>
-  );
-});
 
 const validateForm = (values: LoginFormData): LoginFormErrors | null => {
   const errors: LoginFormErrors = {};
@@ -96,8 +65,6 @@ const getFieldConfigs = (
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [values, setValues] = useState<LoginFormData>({ email: '', password: '' });
-  const [errors, setErrors] = useState<LoginFormErrors | null>(null);
 
   const loginMutation = useLoginMutation({
     onSuccess: () => {
@@ -106,18 +73,10 @@ export function LoginPage() {
     },
   });
 
-  const handleChange = (name: keyof LoginFormData, value: string) => {
-    setValues((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => {
-      if (!prev?.[name]) {
-        return prev;
-      }
-
-      const rest = { ...prev };
-      delete rest[name];
-      return Object.keys(rest).length ? rest : null;
-    });
-  };
+  const { values, errors, setErrors, handleChange } = useAuthForm<LoginFormData>({
+    email: '',
+    password: '',
+  });
 
   const handleForgotPassword = () => {
     navigate('/forgot-password');
@@ -150,7 +109,7 @@ export function LoginPage() {
         },
       );
     },
-    [loginMutation, navigate, values],
+    [loginMutation, navigate, setErrors, values],
   );
 
   const title = 'Welcome to Agentrove';
@@ -161,12 +120,12 @@ export function LoginPage() {
   const fieldConfigs = getFieldConfigs(handleForgotPassword);
 
   return (
-    <LoginPageLayout title={title} subtitle={subtitle}>
+    <AuthPageLayout title={title} subtitle={subtitle}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="animate-fadeIn rounded-lg border border-error-500/20 bg-error-500/10 p-3">
+          <AuthErrorBanner>
             <p className="text-xs font-medium text-error-600 dark:text-error-400">{error}</p>
-          </div>
+          </AuthErrorBanner>
         )}
 
         <div className="space-y-3.5">
@@ -219,6 +178,6 @@ export function LoginPage() {
           Don{'\u2019'}t have an account? Create one
         </Button>
       </div>
-    </LoginPageLayout>
+    </AuthPageLayout>
   );
 }

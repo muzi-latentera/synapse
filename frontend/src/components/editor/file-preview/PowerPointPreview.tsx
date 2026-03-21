@@ -1,10 +1,11 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { base64ToUint8Array } from '@/utils/base64';
 import type { FileStructure } from '@/types/file-system.types';
 import { Button } from '@/components/ui/primitives/Button';
+import { useAsyncEffect } from '@/hooks/useAsyncEffect';
 import { PreviewContainer } from './PreviewContainer';
-import { previewBackgroundClass } from './previewConstants';
+import { PreviewEmptyState } from './PreviewEmptyState';
 import { getDisplayFileName, isValidBase64 } from './previewUtils';
 
 const TEXT_CONTENT_RE = /<a:t>([^<]+)<\/a:t>/g;
@@ -49,35 +50,17 @@ export const PowerPointPreview = memo(function PowerPointPreview({
   const [isLoading, setIsLoading] = useState(true);
   const fileName = getDisplayFileName(file, 'presentation');
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const finishWithNoData = () => {
-      if (!isMounted) return;
+  useAsyncEffect(
+    async (cancelled) => {
       setSlidesData([]);
       setCurrentSlide(0);
-      setIsLoading(false);
-    };
 
-    if (!file.content) {
-      finishWithNoData();
-      return () => {
-        isMounted = false;
-      };
-    }
+      if (!file.content || !isValidBase64(file.content)) {
+        setIsLoading(false);
+        return;
+      }
 
-    if (!isValidBase64(file.content)) {
-      finishWithNoData();
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    const loadSlides = async (): Promise<void> => {
-      if (!isMounted) return;
       setIsLoading(true);
-      setSlidesData([]);
-      setCurrentSlide(0);
 
       try {
         const bytes = base64ToUint8Array(file.content);
@@ -115,56 +98,43 @@ export const PowerPointPreview = memo(function PowerPointPreview({
           });
         }
 
-        if (!isMounted) return;
+        if (cancelled()) return;
 
         setSlidesData(slides);
         setCurrentSlide(0);
       } catch (error) {
         logger.error('PowerPoint preview load failed', 'PowerPointPreview', error);
-        if (isMounted) {
+        if (!cancelled()) {
           setSlidesData([]);
         }
       } finally {
-        if (isMounted) {
+        if (!cancelled()) {
           setIsLoading(false);
         }
       }
-    };
-
-    void loadSlides();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [file.content]);
+    },
+    [file.content],
+  );
 
   if (isLoading) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={fileName}
+        message="Loading PowerPoint presentation..."
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <p className="text-text-tertiary dark:text-text-dark-tertiary">
-          Loading PowerPoint presentation...
-        </p>
-      </PreviewContainer>
+      />
     );
   }
 
   if (slidesData.length === 0) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={fileName}
+        message="Unable to load PowerPoint presentation"
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <p className="text-text-tertiary dark:text-text-dark-tertiary">
-          Unable to load PowerPoint presentation
-        </p>
-      </PreviewContainer>
+      />
     );
   }
 

@@ -1,9 +1,11 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { base64ToUint8Array } from '@/utils/base64';
 import type { FileStructure } from '@/types/file-system.types';
 import { Button } from '@/components/ui/primitives/Button';
+import { useAsyncEffect } from '@/hooks/useAsyncEffect';
 import { PreviewContainer } from './PreviewContainer';
+import { PreviewEmptyState } from './PreviewEmptyState';
 import { previewBackgroundClass, tableBorderClass } from './previewConstants';
 import { getDisplayFileName, isValidBase64 } from './previewUtils';
 
@@ -29,20 +31,18 @@ export const XlsxPreview = memo(function XlsxPreview({
   const [worksheetData, setWorksheetData] = useState<WorksheetData[]>([]);
   const fileName = getDisplayFileName(file, 'spreadsheet');
 
-  useEffect(() => {
-    setWorksheetData([]);
-    setActiveSheet(0);
+  useAsyncEffect(
+    async (cancelled) => {
+      setWorksheetData([]);
+      setActiveSheet(0);
 
-    if (!file.content || !isValidBase64(file.content)) {
-      return;
-    }
+      if (!file.content || !isValidBase64(file.content)) {
+        return;
+      }
 
-    let cancelled = false;
-
-    (async () => {
       try {
         const XLSX = await import('xlsx');
-        if (cancelled) return;
+        if (cancelled()) return;
 
         const bytes = base64ToUint8Array(file.content!);
         const workbook = XLSX.read(bytes, { type: 'array' });
@@ -82,44 +82,35 @@ export const XlsxPreview = memo(function XlsxPreview({
           return { name: sheetName, data };
         });
 
-        if (!cancelled) setWorksheetData(worksheets);
+        if (!cancelled()) setWorksheetData(worksheets);
       } catch (error) {
         logger.error('XLSX preview load failed', 'XlsxPreview', error);
-        if (!cancelled) setWorksheetData([]);
+        if (!cancelled()) setWorksheetData([]);
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [file.content]);
+    },
+    [file.content],
+  );
 
   if (worksheetData.length === 0) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={fileName}
+        message="Unable to load spreadsheet data"
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <p className="text-text-tertiary dark:text-text-dark-tertiary">
-          Unable to load spreadsheet data
-        </p>
-      </PreviewContainer>
+      />
     );
   }
 
   const currentSheet = worksheetData[activeSheet];
   if (!currentSheet || currentSheet.data.length === 0) {
     return (
-      <PreviewContainer
+      <PreviewEmptyState
         fileName={fileName}
+        message="No data to display"
         isFullscreen={isFullscreen}
         onToggleFullscreen={onToggleFullscreen}
-        contentClassName={`flex items-center justify-center ${previewBackgroundClass}`}
-      >
-        <p className="text-text-tertiary dark:text-text-dark-tertiary">No data to display</p>
-      </PreviewContainer>
+      />
     );
   }
 

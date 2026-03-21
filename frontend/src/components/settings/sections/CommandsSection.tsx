@@ -1,63 +1,47 @@
-import { Suspense, lazy } from 'react';
 import { FileText } from 'lucide-react';
-import { useSettingsContext } from '@/hooks/useSettingsContext';
-import { useFileResourceManagement } from '@/hooks/useFileResourceManagement';
 import { commandService } from '@/services/commandService';
-import { SettingsUploadModal } from '@/components/ui/SettingsUploadModal';
+import { FileResourceSection } from '@/components/settings/sections/FileResourceSection';
+import { lazyNamed } from '@/utils/lazyNamed';
 
-const CommandsSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/CommandsSettingsTab').then((m) => ({
-    default: m.CommandsSettingsTab,
-  })),
+const CommandsSettingsTab = lazyNamed(
+  () => import('@/components/settings/tabs/CommandsSettingsTab'),
+  'CommandsSettingsTab',
 );
-const CommandEditDialog = lazy(() =>
-  import('@/components/settings/dialogs/CommandEditDialog').then((m) => ({
-    default: m.CommandEditDialog,
-  })),
+const CommandEditDialog = lazyNamed(
+  () => import('@/components/settings/dialogs/CommandEditDialog'),
+  'CommandEditDialog',
 );
 
 export function CommandsSection() {
-  const { localSettings, setLocalSettings } = useSettingsContext();
-
-  const commandManagement = useFileResourceManagement(localSettings, setLocalSettings, {
-    settingsKey: 'custom_slash_commands',
-    itemName: 'Command',
-    uploadFn: commandService.uploadCommand,
-    deleteFn: commandService.deleteCommand,
-    updateFn: commandService.updateCommand,
-  });
-
   return (
-    <>
-      <CommandsSettingsTab
-        commands={localSettings.custom_slash_commands ?? null}
-        onAddCommand={commandManagement.handleAdd}
-        onEditCommand={commandManagement.handleEdit}
-        onDeleteCommand={commandManagement.handleDelete}
-      />
-      <SettingsUploadModal
-        isOpen={commandManagement.isDialogOpen}
-        error={commandManagement.uploadError}
-        uploading={commandManagement.isUploading}
-        onClose={commandManagement.handleDialogClose}
-        onUpload={commandManagement.handleUpload}
-        title="Upload Slash Command"
-        acceptedExtension=".md"
-        icon={FileText}
-        hintText="The .md file must include YAML frontmatter with name and description fields. Optional fields: argument-hint, allowed-tools, model."
-      />
-      {commandManagement.isEditDialogOpen && (
-        <Suspense fallback={null}>
-          <CommandEditDialog
-            isOpen={commandManagement.isEditDialogOpen}
-            command={commandManagement.editingItem}
-            error={commandManagement.editError}
-            saving={commandManagement.isSavingEdit}
-            onClose={commandManagement.handleEditDialogClose}
-            onSave={commandManagement.handleSaveEdit}
-          />
-        </Suspense>
+    <FileResourceSection
+      settingsKey="custom_slash_commands"
+      itemName="Command"
+      uploadFn={commandService.uploadCommand}
+      deleteFn={commandService.deleteCommand}
+      updateFn={commandService.updateCommand}
+      uploadTitle="Upload Slash Command"
+      acceptedExtension=".md"
+      uploadIcon={FileText}
+      uploadHint="The .md file must include YAML frontmatter with name and description fields. Optional fields: argument-hint, allowed-tools, model."
+      renderTab={({ items, onAdd, onEdit, onDelete }) => (
+        <CommandsSettingsTab
+          commands={items}
+          onAddCommand={onAdd}
+          onEditCommand={onEdit}
+          onDeleteCommand={onDelete}
+        />
       )}
-    </>
+      renderEditDialog={({ isOpen, item, error, saving, onClose, onSave }) => (
+        <CommandEditDialog
+          isOpen={isOpen}
+          command={item}
+          error={error}
+          saving={saving}
+          onClose={onClose}
+          onSave={onSave}
+        />
+      )}
+    />
   );
 }

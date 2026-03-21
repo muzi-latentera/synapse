@@ -1,13 +1,16 @@
-import { memo, type ReactNode, useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, ArrowLeft, Lock, ArrowRight, Eye, EyeOff, CheckCircle } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
+import { Loader2, ArrowLeft, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { FieldMessage } from '@/components/ui/primitives/FieldMessage';
 import { Input } from '@/components/ui/primitives/Input';
 import { Label } from '@/components/ui/primitives/Label';
 import { useResetPasswordMutation } from '@/hooks/queries/useAuthQueries';
+import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidPassword } from '@/utils/validation';
+import { AuthPageLayout } from '@/pages/AuthPageLayout';
+import { AuthErrorBanner } from '@/pages/AuthErrorBanner';
+import { AuthSuccessScreen } from '@/pages/AuthSuccessScreen';
 
 interface ResetPasswordFormData {
   password: string;
@@ -15,39 +18,6 @@ interface ResetPasswordFormData {
 }
 
 type ResetPasswordFormErrors = Partial<Record<keyof ResetPasswordFormData, string>>;
-
-interface ResetPasswordPageLayoutProps {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}
-
-const ResetPasswordPageLayout = memo(function ResetPasswordPageLayout({
-  title,
-  subtitle,
-  children,
-}: ResetPasswordPageLayoutProps) {
-  return (
-    <Layout isAuthPage={true}>
-      <div className="flex h-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-        <div className="flex flex-1 flex-col items-center justify-center p-4">
-          <div className="relative z-10 w-full max-w-sm space-y-5">
-            <div className="space-y-1.5 text-center">
-              <h2 className="animate-fadeIn text-xl font-semibold text-text-primary dark:text-text-dark-primary">
-                {title}
-              </h2>
-              <p className="text-sm text-text-tertiary dark:text-text-dark-tertiary">{subtitle}</p>
-            </div>
-
-            <div className="rounded-xl border border-border/50 bg-surface-tertiary p-6 shadow-medium dark:border-border-dark/50 dark:bg-surface-dark-tertiary">
-              {children}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Layout>
-  );
-});
 
 const validateForm = (values: ResetPasswordFormData): ResetPasswordFormErrors | null => {
   const errors: ResetPasswordFormErrors = {};
@@ -70,11 +40,6 @@ const validateForm = (values: ResetPasswordFormData): ResetPasswordFormErrors | 
 export function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [values, setValues] = useState<ResetPasswordFormData>({
-    password: '',
-    confirmPassword: '',
-  });
-  const [errors, setErrors] = useState<ResetPasswordFormErrors | null>(null);
   const [visibleFields, setVisibleFields] = useState<Record<keyof ResetPasswordFormData, boolean>>({
     password: false,
     confirmPassword: false,
@@ -84,6 +49,15 @@ export function ResetPasswordPage() {
 
   const resetPasswordMutation = useResetPasswordMutation();
 
+  const resetMutation = useCallback(() => {
+    resetPasswordMutation.reset();
+  }, [resetPasswordMutation]);
+
+  const { values, errors, setErrors, handleChange } = useAuthForm<ResetPasswordFormData>(
+    { password: '', confirmPassword: '' },
+    resetMutation,
+  );
+
   useEffect(() => {
     const tokenParam = searchParams.get('token');
     if (!tokenParam) {
@@ -92,23 +66,6 @@ export function ResetPasswordPage() {
     }
     setToken(tokenParam);
   }, [searchParams]);
-
-  const handleChange = useCallback(
-    (name: keyof ResetPasswordFormData, value: string) => {
-      setValues((prev) => ({ ...prev, [name]: value }));
-      setErrors((prev) => {
-        if (!prev?.[name]) {
-          return prev;
-        }
-
-        const rest = { ...prev };
-        delete rest[name];
-        return Object.keys(rest).length ? rest : null;
-      });
-      resetPasswordMutation.reset();
-    },
-    [resetPasswordMutation],
-  );
 
   const toggleFieldVisibility = useCallback((field: keyof ResetPasswordFormData) => {
     setVisibleFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -137,7 +94,7 @@ export function ResetPasswordPage() {
         password: attemptValues.password,
       });
     },
-    [resetPasswordMutation, token, values],
+    [resetPasswordMutation, setErrors, token, values],
   );
 
   const fieldConfigs = useMemo(
@@ -160,35 +117,24 @@ export function ResetPasswordPage() {
 
   if (!token && !tokenError) {
     return (
-      <ResetPasswordPageLayout title="Loading..." subtitle="Validating reset token">
+      <AuthPageLayout title="Loading..." subtitle="Validating reset token">
         <div className="flex justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-text-quaternary dark:text-text-dark-quaternary" />
         </div>
-      </ResetPasswordPageLayout>
+      </AuthPageLayout>
     );
   }
 
   if (resetPasswordMutation.isSuccess) {
     return (
-      <ResetPasswordPageLayout title="Password Reset" subtitle="Your password has been updated">
-        <div className="space-y-4 text-center">
-          <div className="rounded-lg border border-border/50 bg-surface-hover/50 p-4 dark:border-border-dark/50 dark:bg-surface-dark-hover/50">
-            <CheckCircle className="mx-auto mb-2 h-5 w-5 text-text-primary dark:text-text-dark-primary" />
-            <p className="text-xs font-medium text-text-primary dark:text-text-dark-primary">
-              Password has been reset successfully!
-            </p>
-          </div>
-
-          <p className="text-xs text-text-tertiary dark:text-text-dark-tertiary">
-            You can now log in with your new password.
-          </p>
-
-          <Button onClick={() => navigate('/login')} variant="primary" size="lg" className="w-full">
-            <span>Sign In</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </ResetPasswordPageLayout>
+      <AuthSuccessScreen
+        title="Password Reset"
+        description="Your password has been updated"
+        infoMessage="Password has been reset successfully! You can now log in with your new password."
+        buttonLabel="Sign In"
+        buttonIcon={<ArrowRight className="h-3.5 w-3.5" />}
+        onButtonClick={() => navigate('/login')}
+      />
     );
   }
 
@@ -196,10 +142,10 @@ export function ResetPasswordPage() {
   const subtitle = 'Enter your new password';
 
   return (
-    <ResetPasswordPageLayout title={title} subtitle={subtitle}>
+    <AuthPageLayout title={title} subtitle={subtitle}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {(tokenError || resetPasswordMutation.error) && (
-          <div className="animate-fadeIn rounded-lg border border-error-500/20 bg-error-500/10 p-3">
+          <AuthErrorBanner>
             <p className="text-xs font-medium text-error-600 dark:text-error-400">
               {tokenError || resetPasswordMutation.error?.message}
             </p>
@@ -216,7 +162,7 @@ export function ResetPasswordPage() {
                 </Button>
               </div>
             )}
-          </div>
+          </AuthErrorBanner>
         )}
 
         <div className="space-y-3.5">
@@ -286,6 +232,6 @@ export function ResetPasswordPage() {
           Back to Sign in
         </Button>
       </div>
-    </ResetPasswordPageLayout>
+    </AuthPageLayout>
   );
 }

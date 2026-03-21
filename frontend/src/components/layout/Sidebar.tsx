@@ -18,6 +18,7 @@ import {
   useDeleteWorkspaceMutation,
   useUpdateWorkspaceMutation,
 } from '@/hooks/queries/useWorkspaceQueries';
+import { useToggleSet } from '@/hooks/useToggleSet';
 import { cn } from '@/utils/cn';
 import { useUIStore } from '@/store/uiStore';
 import { useStreamStore } from '@/store/streamStore';
@@ -28,6 +29,21 @@ import { ChatDropdown } from './ChatDropdown';
 import { DROPDOWN_WIDTH, DROPDOWN_HEIGHT, DROPDOWN_MARGIN } from '@/config/constants';
 
 const CHATS_PER_WORKSPACE = 5;
+
+async function mutateWithToast<T>(
+  mutateFn: () => Promise<T>,
+  successMessage: string,
+  failureMessage: string,
+): Promise<T> {
+  try {
+    const result = await mutateFn();
+    toast.success(successMessage);
+    return result;
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : failureMessage);
+    throw error;
+  }
+}
 
 function calculateDropdownPosition(buttonRect: DOMRect): { top: number; left: number } {
   const isMobile = window.innerWidth < 640;
@@ -260,7 +276,8 @@ export function Sidebar({
     () => new Set(activeStreamMetadata.map((meta) => meta.chatId)),
     [activeStreamMetadata],
   );
-  const [collapsedWorkspaces, setCollapsedWorkspaces] = useState<Set<string>>(new Set());
+  const [collapsedWorkspaces, toggleWorkspaceCollapse, setCollapsedWorkspaces] =
+    useToggleSet<string>();
   const [pinnedHoveredId, setPinnedHoveredId] = useState<string | null>(null);
   const [chatToDelete, setChatToDelete] = useState<string | null>(null);
   const [chatToRename, setChatToRename] = useState<Chat | null>(null);
@@ -274,7 +291,7 @@ export function Sidebar({
     workspaceId: string;
     position: { top: number; left: number };
   } | null>(null);
-  const [expandedSubThreads, setExpandedSubThreads] = useState<Set<string>>(new Set());
+  const [expandedSubThreads, toggleSubThreads, setExpandedSubThreads] = useToggleSet<string>();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -294,15 +311,6 @@ export function Sidebar({
 
   const hasAnyContent = pinnedChats.length > 0 || workspaces.length > 0;
 
-  const toggleSubThreads = useCallback((chatId: string) => {
-    setExpandedSubThreads((prev) => {
-      const next = new Set(prev);
-      if (next.has(chatId)) next.delete(chatId);
-      else next.add(chatId);
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
     if (!selectedChatWorkspaceId) return;
     setCollapsedWorkspaces((prev) => {
@@ -311,7 +319,7 @@ export function Sidebar({
       next.delete(selectedChatWorkspaceId);
       return next;
     });
-  }, [selectedChatWorkspaceId]);
+  }, [selectedChatWorkspaceId, setCollapsedWorkspaces]);
 
   useEffect(() => {
     if (!selectedChatParentId) return;
@@ -319,7 +327,7 @@ export function Sidebar({
       if (prev.has(selectedChatParentId)) return prev;
       return new Set(prev).add(selectedChatParentId);
     });
-  }, [selectedChatParentId]);
+  }, [selectedChatParentId, setExpandedSubThreads]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -394,21 +402,21 @@ export function Sidebar({
   }, []);
 
   const confirmDeleteChat = useCallback(async () => {
-    if (chatToDelete) {
-      try {
-        await deleteChat.mutateAsync(chatToDelete);
-        toast.success('Chat deleted successfully');
-
-        if (chatToDelete === selectedChatId || chatToDelete === selectedChatParentId) {
-          navigate('/');
-        }
-
-        onDeleteChat?.(chatToDelete);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to delete chat');
-      } finally {
-        setChatToDelete(null);
+    if (!chatToDelete) return;
+    try {
+      await mutateWithToast(
+        () => deleteChat.mutateAsync(chatToDelete),
+        'Chat deleted successfully',
+        'Failed to delete chat',
+      );
+      if (chatToDelete === selectedChatId || chatToDelete === selectedChatParentId) {
+        navigate('/');
       }
+      onDeleteChat?.(chatToDelete);
+    } catch {
+      // toast already shown by mutateWithToast
+    } finally {
+      setChatToDelete(null);
     }
   }, [chatToDelete, deleteChat, selectedChatId, selectedChatParentId, navigate, onDeleteChat]);
 
@@ -443,17 +451,17 @@ export function Sidebar({
   const handleSaveRename = useCallback(
     async (newTitle: string) => {
       if (!chatToRename) return;
-
       try {
-        await updateChat.mutateAsync({
-          chatId: chatToRename.id,
-          updateData: { title: newTitle },
-        });
-        toast.success('Chat renamed successfully');
+        await mutateWithToast(
+          () =>
+            updateChat.mutateAsync({ chatId: chatToRename.id, updateData: { title: newTitle } }),
+          'Chat renamed successfully',
+          'Failed to rename chat',
+        );
+      } catch {
+        // toast already shown by mutateWithToast
+      } finally {
         setChatToRename(null);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to rename chat');
-        throw error;
       }
     },
     [chatToRename, updateChat],
@@ -464,26 +472,17 @@ export function Sidebar({
       setDropdown(null);
       const isPinned = !!chat.pinned_at;
       try {
-        await pinChat.mutateAsync({ chatId: chat.id, pinned: !isPinned });
-        toast.success(isPinned ? 'Chat unpinned' : 'Chat pinned');
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to update pin status');
+        await mutateWithToast(
+          () => pinChat.mutateAsync({ chatId: chat.id, pinned: !isPinned }),
+          isPinned ? 'Chat unpinned' : 'Chat pinned',
+          'Failed to update pin status',
+        );
+      } catch {
+        // toast already shown by mutateWithToast
       }
     },
     [pinChat],
   );
-
-  const toggleWorkspaceCollapse = useCallback((workspaceId: string) => {
-    setCollapsedWorkspaces((prev) => {
-      const next = new Set(prev);
-      if (next.has(workspaceId)) {
-        next.delete(workspaceId);
-      } else {
-        next.add(workspaceId);
-      }
-      return next;
-    });
-  }, []);
 
   const handleNewWorkspaceThread = useCallback(
     (e: React.MouseEvent, workspaceId: string) => {
@@ -518,15 +517,19 @@ export function Sidebar({
     async (newName: string) => {
       if (!workspaceToRename) return;
       try {
-        await updateWorkspace.mutateAsync({
-          workspaceId: workspaceToRename.id,
-          data: { name: newName },
-        });
-        toast.success('Workspace renamed');
+        await mutateWithToast(
+          () =>
+            updateWorkspace.mutateAsync({
+              workspaceId: workspaceToRename.id,
+              data: { name: newName },
+            }),
+          'Workspace renamed',
+          'Failed to rename workspace',
+        );
+      } catch {
+        // toast already shown by mutateWithToast
+      } finally {
         setWorkspaceToRename(null);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to rename workspace');
-        throw error;
       }
     },
     [workspaceToRename, updateWorkspace],
@@ -540,14 +543,16 @@ export function Sidebar({
   const confirmDeleteWorkspace = useCallback(async () => {
     if (!workspaceToDelete) return;
     try {
-      await deleteWorkspace.mutateAsync(workspaceToDelete);
-      toast.success('Workspace deleted');
-
+      await mutateWithToast(
+        () => deleteWorkspace.mutateAsync(workspaceToDelete),
+        'Workspace deleted',
+        'Failed to delete workspace',
+      );
       if (selectedChatId && selectedChatWorkspaceId === workspaceToDelete) {
         navigate('/');
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete workspace');
+    } catch {
+      // toast already shown by mutateWithToast
     } finally {
       setWorkspaceToDelete(null);
     }

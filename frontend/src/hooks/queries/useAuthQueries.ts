@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { UseMutationOptions, UseQueryOptions } from '@tanstack/react-query';
 import { authService } from '@/services/authService';
 import type { AuthResponse, User } from '@/types/user.types';
+import { createMutation } from './createMutation';
 import { queryKeys } from './queryKeys';
 
 export const useCurrentUserQuery = (options?: Partial<UseQueryOptions<User>>) => {
@@ -18,22 +19,13 @@ interface LoginData {
   password: string;
 }
 
-export const useLoginMutation = (options?: UseMutationOptions<AuthResponse, Error, LoginData>) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: (data: LoginData) => authService.login(data),
-    onSuccess: async (response, variables, context, mutation) => {
-      await queryClient.cancelQueries();
-      queryClient.clear();
-      if (onSuccess) {
-        await onSuccess(response, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
+export const useLoginMutation = createMutation<AuthResponse, Error, LoginData>(
+  (data) => authService.login(data),
+  async (queryClient) => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+  },
+);
 
 interface SignupData {
   email: string;
@@ -41,25 +33,16 @@ interface SignupData {
   password: string;
 }
 
-export const useSignupMutation = (options?: UseMutationOptions<User, Error, SignupData>) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: (data: SignupData) => authService.signup(data),
-    onSuccess: async (response, variables, context, mutation) => {
-      const needsVerification = response.email_verification_required && !response.is_verified;
-      if (!needsVerification && authService.isAuthenticated()) {
-        await queryClient.cancelQueries();
-        queryClient.clear();
-      }
-      if (onSuccess) {
-        await onSuccess(response, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
+export const useSignupMutation = createMutation<User, Error, SignupData>(
+  (data) => authService.signup(data),
+  async (queryClient, response) => {
+    const needsVerification = response.email_verification_required && !response.is_verified;
+    if (!needsVerification && authService.isAuthenticated()) {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+    }
+  },
+);
 
 interface VerifyEmailData {
   token: string;
@@ -114,21 +97,10 @@ export const useResetPasswordMutation = (
   });
 };
 
-export const useLogoutMutation = (options?: UseMutationOptions<void, Error, void>) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: async () => {
-      await authService.logout();
-    },
-    onSuccess: async (response, variables, context, mutation) => {
-      await queryClient.cancelQueries();
-      queryClient.clear();
-      if (onSuccess) {
-        await onSuccess(response, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
+export const useLogoutMutation = createMutation<void, Error, void>(
+  () => authService.logout(),
+  async (queryClient) => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+  },
+);

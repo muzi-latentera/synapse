@@ -1,5 +1,5 @@
-import { memo, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/primitives/Button';
+import { memo, useMemo } from 'react';
+import { SuggestionPanel } from './SuggestionPanel';
 import type { SlashCommand } from '@/types/ui.types';
 
 interface SlashCommandsPanelProps {
@@ -8,67 +8,47 @@ interface SlashCommandsPanelProps {
   onSelect: (command: SlashCommand) => void;
 }
 
+function renderCommand(command: SlashCommand, isActive: boolean) {
+  return (
+    <>
+      <span
+        className={`flex-shrink-0 font-mono text-xs leading-tight ${
+          isActive
+            ? 'text-text-primary dark:text-text-dark-primary'
+            : 'text-text-secondary dark:text-text-dark-secondary'
+        }`}
+      >
+        {command.value}
+      </span>
+      {command.description && (
+        <span className="min-w-0 text-2xs leading-tight text-text-tertiary dark:text-text-dark-tertiary">
+          {command.description}
+        </span>
+      )}
+    </>
+  );
+}
+
+const commandItemKey = (command: SlashCommand) => command.value;
+
 export const SlashCommandsPanel = memo(function SlashCommandsPanel({
   suggestions,
   highlightedIndex,
   onSelect,
 }: SlashCommandsPanelProps) {
-  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  useEffect(() => {
-    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
-      itemRefs.current[highlightedIndex]?.scrollIntoView({
-        block: 'nearest',
-      });
-    }
-  }, [highlightedIndex]);
-
-  if (suggestions.length === 0) return null;
+  const sections = useMemo(
+    () => [
+      {
+        items: suggestions,
+        itemKey: commandItemKey,
+        itemClassName: 'gap-6 px-3 py-1',
+        renderItem: renderCommand,
+      },
+    ],
+    [suggestions],
+  );
 
   return (
-    <div className="absolute bottom-full left-0 right-0 z-40 mb-2">
-      <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-surface shadow-sm dark:border-border-dark dark:bg-surface-dark">
-        <div className="py-1" role="listbox">
-          {suggestions.map((command, index) => {
-            const isActive = index === highlightedIndex;
-            return (
-              <Button
-                key={command.value}
-                ref={(el) => {
-                  itemRefs.current[index] = el;
-                }}
-                type="button"
-                variant="unstyled"
-                role="option"
-                className={`flex w-full items-center gap-6 px-3 py-1 text-left ${
-                  isActive
-                    ? 'bg-surface-active dark:bg-surface-dark-active'
-                    : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover'
-                }`}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  onSelect(command);
-                }}
-              >
-                <span
-                  className={`flex-shrink-0 font-mono text-xs leading-tight ${
-                    isActive
-                      ? 'text-text-primary dark:text-text-dark-primary'
-                      : 'text-text-secondary dark:text-text-dark-secondary'
-                  }`}
-                >
-                  {command.value}
-                </span>
-                {command.description && (
-                  <span className="min-w-0 text-2xs leading-tight text-text-tertiary dark:text-text-dark-tertiary">
-                    {command.description}
-                  </span>
-                )}
-              </Button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+    <SuggestionPanel sections={sections} highlightedIndex={highlightedIndex} onSelect={onSelect} />
   );
 });

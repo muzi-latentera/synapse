@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import { Terminal } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
+import { formatResult } from '@/utils/format';
+import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from './common/ToolCard';
 
 interface BashInput {
@@ -10,18 +12,12 @@ interface BashInput {
   run_in_background?: boolean;
 }
 
-const formatOutput = (result: unknown): string => {
-  if (typeof result === 'string') return result;
-  if (result === null || result === undefined) return '';
-  return JSON.stringify(result, null, 2);
-};
-
 const BashToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as BashInput | undefined;
   const command = input?.command ?? '';
   const description = input?.description;
 
-  const output = formatOutput(tool.result);
+  const output = formatResult(tool.result);
   const hasExpandableContent =
     command.length > 50 || (output.length > 0 && tool.status === 'completed');
 
@@ -58,9 +54,7 @@ const BashToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </pre>
           )}
           {output.length > 0 && tool.status === 'completed' && (
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-2xs leading-relaxed text-text-tertiary dark:text-text-dark-quaternary">
-              {output}
-            </pre>
+            <pre className={TOOL_OUTPUT_PRE_CLASS}>{output}</pre>
           )}
         </div>
       )}

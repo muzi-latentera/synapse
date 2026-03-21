@@ -6,6 +6,8 @@ import { Switch } from '@/components/ui/primitives/Switch';
 import { Textarea } from '@/components/ui/primitives/Textarea';
 import { Plus, X } from 'lucide-react';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
+import { DialogFooter } from '@/components/ui/shared/DialogFooter';
+import { DialogError } from '@/components/ui/shared/DialogError';
 import { useState, useEffect, useRef } from 'react';
 
 interface EnvVarEntry {
@@ -111,11 +113,7 @@ export const McpDialog: React.FC<McpDialogProps> = ({
           {isEditing ? 'Edit MCP Server' : 'Add New MCP Server'}
         </h3>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-border p-3 dark:border-border-dark">
-            <p className="text-xs text-text-secondary dark:text-text-dark-secondary">{error}</p>
-          </div>
-        )}
+        <DialogError error={error} className="mb-4" />
 
         <div className="space-y-4">
           <div>
@@ -308,20 +306,11 @@ export const McpDialog: React.FC<McpDialogProps> = ({
           </div>
         </div>
 
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" onClick={onClose} variant="outline" size="sm">
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={onSubmit}
-            variant="outline"
-            size="sm"
-            className="border-text-primary bg-text-primary text-surface hover:bg-text-secondary dark:border-text-dark-primary dark:bg-text-dark-primary dark:text-surface-dark dark:hover:bg-text-dark-secondary"
-          >
-            {isEditing ? 'Update' : 'Add MCP Server'}
-          </Button>
-        </div>
+        <DialogFooter
+          onCancel={onClose}
+          onSave={onSubmit}
+          saveLabel={isEditing ? 'Update' : 'Add MCP Server'}
+        />
       </div>
     </BaseModal>
   );

@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UseMutationOptions, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
 import { workspaceService } from '@/services/workspaceService';
 import type {
   Workspace,
@@ -9,6 +9,7 @@ import type {
 } from '@/types/workspace.types';
 import type { PaginatedResponse } from '@/types/api.types';
 import type { Chat } from '@/types/chat.types';
+import { createMutation } from './createMutation';
 import { queryKeys } from './queryKeys';
 
 export const useWorkspaceResourcesQuery = (
@@ -34,74 +35,40 @@ export const useWorkspacesQuery = (
   });
 };
 
-export const useCreateWorkspaceMutation = (
-  options?: UseMutationOptions<Workspace, Error, CreateWorkspaceRequest>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
+export const useCreateWorkspaceMutation = createMutation<Workspace, Error, CreateWorkspaceRequest>(
+  (data) => workspaceService.createWorkspace(data),
+  (queryClient) => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+  },
+);
 
-  return useMutation({
-    mutationFn: (data: CreateWorkspaceRequest) => workspaceService.createWorkspace(data),
-    onSuccess: async (newWorkspace, variables, context) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+export const useUpdateWorkspaceMutation = createMutation<
+  Workspace,
+  Error,
+  { workspaceId: string; data: UpdateWorkspaceRequest }
+>(
+  ({ workspaceId, data }) => workspaceService.updateWorkspace(workspaceId, data),
+  (queryClient) => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+  },
+);
 
-      if (onSuccess) {
-        await onSuccess(newWorkspace, variables, context);
+export const useDeleteWorkspaceMutation = createMutation<void, Error, string>(
+  (workspaceId) => workspaceService.deleteWorkspace(workspaceId),
+  async (queryClient, _data, workspaceId) => {
+    const allCachedChats = queryClient.getQueriesData<Chat>({ queryKey: ['chat'] });
+    for (const [, chat] of allCachedChats) {
+      if (chat?.workspace_id === workspaceId) {
+        queryClient.removeQueries({ queryKey: queryKeys.chat(chat.id) });
+        queryClient.removeQueries({ queryKey: queryKeys.messages(chat.id) });
+        queryClient.removeQueries({ queryKey: queryKeys.contextUsage(chat.id) });
+        queryClient.removeQueries({ queryKey: queryKeys.subThreads(chat.id) });
       }
-    },
-    ...restOptions,
-  });
-};
+    }
 
-export const useUpdateWorkspaceMutation = (
-  options?: UseMutationOptions<
-    Workspace,
-    Error,
-    { workspaceId: string; data: UpdateWorkspaceRequest }
-  >,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: ({ workspaceId, data }) => workspaceService.updateWorkspace(workspaceId, data),
-    onSuccess: async (updatedWorkspace, variables, context) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
-
-      if (onSuccess) {
-        await onSuccess(updatedWorkspace, variables, context);
-      }
-    },
-    ...restOptions,
-  });
-};
-
-export const useDeleteWorkspaceMutation = (options?: UseMutationOptions<void, Error, string>) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: (workspaceId: string) => workspaceService.deleteWorkspace(workspaceId),
-    onSuccess: async (data, workspaceId, context) => {
-      const allCachedChats = queryClient.getQueriesData<Chat>({ queryKey: ['chat'] });
-      for (const [, chat] of allCachedChats) {
-        if (chat?.workspace_id === workspaceId) {
-          queryClient.removeQueries({ queryKey: queryKeys.chat(chat.id) });
-          queryClient.removeQueries({ queryKey: queryKeys.messages(chat.id) });
-          queryClient.removeQueries({ queryKey: queryKeys.contextUsage(chat.id) });
-          queryClient.removeQueries({ queryKey: queryKeys.subThreads(chat.id) });
-        }
-      }
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.workspaces }),
-        queryClient.invalidateQueries({ queryKey: [queryKeys.chats] }),
-      ]);
-
-      if (onSuccess) {
-        await onSuccess(data, workspaceId, context);
-      }
-    },
-    ...restOptions,
-  });
-};
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces }),
+      queryClient.invalidateQueries({ queryKey: [queryKeys.chats] }),
+    ]);
+  },
+);

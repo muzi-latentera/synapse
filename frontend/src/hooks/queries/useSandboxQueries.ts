@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import type { UseMutationOptions, UseQueryOptions } from '@tanstack/react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
 import { sandboxService } from '@/services/sandboxService';
 import type {
   DiffMode,
@@ -10,6 +10,7 @@ import type {
   Secret,
   UpdateFileResult,
 } from '@/types/sandbox.types';
+import { createMutation } from './createMutation';
 import { queryKeys } from './queryKeys';
 
 export const usePreviewLinksQuery = (
@@ -79,74 +80,41 @@ interface UpdateFileParams {
   content: string;
 }
 
-export const useUpdateFileMutation = (
-  options?: UseMutationOptions<UpdateFileResult, Error, UpdateFileParams>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: ({ sandboxId, filePath, content }) =>
-      sandboxService.updateFile(sandboxId, filePath, content),
-    onSuccess: async (data, variables, context, mutation) => {
-      const { sandboxId, filePath } = variables;
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sandbox.fileContent(sandboxId, filePath),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
-        }),
-      ]);
-      if (onSuccess) {
-        await onSuccess(data, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
+export const useUpdateFileMutation = createMutation<UpdateFileResult, Error, UpdateFileParams>(
+  ({ sandboxId, filePath, content }) => sandboxService.updateFile(sandboxId, filePath, content),
+  async (queryClient, _data, { sandboxId, filePath }) => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.fileContent(sandboxId, filePath),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
+      }),
+    ]);
+  },
+);
 
 type SecretMutationVariables = { sandboxId: string; key: string; value?: string };
 
-const useSecretMutation = <TVariables extends { sandboxId: string }>(
+function createSecretMutation<TVariables extends { sandboxId: string }>(
   mutationFn: (variables: TVariables) => Promise<void>,
-  options?: UseMutationOptions<void, Error, TVariables>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn,
-    onSuccess: async (data, variables, context, mutation) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.secrets(variables.sandboxId) });
-      if (onSuccess) {
-        await onSuccess(data, variables, context, mutation);
-      }
-    },
-    ...restOptions,
+) {
+  return createMutation<void, Error, TVariables>(mutationFn, (queryClient, _data, variables) => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.secrets(variables.sandboxId) });
   });
-};
+}
 
-export const useAddSecretMutation = (
-  options?: UseMutationOptions<void, Error, SecretMutationVariables>,
-) =>
-  useSecretMutation(
-    ({ sandboxId, key, value }) => sandboxService.addSecret(sandboxId, key, value!),
-    options,
-  );
+export const useAddSecretMutation = createSecretMutation<SecretMutationVariables>(
+  ({ sandboxId, key, value }) => sandboxService.addSecret(sandboxId, key, value!),
+);
 
-export const useUpdateSecretMutation = (
-  options?: UseMutationOptions<void, Error, SecretMutationVariables>,
-) =>
-  useSecretMutation(
-    ({ sandboxId, key, value }) => sandboxService.updateSecret(sandboxId, key, value!),
-    options,
-  );
+export const useUpdateSecretMutation = createSecretMutation<SecretMutationVariables>(
+  ({ sandboxId, key, value }) => sandboxService.updateSecret(sandboxId, key, value!),
+);
 
-export const useDeleteSecretMutation = (
-  options?: UseMutationOptions<void, Error, { sandboxId: string; key: string }>,
-) =>
-  useSecretMutation(({ sandboxId, key }) => sandboxService.deleteSecret(sandboxId, key), options);
+export const useDeleteSecretMutation = createSecretMutation<{ sandboxId: string; key: string }>(
+  ({ sandboxId, key }) => sandboxService.deleteSecret(sandboxId, key),
+);
 
 export const useGitBranchesQuery = (sandboxId: string, enabled: boolean) => {
   return useQuery({
@@ -231,47 +199,25 @@ interface StartBrowserParams {
   url?: string;
 }
 
-export const useStartBrowserMutation = (
-  options?: UseMutationOptions<BrowserStatus, Error, StartBrowserParams>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: ({ sandboxId, url }) => sandboxService.startBrowser(sandboxId, url),
-    onSuccess: async (data, variables, context, mutation) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sandbox.vncUrl(variables.sandboxId),
-        }),
-      ]);
-      if (onSuccess) {
-        await onSuccess(data, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
-
-export const useStopBrowserMutation = (
-  options?: UseMutationOptions<void, Error, { sandboxId: string }>,
-) => {
-  const queryClient = useQueryClient();
-  const { onSuccess, ...restOptions } = options ?? {};
-
-  return useMutation({
-    mutationFn: ({ sandboxId }) => sandboxService.stopBrowser(sandboxId),
-    onSuccess: async (data, variables, context, mutation) => {
-      await queryClient.invalidateQueries({
+export const useStartBrowserMutation = createMutation<BrowserStatus, Error, StartBrowserParams>(
+  ({ sandboxId, url }) => sandboxService.startBrowser(sandboxId, url),
+  async (queryClient, _data, variables) => {
+    await Promise.all([
+      queryClient.invalidateQueries({
         queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
-      });
-      if (onSuccess) {
-        await onSuccess(data, variables, context, mutation);
-      }
-    },
-    ...restOptions,
-  });
-};
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.vncUrl(variables.sandboxId),
+      }),
+    ]);
+  },
+);
+
+export const useStopBrowserMutation = createMutation<void, Error, { sandboxId: string }>(
+  ({ sandboxId }) => sandboxService.stopBrowser(sandboxId),
+  async (queryClient, _data, variables) => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
+    });
+  },
+);
