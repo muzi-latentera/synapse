@@ -33,7 +33,7 @@ from app.services.claude_agent import (
     SessionParams,
     StreamResult,
 )
-from app.services.claude_session_registry import session_registry
+from app.services.claude_session_registry import ChatSession, session_registry
 from app.services.db import SessionFactoryType
 from app.services.provider import ProviderService
 from app.services.exceptions import ClaudeAgentException
@@ -162,6 +162,7 @@ class ChatStreamRuntime:
 
         self.transport: SandboxTransport | None = None
         self.client: ClaudeSDKClient | None = None
+        self._session: ChatSession | None = None
         self.cache: CacheStore | None = None
         self._cancel_event: asyncio.Event | None = None
         self._cancelled: bool = False
@@ -492,6 +493,8 @@ class ChatStreamRuntime:
                     if resolved_model != self.model_id:
                         await self.client.set_model(resolved_model)
                         self.model_id = resolved_model
+                        if self._session:
+                            self._session.current_model = resolved_model
                 queued_permission = queued_msg.get("permission_mode")
                 if queued_permission:
                     sdk_permission = SDK_PERMISSION_MODE_MAP.get(
@@ -1100,10 +1103,15 @@ class ChatStreamRuntime:
             session.active_generation_task = asyncio.current_task()
             runtime.transport = session.transport
             runtime.client = session.client
+            runtime._session = session
             stream: AsyncIterator[StreamEvent] | None = None
             try:
-                if params.options.model:
+                if (
+                    params.options.model
+                    and params.options.model != session.current_model
+                ):
                     await session.client.set_model(params.options.model)
+                    session.current_model = params.options.model
                 if params.options.permission_mode:
                     await session.client.set_permission_mode(
                         params.options.permission_mode

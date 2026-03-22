@@ -31,6 +31,7 @@ class ChatSession:
     transport: SandboxTransport
     client: ClaudeSDKClient
     fingerprint: str
+    current_model: str = ""
     active_generation_task: asyncio.Task[Any] | None = None
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     last_used_at: float = field(default_factory=time.monotonic)
@@ -197,6 +198,7 @@ class SessionRegistry:
             transport=transport,
             client=client,
             fingerprint=fingerprint,
+            current_model=options.model or "",
         )
 
     @staticmethod
