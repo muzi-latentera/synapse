@@ -120,6 +120,7 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
               selectedModelId={selectedModelId}
               onModelChange={setSelectedModelId}
               dropdownPosition="bottom"
+              compact={false}
             />
           </div>
 
