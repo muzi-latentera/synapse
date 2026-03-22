@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import type { Dispatch, FormEvent, SetStateAction } from 'react';
 import { logger } from '@/utils/logger';
 import { QueryClient } from '@tanstack/react-query';
@@ -178,16 +179,17 @@ export function useChatStreaming({
     return () => unsubscribe();
   }, [chatId, onEnvelope, onComplete, onError, onQueueProcess]);
 
-  useEffect(() => {
-    if (prevChatIdRef.current !== chatId) {
-      setStreamState('idle');
-      setCurrentMessageId(null);
-      setError(null);
-      setWasAborted(false);
-      setPendingUserMessageIdState(null);
-      prevChatIdRef.current = chatId;
-    }
+  if (prevChatIdRef.current !== chatId) {
+    prevChatIdRef.current = chatId;
+    setStreamState('idle');
+    setCurrentMessageId(null);
+    setError(null);
+    setWasAborted(false);
+    setPendingUserMessageIdState(null);
+    setMessages([]);
+  }
 
+  useEffect(() => {
     if (!chatId) return;
 
     const syncStreamState = () => {
@@ -300,10 +302,6 @@ export function useChatStreaming({
   }, []);
 
   useEffect(() => {
-    setMessages([]);
-  }, [chatId]);
-
-  useEffect(() => {
     currentMessageIdRef.current = currentMessageId;
   }, [currentMessageId]);
 
@@ -312,12 +310,12 @@ export function useChatStreaming({
     clearInput();
   }, [handleStopStream, clearInput]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     cleanupExpiredPdfBlobs();
     chatStorage.pruneStaleEntries();
     const interval = setInterval(cleanupExpiredPdfBlobs, 1000 * 60 * 30);
     return () => clearInterval(interval);
-  }, []);
+  });
 
   const handleMessageSend = useCallback(
     async (event: FormEvent) => {

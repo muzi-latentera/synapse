@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { Layout } from '@/components/layout/Layout';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
@@ -184,7 +185,7 @@ export default function App() {
 
   useGlobalStream({ enabled: authHydrated && desktopReady });
 
-  useEffect(() => {
+  useMountEffect(() => {
     let cancelled = false;
 
     authStorage
@@ -201,7 +202,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  });
 
   useEffect(() => {
     document.body.classList.remove('light', 'dark');
@@ -213,7 +214,7 @@ export default function App() {
     }
   }, [resolvedTheme]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (!isTauri()) return;
 
     let cancelled = false;
@@ -243,18 +244,18 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  });
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (import.meta.env.DEV || !isTauri()) return;
 
     checkDesktopUpdate().catch((error) => {
       console.error('Desktop updater check failed:', error);
     });
-  }, []);
+  });
 
   // Open external links in the system browser — Tauri doesn't handle target="_blank" natively
-  useEffect(() => {
+  useMountEffect(() => {
     if (!isTauri()) return;
 
     let openUrl: ((url: string) => Promise<void>) | null = null;
@@ -276,7 +277,7 @@ export default function App() {
 
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
-  }, []);
+  });
 
   if (desktopError) {
     return (

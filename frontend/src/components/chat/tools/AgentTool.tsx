@@ -1,4 +1,4 @@
-import React, { use, useMemo, useState, useEffect, lazy, Suspense } from 'react';
+import React, { use, useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { Bot, Maximize2 } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
 import { ToolCard } from './common/ToolCard';
@@ -18,15 +18,17 @@ export const AgentTool: React.FC<AgentToolProps> = ({ tool }) => {
   const [resultExpanded, setResultExpanded] = useState(false);
   const [toolsExpanded, setToolsExpanded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const prevToolIdRef = useRef(tool.id);
 
   const siblingAgents = use(AgentToolsContext);
 
-  useEffect(() => {
+  if (prevToolIdRef.current !== tool.id) {
+    prevToolIdRef.current = tool.id;
     setPromptExpanded(false);
     setResultExpanded(false);
     setToolsExpanded(false);
     setModalOpen(false);
-  }, [tool.id]);
+  }
 
   const prompt = tool.input?.prompt as string | undefined;
   const description = tool.input?.description as string | undefined;

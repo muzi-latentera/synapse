@@ -6,6 +6,7 @@ import {
   type CSSProperties,
   type Ref,
 } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 const THIN_SCROLLBAR_STYLE: CSSProperties = { scrollbarWidth: 'thin' };
@@ -55,13 +56,13 @@ export function Textarea({
     }
   }, [isLoading, isMobile, textareaRef]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, []);
+  });
 
   const debouncedCursorChange = useCallback(
     (position: number) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 
 export function useInitialPrompt() {
@@ -12,11 +12,13 @@ export function useInitialPrompt() {
     return state?.initialPrompt ?? queryParamPrompt ?? null;
   }, [location.state, location.search]);
 
-  useEffect(() => {
+  const prevRoutePromptRef = useRef(initialPromptFromRoute);
+  if (prevRoutePromptRef.current !== initialPromptFromRoute) {
+    prevRoutePromptRef.current = initialPromptFromRoute;
     if (initialPromptFromRoute) {
       setInitialPrompt(initialPromptFromRoute);
     }
-  }, [initialPromptFromRoute]);
+  }
 
   return {
     initialPrompt,

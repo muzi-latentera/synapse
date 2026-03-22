@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -76,10 +77,10 @@ export function LandingPage() {
 
   const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     useChatStore.getState().setCurrentChat(null);
     useUIStore.getState().exitSplitMode();
-  }, []);
+  });
 
   const handleFileAttach = useCallback((files: File[]) => {
     useChatStore.getState().setAttachedFiles(files);

@@ -1,16 +1,17 @@
-import { memo, useState, useEffect, useRef } from 'react';
+import { memo, useState, useRef } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 
 export const ThinkingIndicator = memo(function ThinkingIndicator() {
   const [elapsed, setElapsed] = useState(0);
   const startTime = useRef(Date.now());
 
-  useEffect(() => {
+  useMountEffect(() => {
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTime.current) / 1000));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  });
 
   return (
     <div className="animate-fade-in px-4 pb-1.5 sm:px-6 sm:pb-2">

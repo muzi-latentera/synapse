@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { extractAssistantText } from '@/utils/stream';
 
@@ -13,6 +13,12 @@ interface UseClipboardResult {
 
 export function useClipboard({ chatId }: UseClipboardParams): UseClipboardResult {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const prevChatIdRef = useRef(chatId);
+
+  if (prevChatIdRef.current !== chatId) {
+    prevChatIdRef.current = chatId;
+    setCopiedMessageId(null);
+  }
 
   const handleCopy = useCallback(async (content: string, id: string) => {
     try {
@@ -24,10 +30,6 @@ export function useClipboard({ chatId }: UseClipboardParams): UseClipboardResult
       logger.error('Clipboard copy failed', 'useClipboard', error);
     }
   }, []);
-
-  useEffect(() => {
-    setCopiedMessageId(null);
-  }, [chatId]);
 
   return {
     copiedMessageId,

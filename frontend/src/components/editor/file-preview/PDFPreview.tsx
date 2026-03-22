@@ -1,4 +1,4 @@
-import { memo, useMemo, useState, useEffect } from 'react';
+import { memo, useMemo, useEffect, useState, useRef } from 'react';
 import { logger } from '@/utils/logger';
 import { base64ToUint8Array } from '@/utils/base64';
 import type { FileStructure } from '@/types/file-system.types';
@@ -17,52 +17,35 @@ export const PDFPreview = memo(function PDFPreview({
   isFullscreen = false,
   onToggleFullscreen,
 }: PDFPreviewProps) {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
   const fileName = getDisplayFileName(file, 'document.pdf');
+  const [iframeError, setIframeError] = useState(false);
 
-  const blobUrl = useMemo(() => {
+  const pdfUrl = useMemo(() => {
     if (!file.content || !isValidBase64(file.content)) return null;
 
     try {
       const bytes = base64ToUint8Array(file.content);
       const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' });
       return URL.createObjectURL(blob);
-    } catch (error) {
-      logger.error('PDF preview load failed', 'PDFPreview', error);
+    } catch (err) {
+      logger.error('PDF preview load failed', 'PDFPreview', err);
       return null;
     }
   }, [file.content]);
 
-  useEffect(() => {
-    if (blobUrl) {
-      setPdfUrl(blobUrl);
-      setError(false);
-    } else {
-      setError(true);
-    }
-    setIsLoading(false);
-
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [blobUrl]);
-
-  if (isLoading) {
-    return (
-      <PreviewEmptyState
-        fileName={fileName}
-        message="Loading PDF..."
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={onToggleFullscreen}
-      />
-    );
+  const prevPdfUrlRef = useRef(pdfUrl);
+  if (prevPdfUrlRef.current !== pdfUrl) {
+    prevPdfUrlRef.current = pdfUrl;
+    setIframeError(false);
   }
 
-  if (error || !pdfUrl) {
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+  }, [pdfUrl]);
+
+  if (!pdfUrl || iframeError) {
     return (
       <PreviewEmptyState
         fileName={fileName}
@@ -84,7 +67,7 @@ export const PDFPreview = memo(function PDFPreview({
         src={pdfUrl}
         className="h-full w-full border-0"
         title={fileName}
-        onError={() => setError(true)}
+        onError={() => setIframeError(true)}
       />
     </PreviewContainer>
   );

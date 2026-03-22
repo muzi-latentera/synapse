@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FolderOpen, ChevronRight, MoreHorizontal, SquarePen } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -329,7 +330,7 @@ export function Sidebar({
     });
   }, [selectedChatParentId, setExpandedSubThreads]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -339,9 +340,9 @@ export function Sidebar({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  });
 
-  useEffect(() => {
+  useMountEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdown(null);
@@ -357,14 +358,14 @@ export function Sidebar({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  });
 
   const dropdownStateRef = useRef(dropdown);
   dropdownStateRef.current = dropdown;
   const wsDropdownStateRef = useRef(workspaceDropdown);
   wsDropdownStateRef.current = workspaceDropdown;
 
-  useEffect(() => {
+  useMountEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
 
@@ -375,7 +376,7 @@ export function Sidebar({
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, []);
+  });
 
   const handleChatSelect = useCallback(
     (chatId: string) => {
