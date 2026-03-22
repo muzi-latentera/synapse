@@ -279,7 +279,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
 
   return (
     <div className="flex h-full w-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-      <div className="flex h-9 items-center gap-2 border-b border-border/50 px-3 dark:border-border-dark/50">
+      <div className="flex h-9 items-center gap-1 border-b border-border/50 px-3 dark:border-border-dark/50">
         <Button
           onClick={() => refetch()}
           variant="unstyled"

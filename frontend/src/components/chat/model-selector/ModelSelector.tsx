@@ -29,6 +29,7 @@ export interface ModelSelectorProps {
   onModelChange: (modelId: string) => void;
   dropdownPosition?: 'top' | 'bottom';
   disabled?: boolean;
+  compact?: boolean;
 }
 
 export const ModelSelector = memo(function ModelSelector({
@@ -36,6 +37,7 @@ export const ModelSelector = memo(function ModelSelector({
   onModelChange,
   dropdownPosition = 'bottom',
   disabled = false,
+  compact,
 }: ModelSelectorProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isSplitMode = useIsSplitMode();
@@ -85,8 +87,8 @@ export const ModelSelector = memo(function ModelSelector({
       width="w-64"
       dropdownPosition={dropdownPosition}
       disabled={disabled}
-      compactOnMobile
-      forceCompact={isSplitMode}
+      compactOnMobile={compact ?? true}
+      forceCompact={compact ?? isSplitMode}
       searchable
       searchPlaceholder="Search models..."
       renderItem={(model, isSelected) => (
