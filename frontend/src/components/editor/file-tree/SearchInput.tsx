@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useRef, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { cn } from '@/utils/cn';
@@ -37,7 +38,7 @@ export function SearchInput({
     inputRef.current?.focus();
   };
 
-  useEffect(() => {
+  useMountEffect(() => {
     const handleKeyboardShortcut = (event: globalThis.KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
         const activeElement = document.activeElement;
@@ -55,7 +56,7 @@ export function SearchInput({
 
     window.addEventListener('keydown', handleKeyboardShortcut);
     return () => window.removeEventListener('keydown', handleKeyboardShortcut);
-  }, []);
+  });
 
   return (
     <div role="search" className={cn('relative flex items-center', className)}>

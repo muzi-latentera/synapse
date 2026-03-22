@@ -31,7 +31,6 @@ export const View = memo(function View({
   const previousFileRef = useRef<FileStructure | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [currentContent, setCurrentContent] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
@@ -76,17 +75,11 @@ export const View = memo(function View({
     }
   }, [selectedFile, fileContentData]);
 
-  useEffect(() => {
-    if (fileContentError) {
-      const errorMessage =
-        fileContentError instanceof Error
-          ? fileContentError.message
-          : 'Failed to load file content';
-      setError(errorMessage);
-    } else {
-      setError(null);
-    }
-  }, [fileContentError]);
+  const error = fileContentError
+    ? fileContentError instanceof Error
+      ? fileContentError.message
+      : 'Failed to load file content'
+    : null;
 
   useEffect(() => {
     if (!selectedFile) {
@@ -154,20 +147,24 @@ export const View = memo(function View({
   );
 
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
+  const prevShowPreviewRef = useRef(showPreview);
+  const prevFilePathRef = useRef(selectedFile?.path);
+
+  // Reset fullscreen when preview is hidden or file changes
+  if (
+    prevShowPreviewRef.current !== showPreview ||
+    prevFilePathRef.current !== selectedFile?.path
+  ) {
+    prevShowPreviewRef.current = showPreview;
+    prevFilePathRef.current = selectedFile?.path;
+    if (isPreviewFullscreen) {
+      setIsPreviewFullscreen(false);
+    }
+  }
 
   const handleTogglePreviewFullscreen = useCallback(() => {
     setIsPreviewFullscreen((prev) => !prev);
   }, []);
-
-  useEffect(() => {
-    if (!showPreview) {
-      setIsPreviewFullscreen(false);
-    }
-  }, [showPreview]);
-
-  useEffect(() => {
-    setIsPreviewFullscreen(false);
-  }, [selectedFile?.path]);
 
   useEffect(() => {
     if (!isPreviewFullscreen) return;

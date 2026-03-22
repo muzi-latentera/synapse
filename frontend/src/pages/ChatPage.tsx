@@ -132,15 +132,18 @@ export function ChatPage() {
   const { selectedFile, setSelectedFile, isRefreshing, handleRefresh, handleFileSelect } =
     useEditorState(refetchFilesMetadata);
 
+  const prevChatIdForResetRef = useRef(chatId);
+
   useEffect(() => {
     useChatStore.getState().setCurrentChat(currentChat || null);
   }, [currentChat]);
 
-  useEffect(() => {
+  if (prevChatIdForResetRef.current !== chatId) {
+    prevChatIdForResetRef.current = chatId;
     setSelectedFile(null);
     useUIStore.getState().setCurrentView('agent');
     useUIStore.setState({ pendingFilePath: null, subThreadDialogOpen: false });
-  }, [chatId, setSelectedFile]);
+  }
 
   const pendingFilePath = useUIStore((s) => s.pendingFilePath);
 

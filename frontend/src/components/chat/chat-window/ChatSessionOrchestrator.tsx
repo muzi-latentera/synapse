@@ -177,9 +177,11 @@ export function ChatSessionOrchestrator({
     hasFetchedMessages,
   ]);
 
-  useEffect(() => {
+  const prevChatIdForPromptRef = useRef(chatId);
+  if (prevChatIdForPromptRef.current !== chatId) {
+    prevChatIdForPromptRef.current = chatId;
     setInitialPromptSent(false);
-  }, [chatId, setInitialPromptSent]);
+  }
 
   const chatSessionState = useMemo<ChatSessionState>(
     () => ({

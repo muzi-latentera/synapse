@@ -1,4 +1,4 @@
-import { memo, ReactNode, useState, useEffect, KeyboardEvent } from 'react';
+import { memo, ReactNode, useState, useRef, KeyboardEvent } from 'react';
 import { Check, ChevronDown, LucideIcon, Search, X } from 'lucide-react';
 import { useDropdown } from '@/hooks/useDropdown';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -57,12 +57,14 @@ function DropdownInner<T>({
   const { isOpen, dropdownRef, setIsOpen } = useDropdown();
   const [searchQuery, setSearchQuery] = useState('');
   const isMobile = useIsMobile();
+  const prevIsOpenRef = useRef(isOpen);
 
-  useEffect(() => {
+  if (prevIsOpenRef.current !== isOpen) {
+    prevIsOpenRef.current = isOpen;
     if (!isOpen) {
       setSearchQuery('');
     }
-  }, [isOpen]);
+  }
 
   const filterItems = (itemsToFilter: readonly T[]): T[] => {
     if (!searchQuery.trim()) return itemsToFilter as T[];

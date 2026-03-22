@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 interface UseSuggestionBaseOptions<T> {
   suggestions: T[];
@@ -15,21 +15,24 @@ export const useSuggestionBase = <T>({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const suggestionsRef = useRef(suggestions);
-  suggestionsRef.current = suggestions;
   const hasSuggestionsRef = useRef(hasSuggestions);
-  hasSuggestionsRef.current = hasSuggestions;
   const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
   const highlightedIndexRef = useRef(highlightedIndex);
-  highlightedIndexRef.current = highlightedIndex;
 
-  useEffect(() => {
+  // Reset/clamp highlighted index when suggestions change
+  if (suggestionsRef.current !== suggestions || hasSuggestionsRef.current !== hasSuggestions) {
     if (!hasSuggestions) {
+      if (highlightedIndex !== 0) setHighlightedIndex(0);
+    } else if (highlightedIndex >= suggestions.length) {
       setHighlightedIndex(0);
-      return;
     }
-    setHighlightedIndex((prev) => (prev < suggestions.length ? prev : 0));
-  }, [suggestions, hasSuggestions]);
+  }
+
+  // Always sync refs for handleKeyDown callback access
+  suggestionsRef.current = suggestions;
+  hasSuggestionsRef.current = hasSuggestions;
+  onSelectRef.current = onSelect;
+  highlightedIndexRef.current = highlightedIndex;
 
   const handleKeyDown = useCallback((event: KeyboardEvent<Element>) => {
     if (!hasSuggestionsRef.current) return false;

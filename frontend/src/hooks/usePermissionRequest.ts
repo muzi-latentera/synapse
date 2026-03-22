@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { permissionService } from '@/services/permissionService';
 import { usePermissionStore } from '@/store/permissionStore';
 import { addResolvedRequestId, isRequestResolved } from '@/utils/permissionStorage';
@@ -29,10 +29,12 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
   const pendingRequests = usePermissionStore((state) => state.pendingRequests);
 
   const pendingRequest = chatId ? (pendingRequests.get(chatId) ?? null) : null;
+  const prevRequestIdRef = useRef(pendingRequest?.request_id);
 
-  useEffect(() => {
-    setError(null);
-  }, [pendingRequest?.request_id]);
+  if (prevRequestIdRef.current !== pendingRequest?.request_id) {
+    prevRequestIdRef.current = pendingRequest?.request_id;
+    if (error !== null) setError(null);
+  }
 
   const handlePermissionRequest = useCallback(
     (request: PermissionRequest) => {

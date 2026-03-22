@@ -156,17 +156,19 @@ export const Chat = memo(function Chat() {
   const lastScrollTopRef = useRef<number | null>(null);
   const isAtBottomRef = useRef(true);
   const prevScrollHeightRef = useRef<number | null>(null);
+  const prevChatIdForScrollRef = useRef(chatId);
 
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  useEffect(() => {
+  if (prevChatIdForScrollRef.current !== chatId) {
+    prevChatIdForScrollRef.current = chatId;
     hasInitializedToBottomRef.current = false;
     topPaginationArmedRef.current = false;
     lastScrollTopRef.current = null;
     isAtBottomRef.current = true;
     prevScrollHeightRef.current = null;
     setShowScrollButton(false);
-  }, [chatId]);
+  }
 
   const fetchNextPageRef = useRef(fetchNextPage);
   const hasNextPageRef = useRef(hasNextPage);

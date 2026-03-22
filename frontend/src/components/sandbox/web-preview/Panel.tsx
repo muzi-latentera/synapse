@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useMemo, useEffect } from 'react';
+import { memo, useState, useCallback, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Smartphone, Monitor, ExternalLink } from 'lucide-react';
 import type { PortInfo } from '@/types/sandbox.types';
@@ -49,6 +49,13 @@ export const Panel = memo(function Panel({
   const [deviceView, setDeviceView] = useState<'desktop' | 'mobile'>('desktop');
   const [isLoading, setIsLoading] = useState<boolean>(Boolean(previewUrl));
   const [reloadToken, setReloadToken] = useState(0);
+  const prevPreviewUrlRef = useRef(previewUrl);
+
+  // When previewUrl changes, reset loading state
+  if (prevPreviewUrlRef.current !== previewUrl) {
+    prevPreviewUrlRef.current = previewUrl;
+    setIsLoading(Boolean(previewUrl));
+  }
 
   const iframeKey = useMemo(() => {
     if (!previewUrl) return 'no-preview';
@@ -75,14 +82,6 @@ export const Panel = memo(function Panel({
     setReloadToken((token) => token + 1);
     onRefreshPorts?.();
   }, [previewUrl, onRefreshPorts]);
-
-  useEffect(() => {
-    if (previewUrl) {
-      setIsLoading(true);
-    } else {
-      setIsLoading(false);
-    }
-  }, [previewUrl]);
 
   if (!previewUrl) {
     return (

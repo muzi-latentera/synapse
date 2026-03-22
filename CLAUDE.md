@@ -114,6 +114,12 @@
 - The `components/chat/tools/` directory is exclusively for tool components (one per tool type) — helper modals, dialogs, and detail views triggered by tools belong in `components/chat/` or a relevant feature folder, not in `tools/`
 - Shared UI components used by 2+ feature areas belong in `components/ui/shared/` — do not place them loose in a feature folder just because the first consumer lives there
 
+### useEffect Discipline
+- Never call `useEffect` directly for mount-only effects — use `useMountEffect()` from `hooks/useMountEffect.ts` (`useEffect(fn, [])` wrapper) to make intent explicit and enable lint enforcement
+- Never use `useEffect` to derive state from other state or props — if state is always computable from existing values, use inline computation or `useMemo`; `useEffect(() => setX(f(y)), [y])` causes an unnecessary extra render cycle
+- When state must reset on a prop/ID change, use a ref-based render check instead of `useEffect` — pattern: `const prevRef = useRef(prop); if (prevRef.current !== prop) { prevRef.current = prop; setState(initial); }` — this runs synchronously during render and avoids the effect-induced double render
+- Distinguish "derived state" from "form state initialization" — if local state is a copy of server data that the user then edits independently (e.g., secrets form, settings form), syncing it via `useEffect` on query data change is the correct pattern; do not convert these to inline derivation, as the local state intentionally diverges from the source
+
 ### Component Variants
 - Create explicit variant components instead of one component with many boolean modes (e.g., `ThreadComposer`, `EditComposer` instead of `<Composer isThread isEditing />`)
 - Use `children` for composing static structure; use render props only when the parent needs to pass data back to the child (e.g., `renderItem` in lists)
@@ -139,6 +145,7 @@
 - Do not wrap trivial expressions in `useMemo` (e.g., `useMemo(() => x || [], [x])`) — use direct expressions (`x ?? []`)
 - Hoist regex patterns to module-level constants — never create RegExp inside loops or frequently-called functions
 - Prefer single-pass iteration (`.reduce()`) over chained `.filter().map()` in render paths
+- Keep `useEffect` for external system subscriptions and DOM side effects — keyboard shortcuts, resize observers, WebSocket lifecycle, scroll-into-view, and focus management require post-render timing and cleanup; do not convert these to ref-based render checks
 
 ### Async Patterns
 - Use `Promise.all()` for independent async operations (e.g., multiple `queryClient.invalidateQueries()` calls)
