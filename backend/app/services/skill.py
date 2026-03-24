@@ -16,6 +16,7 @@ from app.constants import (
     MIN_RESOURCE_NAME_LENGTH,
 )
 from app.models.types import CustomSkillDict, EnabledResourceInfo, YamlMetadata
+from app.services.claude_folder_sync import ClaudeFolderSync
 from app.services.exceptions import SkillException
 from app.services.resource import get_resource_base
 from app.utils.yaml_parser import YAMLParser
@@ -59,6 +60,23 @@ class SkillService:
         else:
             self.skills_base_path = get_resource_base() / "skills"
             self.skills_base_path.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def resolve_for(skill_name: str) -> "SkillService":
+        # Same resolution as BaseMarkdownResourceService.resolve_for() — needed here
+        # because SkillService doesn't extend it (directory-based multi-file storage).
+
+        default = SkillService()
+        if default.resource_exists(skill_name):
+            return default
+
+        if ClaudeFolderSync.is_active():
+            for plugin_dir in ClaudeFolderSync.get_active_plugin_paths():
+                svc = SkillService(base_path=plugin_dir / "skills")
+                if svc.resource_exists(skill_name):
+                    return svc
+
+        return default
 
     def _get_skill_path(self, skill_name: str) -> Path:
         return self.skills_base_path / skill_name

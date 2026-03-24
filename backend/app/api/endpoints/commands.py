@@ -55,14 +55,15 @@ async def update_command(
 ) -> CustomSlashCommandDict:
     validate_name_or_400(command_service.validate_exact_sanitized_name, command_name)
 
-    if not command_service.resource_exists(command_name):
+    resolved = CommandService.resolve_for(command_name)
+    if not resolved.resource_exists(command_name):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Command '{command_name}' not found",
         )
 
     try:
-        updated_command = await command_service.update(command_name, request.content)
+        updated_command = await resolved.update(command_name, request.content)
     except CommandException as e:
         raise_bad_request_from_service(e)
 
@@ -82,10 +83,11 @@ async def delete_command(
 ) -> CommandDeleteResponse:
     validate_name_or_400(command_service.validate_exact_sanitized_name, command_name)
 
-    if not command_service.resource_exists(command_name):
+    resolved = CommandService.resolve_for(command_name)
+    if not resolved.resource_exists(command_name):
         return CommandDeleteResponse(status=DeleteResponseStatus.NOT_FOUND.value)
 
-    await command_service.delete(command_name)
+    await resolved.delete(command_name)
 
     await prune_installed_component(
         user_service=user_service,

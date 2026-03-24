@@ -3,7 +3,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Generic, NoReturn, TypeVar
+from typing import Generic, NoReturn, Self, TypeVar
 
 from fastapi import UploadFile
 
@@ -21,6 +21,7 @@ from app.models.types import (
     ParsedResourceResult,
     YamlMetadata,
 )
+from app.services.claude_folder_sync import ClaudeFolderSync
 from app.services.exceptions import ServiceException
 from app.utils.yaml_parser import YAMLParser
 
@@ -77,6 +78,25 @@ class BaseMarkdownResourceService(ABC, Generic[T]):
         else:
             self.base_path = get_resource_base() / self._get_storage_folder()
             self.base_path.mkdir(parents=True, exist_ok=True)
+
+    @classmethod
+    def resolve_for(cls, name: str) -> Self:
+        # Plugin-installed resources (e.g., from ~/.claude/plugins/*/agents/) appear in
+        # the settings list but live outside the default storage path — this finds the
+        # right service instance so API endpoints can read/edit/delete them.
+
+        default = cls()
+        if default.resource_exists(name):
+            return default
+
+        if ClaudeFolderSync.is_active():
+            folder = default._get_storage_folder()
+            for plugin_dir in ClaudeFolderSync.get_active_plugin_paths():
+                svc = cls(base_path=plugin_dir / folder)
+                if svc.resource_exists(name):
+                    return svc
+
+        return default
 
     @abstractmethod
     def _get_storage_folder(self) -> str:
