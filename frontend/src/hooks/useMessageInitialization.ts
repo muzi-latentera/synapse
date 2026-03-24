@@ -74,14 +74,13 @@ export function useMessageInitialization({
       chatStorage.setEventId(chatId, String(latestKnownSeq));
     }
 
-    initializedChatRef.current = chatId;
-
     if (
       initialPromptFromRoute &&
       formattedMessages.length === 0 &&
       !initialPromptSent &&
       selectedModelId
     ) {
+      initializedChatRef.current = chatId;
       const initialMessage = createInitialMessage(
         initialPromptFromRoute,
         attachedFiles,
@@ -91,6 +90,7 @@ export function useMessageInitialization({
       setMessages([initialMessage]);
       setInitialPrompt(initialPromptFromRoute);
     } else if (formattedMessages.length > 0) {
+      initializedChatRef.current = chatId;
       setMessages(formattedMessages);
     }
   }, [
