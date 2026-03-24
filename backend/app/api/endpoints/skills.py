@@ -56,10 +56,11 @@ async def delete_skill(
 ) -> SkillDeleteResponse:
     validate_name_or_400(skill_service.validate_exact_sanitized_name, skill_name)
 
-    if not skill_service.resource_exists(skill_name):
+    resolved = SkillService.resolve_for(skill_name)
+    if not resolved.resource_exists(skill_name):
         return SkillDeleteResponse(status=DeleteResponseStatus.NOT_FOUND.value)
 
-    await skill_service.delete(skill_name)
+    await resolved.delete(skill_name)
 
     await prune_installed_component(
         user_service=user_service,
@@ -79,8 +80,9 @@ async def get_skill_files(
 ) -> SkillFilesResponse:
     validate_name_or_400(skill_service.validate_exact_sanitized_name, skill_name)
 
+    resolved = SkillService.resolve_for(skill_name)
     try:
-        files = skill_service.get_files(skill_name)
+        files = resolved.get_files(skill_name)
     except SkillException as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
@@ -97,7 +99,8 @@ async def update_skill(
 ) -> CustomSkillDict:
     validate_name_or_400(skill_service.validate_exact_sanitized_name, skill_name)
 
-    if not skill_service.resource_exists(skill_name):
+    resolved = SkillService.resolve_for(skill_name)
+    if not resolved.resource_exists(skill_name):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Skill '{skill_name}' not found",
@@ -108,7 +111,7 @@ async def update_skill(
             {"path": f.path, "content": f.content, "is_binary": f.is_binary}
             for f in request.files
         ]
-        updated_skill = skill_service.update(skill_name, files_data)
+        updated_skill = resolved.update(skill_name, files_data)
     except SkillException as e:
         raise_bad_request_from_service(e)
 

@@ -55,14 +55,15 @@ async def update_agent(
 ) -> CustomAgentDict:
     validate_name_or_400(agent_service.validate_exact_sanitized_name, agent_name)
 
-    if not agent_service.resource_exists(agent_name):
+    resolved = AgentService.resolve_for(agent_name)
+    if not resolved.resource_exists(agent_name):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Agent '{agent_name}' not found",
         )
 
     try:
-        updated_agent = await agent_service.update(agent_name, request.content)
+        updated_agent = await resolved.update(agent_name, request.content)
     except AgentException as e:
         raise_bad_request_from_service(e)
 
@@ -82,10 +83,11 @@ async def delete_agent(
 ) -> AgentDeleteResponse:
     validate_name_or_400(agent_service.validate_exact_sanitized_name, agent_name)
 
-    if not agent_service.resource_exists(agent_name):
+    resolved = AgentService.resolve_for(agent_name)
+    if not resolved.resource_exists(agent_name):
         return AgentDeleteResponse(status=DeleteResponseStatus.NOT_FOUND.value)
 
-    await agent_service.delete(agent_name)
+    await resolved.delete(agent_name)
 
     await prune_installed_component(
         user_service=user_service,
