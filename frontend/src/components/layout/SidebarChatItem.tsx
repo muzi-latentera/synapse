@@ -62,31 +62,26 @@ export const SidebarChatItem = memo(function SidebarChatItem({
       onMouseEnter={() => onMouseEnter(chat.id)}
       onMouseLeave={onMouseLeave}
     >
-      {hasSubThreads && onToggleSubThreads && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSubThreads(chat.id);
-          }}
-          className="mr-1 flex-shrink-0 rounded p-0.5 text-text-quaternary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
-        >
-          <ChevronRight
-            className={cn(
-              'h-2.5 w-2.5 transition-transform duration-200',
-              isSubThreadsExpanded && 'rotate-90',
-            )}
-          />
-        </button>
-      )}
       <Button
         onClick={() => onSelect(chat.id)}
         aria-current={isSelected ? 'page' : undefined}
         variant="unstyled"
-        className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs"
+        className="flex min-w-0 flex-1 items-center text-left text-xs"
       >
         {isChatStreaming && (
-          <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-text-tertiary dark:text-text-dark-tertiary" />
+          <Loader2 className="mr-2.5 h-3 w-3 flex-shrink-0 animate-spin text-text-tertiary dark:text-text-dark-tertiary" />
+        )}
+        {hasSubThreads && onToggleSubThreads && (
+          <ChevronRight
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSubThreads(chat.id);
+            }}
+            className={cn(
+              '-ml-1.5 mr-0.5 h-3 w-3 flex-shrink-0 cursor-pointer text-text-quaternary transition-all duration-200 hover:text-text-primary dark:text-text-dark-quaternary dark:hover:text-text-dark-primary',
+              isSubThreadsExpanded && 'rotate-90',
+            )}
+          />
         )}
         <span className="flex-1 truncate">{chat.title}</span>
         {isPinned && (

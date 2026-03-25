@@ -68,10 +68,10 @@ export const SubThreadList = memo(function SubThreadList({
                   : 'text-text-secondary hover:bg-surface-hover dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover',
               )}
             >
-              <span className="truncate text-xs">{thread.title}</span>
               {isStreaming && (
                 <Loader2 className="h-3 w-3 shrink-0 animate-spin text-text-quaternary dark:text-text-dark-quaternary" />
               )}
+              <span className="truncate text-xs">{thread.title}</span>
             </button>
             <Button
               onClick={(e) => onDropdownClick(e, thread)}
