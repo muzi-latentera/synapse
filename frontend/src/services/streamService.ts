@@ -170,13 +170,18 @@ class StreamService {
       chatStorage.setEventId(chatId, String(seq));
     }
 
+    // Queue handoff events carry the old assistant message ID but must be processed
+    // before the messageId filter — they update the stream's messageId for subsequent events.
+    if (parsed.kind === 'queue_processing') {
+      this.maybeHandleQueueEvent(parsed, chatId);
+    }
+
     const isForActiveMessage = parsed.messageId === currentStream.messageId;
     if (!isForActiveMessage) {
       return;
     }
 
     currentStream.callbacks?.onEnvelope?.(parsed);
-    this.maybeHandleQueueEvent(parsed, chatId);
 
     if (parsed.kind === 'complete' || parsed.kind === 'cancelled') {
       const { callbacks } = currentStream;

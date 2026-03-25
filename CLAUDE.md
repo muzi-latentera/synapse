@@ -119,6 +119,7 @@
 - Never use `useEffect` to derive state from other state or props — if state is always computable from existing values, use inline computation or `useMemo`; `useEffect(() => setX(f(y)), [y])` causes an unnecessary extra render cycle
 - When state must reset on a prop/ID change, use a ref-based render check instead of `useEffect` — pattern: `const prevRef = useRef(prop); if (prevRef.current !== prop) { prevRef.current = prop; setState(initial); }` — this runs synchronously during render and avoids the effect-induced double render
 - Distinguish "derived state" from "form state initialization" — if local state is a copy of server data that the user then edits independently (e.g., secrets form, settings form), syncing it via `useEffect` on query data change is the correct pattern; do not convert these to inline derivation, as the local state intentionally diverges from the source
+- `useEffect` cleanup closures must not rely on hook-scoped utilities that close over the current entity ID (e.g., `updateMessageInCache` scoped to the rendered `chatId`) when the cleanup may serve sessions from a different entity — use refs or the underlying API directly (e.g., `queryClient.setQueryData` with `session.chatId`) to target the correct entity
 
 ### Component Variants
 - Create explicit variant components instead of one component with many boolean modes (e.g., `ThreadComposer`, `EditComposer` instead of `<Composer isThread isEditing />`)
@@ -145,6 +146,7 @@
 - Do not wrap trivial expressions in `useMemo` (e.g., `useMemo(() => x || [], [x])`) — use direct expressions (`x ?? []`)
 - Hoist regex patterns to module-level constants — never create RegExp inside loops or frequently-called functions
 - Prefer single-pass iteration (`.reduce()`) over chained `.filter().map()` in render paths
+- When reordering a function call to run earlier in a per-event hot path (e.g., stream envelope processing), gate the call with the cheapest possible condition check at the call site — avoid paying function-call overhead for the 99% of events that will just early-return
 - Keep `useEffect` for external system subscriptions and DOM side effects — keyboard shortcuts, resize observers, WebSocket lifecycle, scroll-into-view, and focus management require post-render timing and cleanup; do not convert these to ref-based render checks
 
 ### Async Patterns
