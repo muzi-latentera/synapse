@@ -731,9 +731,7 @@ export function useStreamCallbacks({
           }
           return {
             ...oldData,
-            pages: oldData.pages.map((page, idx) =>
-              idx === 0 ? { ...page, items } : page,
-            ),
+            pages: oldData.pages.map((page, idx) => (idx === 0 ? { ...page, items } : page)),
           };
         },
       );
