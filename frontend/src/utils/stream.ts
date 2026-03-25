@@ -13,6 +13,9 @@ interface ParseCacheEntry {
   events: AssistantStreamEvent[];
 }
 
+// LRU-style parse cache: avoids re-parsing the same content_text on every render.
+// Keyed by a length+prefix+suffix fingerprint for long strings to avoid Map
+// key bloat. Capped at 20 entries with FIFO eviction.
 const PARSE_CACHE_MAX_SIZE = 20;
 const parseCache = new Map<string, ParseCacheEntry>();
 
@@ -22,6 +25,9 @@ function getContentKey(content: string): string {
     : content;
 }
 
+// Content starting with "[" is treated as a JSON event array; anything else
+// is wrapped as a single assistant_text event (backward compat with plain-text
+// messages).
 function parseEventLogUncached(content: string): AssistantStreamEvent[] {
   const trimmed = content.trim();
   if (!trimmed) {
@@ -81,7 +87,11 @@ export interface ContentRenderSnapshot {
   events?: AssistantStreamEvent[];
 }
 
-export class StreamingContentAccumulator {
+// Collects streaming events and text fragments as they arrive from the SSE
+// pipeline. Maintains a parallel textParts array so getContentText() is a
+// cheap join rather than a full events scan. Seeded from existing message
+// content on reconnection so resumed streams append rather than restart.
+export class StreamContentBuffer {
   private events: AssistantStreamEvent[];
   private textParts: string[];
 

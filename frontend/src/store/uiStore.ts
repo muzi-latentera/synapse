@@ -49,6 +49,9 @@ export const useUIStore = create<UIStoreState>()(
       setSubThreadDialogOpen: (open) => set({ subThreadDialogOpen: open }),
 
       pendingFilePath: null,
+      // Sets the pending file path and ensures the editor pane is visible.
+      // On mobile, switches to the editor view. On desktop, adds an editor
+      // tile to the mosaic layout if one isn't already present.
       openFileInEditor: (path) => {
         set({ pendingFilePath: path });
         const isMobile = typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
@@ -144,6 +147,8 @@ export const useUIStore = create<UIStoreState>()(
         }
       },
 
+      // Shift-click adds the view as a new tile in the mosaic (split mode);
+      // regular click switches to it as the sole view.
       handleViewClick: (view, isShiftClick) => {
         if (
           isShiftClick &&

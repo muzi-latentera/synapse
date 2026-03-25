@@ -24,8 +24,10 @@ interface UseStreamReconnectParams {
   replayStream: (messageId: string, afterSeq?: number) => Promise<string>;
 }
 
-// Handles reconnecting to active streams when returning to a chat.
-// Checks if server has an active task and replays the stream from where it left off.
+// On chat entry (navigation, page refresh), polls the server for an active task,
+// resolves the replay cursor from the highest of (server last_seq, local chatStorage
+// seq, message last_seq), then replays the SSE stream from that point so the UI
+// catches up without re-fetching the full history.
 export function useStreamReconnect({
   chatId,
   fetchedMessages,
@@ -53,7 +55,7 @@ export function useStreamReconnect({
 
     let cancelled = false;
 
-    const checkActiveTask = async () => {
+    const reconnectToActiveStream = async () => {
       try {
         if (useStreamStore.getState().getStreamByChat(chatId)) return;
 
@@ -65,14 +67,14 @@ export function useStreamReconnect({
 
         if (!targetMessageId) {
           const msgs = fetchedMessagesRef.current;
-          let latestAssistantMessage: Message | undefined;
+          let lastAssistantMessage: Message | undefined;
           for (let i = msgs.length - 1; i >= 0; i--) {
             if (msgs[i].role === 'assistant') {
-              latestAssistantMessage = msgs[i];
+              lastAssistantMessage = msgs[i];
               break;
             }
           }
-          targetMessageId = latestAssistantMessage?.id;
+          targetMessageId = lastAssistantMessage?.id;
         }
 
         if (!targetMessageId) return;
@@ -83,6 +85,8 @@ export function useStreamReconnect({
         const messages = fetchedMessagesRef.current;
         const existingMessage = messages.find((msg) => msg.id === targetMessageId);
         const messageExists = existingMessage != null;
+        // Snapshot the message's current content before replay so we can
+        // restore it if the replay connection fails partway through.
         const previousSnapshot = existingMessage
           ? {
               content_text: existingMessage.content_text,
@@ -92,6 +96,9 @@ export function useStreamReconnect({
             }
           : null;
 
+        // Pick the highest known seq across three sources: server status, local
+        // storage (persisted across page refreshes), and the message's own cursor.
+        // Whichever is highest is the safest point to resume from without duplicates.
         const reconnectSeq = status.last_seq ?? existingMessage?.last_seq ?? 0;
         const storedSeqRaw = chatStorage.getEventId(chatId);
         const storedSeq = storedSeqRaw ? Number(storedSeqRaw) : Number.NaN;
@@ -108,6 +115,9 @@ export function useStreamReconnect({
           chatStorage.removeEventId(chatId);
         }
 
+        // If the message isn't in the local cache yet (e.g., it was created while
+        // the user was on a different chat), inject a placeholder so the replay
+        // pipeline has a target message to write content into.
         if (!messageExists) {
           const placeholderMessage: Message = {
             id: targetMessageId,
@@ -159,7 +169,7 @@ export function useStreamReconnect({
       }
     };
 
-    const timeoutId = setTimeout(checkActiveTask, 100);
+    const timeoutId = setTimeout(reconnectToActiveStream, 100);
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);

@@ -1,3 +1,7 @@
+// Tracks recently resolved permission request IDs in localStorage so that
+// duplicate SSE permission_request envelopes (e.g., after reconnection) are
+// silently ignored instead of re-showing the approval dialog. Capped at 100
+// entries to bound storage usage.
 const RESOLVED_REQUESTS_KEY = 'agentrove_resolved_permission_requests';
 const MAX_RESOLVED_REQUESTS = 100;
 

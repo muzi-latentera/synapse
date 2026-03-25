@@ -7,6 +7,9 @@ interface UseDragAndDropOptions {
 
 export function useDragAndDrop({ onFilesDrop, disabled = false }: UseDragAndDropOptions = {}) {
   const [isDragging, setIsDragging] = useState(false);
+  // Tracks enter/leave balance across child elements — dragenter/dragleave
+  // fire for every descendant, so a simple boolean would flicker. Only reset
+  // isDragging when the counter reaches 0 (cursor left the drop zone entirely).
   const dragCounter = useRef(0);
 
   const handleDragIn = useCallback(

@@ -10,6 +10,9 @@ export function getLeaves(node: MosaicLayoutNode): ViewType[] {
   return [...getLeaves(node.first), ...getLeaves(node.second)];
 }
 
+// Converts our internal binary-tree layout to the react-mosaic n-ary format.
+// Flattens consecutive splits in the same direction into a single children
+// array with proportional percentages so the library renders correct sizes.
 export function mosaicLayoutToLibrary(node: MosaicLayoutNode): MosaicNode<string> {
   if (typeof node === 'string') return node;
 
@@ -49,6 +52,10 @@ function flattenSameDirection(
   flattenSameDirection(node.second, direction, scalePct * secondRatio, out, pcts);
 }
 
+// Converts react-mosaic's n-ary/legacy/tabs format back to our internal
+// binary-tree model. Handles three incoming shapes: n-ary splits (right-folded
+// into binary pairs), legacy binary splits, and tab groups (flattened to the
+// active tab since our model doesn't support tabs).
 export function libraryToMosaicLayout(node: MosaicNode<string> | null): MosaicLayoutNode | null {
   if (node === null) return null;
   if (typeof node === 'string') return node as ViewType;
