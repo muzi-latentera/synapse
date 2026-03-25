@@ -27,6 +27,31 @@ import type { PaginatedMessages } from '@/types/api.types';
 // and the query cache. 130ms collects a visible chunk of text per paint cycle.
 const STREAM_FLUSH_INTERVAL_MS = 130;
 
+// Cross-chat cache mutators: unlike the hook-scoped useMessageCache (which
+// closes over the currently viewed chatId), these target a specific chat by
+// explicit parameter — needed when off-screen streams flush or finalize into
+// a chat the user has navigated away from.
+function updateMessageInCacheForChat(
+  queryClient: QueryClient,
+  chatId: string,
+  messageId: string,
+  updater: (msg: Message) => Message,
+) {
+  queryClient.setQueryData(
+    queryKeys.messages(chatId),
+    (oldData: { pages: PaginatedMessages[]; pageParams: unknown[] } | undefined) => {
+      if (!oldData?.pages) return oldData;
+      return {
+        ...oldData,
+        pages: oldData.pages.map((page: PaginatedMessages) => ({
+          ...page,
+          items: page.items.map((msg: Message) => (msg.id === messageId ? updater(msg) : msg)),
+        })),
+      };
+    },
+  );
+}
+
 function findMessageInCache(
   queryClient: QueryClient,
   chatId: string,
@@ -244,10 +269,10 @@ export function useStreamCallbacks({
       }
 
       if (writeToCache) {
-        updateMessageInCache(session.messageId, update);
+        updateMessageInCacheForChat(queryClient, session.chatId, session.messageId, update);
       }
     },
-    [setMessages, updateMessageInCache],
+    [setMessages, queryClient],
   );
 
   // Coalescing timer: only one pending flush per stream. Multiple envelopes arriving
@@ -330,30 +355,13 @@ export function useStreamCallbacks({
 
       // Flush any pending content to the query cache before clearing,
       // so content already cursor-acked in chatStorage is not lost on unmount.
-      // Write directly via queryClient using session.chatId — the hook-level
-      // updateMessageInCache is scoped to the current chatId, which may differ
-      // from the session's owning chat after cross-chat navigation.
       for (const [streamId, timer] of flushTimers.entries()) {
         clearTimeout(timer);
         const buffer = buffers.get(streamId);
         const session = streamSessions.get(streamId);
         if (buffer && session) {
           const update = buildContentFlushUpdate(streamId, buffer, session);
-          queryClient.setQueryData(
-            queryKeys.messages(session.chatId),
-            (oldData: { pages: PaginatedMessages[]; pageParams: unknown[] } | undefined) => {
-              if (!oldData?.pages) return oldData;
-              return {
-                ...oldData,
-                pages: oldData.pages.map((page: PaginatedMessages) => ({
-                  ...page,
-                  items: page.items.map((msg: Message) =>
-                    msg.id === session.messageId ? update(msg) : msg,
-                  ),
-                })),
-              };
-            },
-          );
+          updateMessageInCacheForChat(queryClient, session.chatId, session.messageId, update);
         }
       }
       flushTimers.clear();
@@ -512,6 +520,10 @@ export function useStreamCallbacks({
       const resolvedStreamId = streamId ?? findStreamIdByMessage(messageId);
       const isCancelled = terminalKind === 'cancelled';
       const isCurrentChat = chatId === chatIdRef.current;
+      // Capture before clearStreamSession deletes it
+      const sessionChatId = resolvedStreamId
+        ? streamSessionsRef.current.get(resolvedStreamId)?.chatId
+        : undefined;
 
       if (resolvedStreamId) {
         flushBufferedContent(resolvedStreamId, { writeToCache: true });
@@ -528,7 +540,10 @@ export function useStreamCallbacks({
           active_stream_id: null,
           stream_status: isCancelled ? 'interrupted' : 'completed',
         });
-        updateMessageInCache(messageId, finalizeMessage);
+        const targetChatId = sessionChatId ?? chatId;
+        if (targetChatId) {
+          updateMessageInCacheForChat(queryClient, targetChatId, messageId, finalizeMessage);
+        }
         if (isCurrentChat) {
           setMessages((prev) =>
             prev.map((msg) => (msg.id === messageId ? finalizeMessage(msg) : msg)),
@@ -593,7 +608,6 @@ export function useStreamCallbacks({
       setPendingUserMessageId,
       setStreamState,
       settings?.notifications_enabled,
-      updateMessageInCache,
     ],
   );
 
@@ -601,6 +615,9 @@ export function useStreamCallbacks({
     (streamError: Error, assistantMessageId?: string, streamId?: string) => {
       const resolvedStreamId = streamId ?? findStreamIdByMessage(assistantMessageId);
       const isCurrentChat = chatId === chatIdRef.current;
+      const sessionChatId = resolvedStreamId
+        ? streamSessionsRef.current.get(resolvedStreamId)?.chatId
+        : undefined;
 
       if (resolvedStreamId) {
         flushBufferedContent(resolvedStreamId, { writeToCache: true });
@@ -616,7 +633,10 @@ export function useStreamCallbacks({
           active_stream_id: null,
           stream_status: 'failed',
         });
-        updateMessageInCache(assistantMessageId, markFailed);
+        const targetChatId = sessionChatId ?? chatId;
+        if (targetChatId) {
+          updateMessageInCacheForChat(queryClient, targetChatId, assistantMessageId, markFailed);
+        }
         if (isCurrentChat) {
           setMessages((prev) =>
             prev.map((msg) => (msg.id === assistantMessageId ? markFailed(msg) : msg)),
@@ -635,7 +655,7 @@ export function useStreamCallbacks({
       flushBufferedContent,
       chatId,
       clearStreamSession,
-      updateMessageInCache,
+      queryClient,
       findStreamIdByMessage,
       setCurrentMessageId,
       setError,
@@ -696,8 +716,25 @@ export function useStreamCallbacks({
 
       // Cache updates must run even for off-screen chats so returning
       // within the staleTime window shows the queued continuation messages.
-      addMessageToCache(userMessage);
-      addMessageToCache(assistantMessage);
+      // Batch both messages into a single setQueryData call to avoid double
+      // cache churn and subscriber notifications.
+      queryClient.setQueryData(
+        queryKeys.messages(chatId),
+        (oldData: { pages: PaginatedMessages[]; pageParams: unknown[] } | undefined) => {
+          if (!oldData?.pages || oldData.pages.length === 0) return oldData;
+          const items = [...oldData.pages[0].items];
+          if (!items.some((msg) => msg.id === userMessage.id)) {
+            items.unshift(userMessage);
+          }
+          if (!items.some((msg) => msg.id === assistantMessage.id)) {
+            items.unshift(assistantMessage);
+          }
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page, idx) => (idx === 0 ? { ...page, items } : page)),
+          };
+        },
+      );
 
       if (!isCurrentChat) return;
 
@@ -708,8 +745,8 @@ export function useStreamCallbacks({
       flushBufferedContent,
       chatId,
       clearStreamSession,
+      queryClient,
       setMessages,
-      addMessageToCache,
       setCurrentMessageId,
     ],
   );
