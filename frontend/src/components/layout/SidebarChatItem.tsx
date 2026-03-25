@@ -69,7 +69,7 @@ export const SidebarChatItem = memo(function SidebarChatItem({
         className="flex min-w-0 flex-1 items-center text-left text-xs"
       >
         {isChatStreaming && (
-          <Loader2 className="mr-1.5 h-3 w-3 flex-shrink-0 animate-spin text-text-tertiary dark:text-text-dark-tertiary" />
+          <Loader2 className="mr-2.5 h-3 w-3 flex-shrink-0 animate-spin text-text-tertiary dark:text-text-dark-tertiary" />
         )}
         {hasSubThreads && onToggleSubThreads && (
           <ChevronRight
