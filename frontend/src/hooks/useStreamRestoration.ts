@@ -11,6 +11,10 @@ interface UseStreamRestorationOptions {
   enabled?: boolean;
 }
 
+// After the chat list loads, writes StreamMetadata entries for any chat (or
+// sub-thread) with an active backend task so the sidebar can show streaming
+// indicators without waiting for the user to open each chat. Checks the 20
+// most recent chats to keep the fan-out bounded.
 export function useStreamRestoration({
   chats,
   isLoading,
@@ -25,10 +29,10 @@ export function useStreamRestoration({
 
     hasRestoredRef.current = true;
 
-    const restoreStreamMetadata = async () => {
+    const discoverActiveStreams = async () => {
       const chatsToCheck = chats.slice(0, 20);
 
-      const checkAndRestore = async (chatId: string) => {
+      const checkAndRegister = async (chatId: string) => {
         try {
           const status = await chatService.checkChatStatus(chatId);
           if (status?.has_active_task && status.message_id) {
@@ -47,9 +51,9 @@ export function useStreamRestoration({
         }
       };
 
-      const checkPromises = chatsToCheck
+      const chatCheckPromises = chatsToCheck
         .filter((chat) => chat?.id)
-        .map((chat) => checkAndRestore(chat.id));
+        .map((chat) => checkAndRegister(chat.id));
 
       // Fetch sub-threads for parents that have them and check each for active
       // streams. This fans out into N additional requests per parent — acceptable
@@ -59,7 +63,7 @@ export function useStreamRestoration({
         .map(async (chat) => {
           try {
             const subThreads = await chatService.getSubThreads(chat.id);
-            await Promise.allSettled(subThreads.map((sub) => checkAndRestore(sub.id)));
+            await Promise.allSettled(subThreads.map((sub) => checkAndRegister(sub.id)));
           } catch (error) {
             logger.error('Failed to restore sub-thread streams', 'useStreamRestoration', {
               chatId: chat.id,
@@ -68,10 +72,10 @@ export function useStreamRestoration({
           }
         });
 
-      await Promise.allSettled([...checkPromises, ...subThreadPromises]);
+      await Promise.allSettled([...chatCheckPromises, ...subThreadPromises]);
     };
 
-    restoreStreamMetadata().catch((error) => {
+    discoverActiveStreams().catch((error) => {
       logger.error('Stream restoration failed', 'useStreamRestoration', error);
     });
   }, [chats, isLoading, enabled]);

@@ -6,25 +6,28 @@ import { chatService } from '@/services/chatService';
 
 interface UseGlobalStreamOptions {
   enabled?: boolean;
-  onValidationComplete?: () => void;
+  onPruneComplete?: () => void;
 }
 
+// On app mount, reconciles the in-memory stream store with the server — streams
+// tracked locally (e.g., across a page refresh) but no longer active on the
+// backend get pruned so the UI doesn't show stale "streaming" indicators.
 export function useGlobalStream(options?: UseGlobalStreamOptions) {
-  const hasValidatedRef = useRef(false);
+  const hasPrunedRef = useRef(false);
   const enabled = options?.enabled ?? true;
-  const onValidationComplete = options?.onValidationComplete;
+  const onPruneComplete = options?.onPruneComplete;
 
   useEffect(() => {
     if (!enabled) return;
-    if (hasValidatedRef.current) return;
-    hasValidatedRef.current = true;
+    if (hasPrunedRef.current) return;
+    hasPrunedRef.current = true;
 
-    const validateStreams = async () => {
+    const pruneStaleStreams = async () => {
       const metadata = useStreamStore.getState().activeStreamMetadata;
 
       if (metadata.length === 0) return;
 
-      const validationPromises = metadata.map(async (streamMeta) => {
+      const prunePromises = metadata.map(async (streamMeta) => {
         try {
           const status = await chatService.checkChatStatus(streamMeta.chatId);
 
@@ -32,19 +35,19 @@ export function useGlobalStream(options?: UseGlobalStreamOptions) {
             useStreamStore.getState().removeStreamMetadata(streamMeta.chatId);
           }
         } catch (error) {
-          logger.error('Stream validation failed', 'useGlobalStream', error);
+          logger.error('Stream prune check failed', 'useGlobalStream', error);
           useStreamStore.getState().removeStreamMetadata(streamMeta.chatId);
         }
       });
 
-      await Promise.allSettled(validationPromises);
-      onValidationComplete?.();
+      await Promise.allSettled(prunePromises);
+      onPruneComplete?.();
     };
 
-    const timeoutId = setTimeout(validateStreams, 500);
+    const timeoutId = setTimeout(pruneStaleStreams, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [enabled, onValidationComplete]);
+  }, [enabled, onPruneComplete]);
 
   const stopAllStreams = useCallback(async () => {
     await streamService.stopAllStreams();

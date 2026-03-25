@@ -18,6 +18,10 @@ interface UseMessageInitializationParams {
   setInitialPrompt: (prompt: string) => void;
 }
 
+// Normalizes fetched messages (attachment file types, default fields) and
+// seeds local state. Also handles the "initial prompt" flow where a new chat
+// is created from a route param or navigation state — injects a synthetic
+// user message so the chat starts without waiting for the first API round-trip.
 export function useMessageInitialization({
   fetchedMessages,
   chatId,
@@ -40,7 +44,7 @@ export function useMessageInitialization({
     // but always allow initialization when switching to a different chat
     if (isStreaming && initializedChatRef.current === chatId) return;
 
-    const formattedMessages = fetchedMessages.map((msg: Message) => {
+    const normalizedMessages = fetchedMessages.map((msg: Message) => {
       const processedAttachments = msg.attachments?.map((attachment) => {
         const fileType = detectFileType(
           attachment.filename || '',
@@ -66,7 +70,9 @@ export function useMessageInitialization({
       };
     });
 
-    const latestKnownSeq = formattedMessages.reduce((maxSeq, message) => {
+    // Persist the highest seq from fetched messages so stream reconnection
+    // (useStreamReconnect) can resume from the correct cursor on page refresh.
+    const latestKnownSeq = normalizedMessages.reduce((maxSeq, message) => {
       const seq = Number(message.last_seq ?? 0);
       return Number.isFinite(seq) && seq > maxSeq ? seq : maxSeq;
     }, 0);
@@ -76,7 +82,7 @@ export function useMessageInitialization({
 
     if (
       initialPromptFromRoute &&
-      formattedMessages.length === 0 &&
+      normalizedMessages.length === 0 &&
       !initialPromptSent &&
       selectedModelId
     ) {
@@ -89,9 +95,9 @@ export function useMessageInitialization({
       );
       setMessages([initialMessage]);
       setInitialPrompt(initialPromptFromRoute);
-    } else if (formattedMessages.length > 0) {
+    } else if (normalizedMessages.length > 0) {
       initializedChatRef.current = chatId;
-      setMessages(formattedMessages);
+      setMessages(normalizedMessages);
     }
   }, [
     fetchedMessages,

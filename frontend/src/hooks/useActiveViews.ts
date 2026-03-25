@@ -11,6 +11,9 @@ function arraysEqual(a: ViewType[], b: ViewType[]): boolean {
   return true;
 }
 
+// Derives the list of visible view panes from the mosaic layout. Uses a ref
+// to return a referentially stable array when the leaf set hasn't changed,
+// preventing downstream re-renders from Zustand selector identity changes.
 export function useActiveViews(): ViewType[] {
   const prevRef = useRef<ViewType[]>([]);
 

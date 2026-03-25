@@ -44,6 +44,9 @@ export const useChatSettingsStore = create<ChatSettingsState>()(
         set((state) => ({
           personaByChat: { ...state.personaByChat, [chatId]: name },
         })),
+      // Copies the __default__ settings to a newly created chat so the user's
+      // toolbar defaults (permission mode, thinking, worktree, persona) carry
+      // over without requiring explicit selection each time.
       initChatFromDefaults: (chatId) => {
         const state = get();
         const permission = state.permissionModeByChat[DEFAULT_KEY];

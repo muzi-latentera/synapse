@@ -21,6 +21,10 @@ function isExpiredRequestError(error: unknown): boolean {
   return (error as ApiError)?.status === 404;
 }
 
+// Manages the tool-permission approval flow for a single chat. Reads the
+// pending request from the global permission store, sends approve/reject
+// responses to the backend, and auto-dismisses 404s (expired requests where
+// the backend already timed out or the stream moved on).
 export function usePermissionRequest(chatId: string | undefined): UsePermissionRequestReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +35,8 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
   const pendingRequest = chatId ? (pendingRequests.get(chatId) ?? null) : null;
   const prevRequestIdRef = useRef(pendingRequest?.request_id);
 
+  // Clear stale error when a new permission request arrives, so errors from
+  // a previous request don't bleed into the new approval dialog.
   if (prevRequestIdRef.current !== pendingRequest?.request_id) {
     prevRequestIdRef.current = pendingRequest?.request_id;
     if (error !== null) setError(null);

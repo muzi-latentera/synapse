@@ -68,6 +68,8 @@ const safeRemoveItem = (key: string): void => {
   }
 };
 
+// Singleton promise — ensures only one Tauri store load is in flight at a time.
+// Cleared on failure so the next call retries rather than returning a stale rejection.
 let desktopStorePromise: Promise<AuthStoreBackend | null> | null = null;
 
 async function getDesktopAuthStore(): Promise<AuthStoreBackend | null> {
@@ -134,6 +136,10 @@ function initTokenCacheFromLocalStorage(): void {
   tokenCacheInitialized = true;
 }
 
+// Dual-backend auth token storage: uses the Tauri secure store on desktop and
+// localStorage in the browser. An in-memory cache (`cachedToken`) avoids async
+// reads on the hot path (every API request reads the token synchronously via
+// `getToken()`). Writes propagate to the backing store asynchronously.
 export const authStorage = {
   hydrate: async (): Promise<void> => {
     if (tokenCacheInitialized) {
@@ -225,6 +231,10 @@ export const authStorage = {
   },
 };
 
+// Per-chat SSE cursor persistence: stores the last-seen seq number in
+// localStorage so stream reconnection can resume from the right point after
+// a page refresh. Entries are pruned to MAX_CHAT_EVENT_ID_ENTRIES (500) by
+// evicting the lowest seq values to prevent unbounded localStorage growth.
 export const chatStorage = {
   getEventId: (chatId: string): string | null =>
     safeGetItem(`${CHAT_EVENT_ID_PREFIX}${chatId}${CHAT_EVENT_ID_SUFFIX}`),

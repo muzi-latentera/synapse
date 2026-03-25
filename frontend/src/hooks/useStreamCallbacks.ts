@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { QueryClient } from '@tanstack/react-query';
-import { StreamingContentAccumulator, type ContentRenderSnapshot } from '@/utils/stream';
+import { StreamContentBuffer, type ContentRenderSnapshot } from '@/utils/stream';
 import { notifyStreamComplete } from '@/utils/notifications';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
@@ -45,13 +45,13 @@ function createEmptyRenderSnapshot(): ContentRenderSnapshot {
   return { events: [] };
 }
 
-function buildProjectionUpdate(
+function buildContentFlushUpdate(
   streamId: string,
-  accumulator: StreamingContentAccumulator,
+  buffer: StreamContentBuffer,
   session: StreamSessionState,
 ): (msg: Message) => Message {
-  const nextRender = accumulator.snapshot();
-  const nextText = accumulator.getContentText();
+  const nextRender = buffer.snapshot();
+  const nextText = buffer.getContentText();
   const nextSeq = session.lastSeq;
   return (msg: Message): Message => ({
     ...msg,
@@ -62,6 +62,9 @@ function buildProjectionUpdate(
   });
 }
 
+// Side-effect-only envelope kinds (system, permission_request) are handled
+// upstream in onEnvelope — this function only converts content-bearing kinds
+// into the AssistantStreamEvent shape consumed by the buffer.
 function envelopeToRenderEvent(envelope: StreamEnvelope): AssistantStreamEvent | null {
   const payload = envelope.payload as Record<string, unknown>;
 
@@ -151,6 +154,10 @@ interface StreamSessionState {
   chatId: string;
 }
 
+// Core streaming pipeline: receives raw SSE envelopes, buffers renderable
+// content per stream, and flushes batched updates to React state and the query
+// cache on a 130ms coalescing timer. Also owns the start/replay/stop lifecycle
+// and the terminal handlers (complete, error, queue continuation).
 export function useStreamCallbacks({
   messages,
   chatId,
@@ -181,7 +188,7 @@ export function useStreamCallbacks({
   const pendingUserMessageIdRef = useRef<string | null>(null);
   const messagesRef = useRef<Message[]>(messages);
   const timerIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const accumulatorsRef = useRef<Map<string, StreamingContentAccumulator>>(new Map());
+  const buffersRef = useRef<Map<string, StreamContentBuffer>>(new Map());
   const flushTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const streamSessionsRef = useRef<Map<string, StreamSessionState>>(new Map());
   const chatIdRef = useRef(chatId);
@@ -202,11 +209,11 @@ export function useStreamCallbacks({
       flushTimersRef.current.delete(streamId);
     }
 
-    accumulatorsRef.current.delete(streamId);
+    buffersRef.current.delete(streamId);
     streamSessionsRef.current.delete(streamId);
   }, []);
 
-  const resolveStreamIdForMessage = useCallback((messageId?: string): string | undefined => {
+  const findStreamIdByMessage = useCallback((messageId?: string): string | undefined => {
     if (!messageId) return undefined;
 
     for (const [streamId, session] of streamSessionsRef.current.entries()) {
@@ -218,17 +225,17 @@ export function useStreamCallbacks({
     return undefined;
   }, []);
 
-  // Snapshot the accumulator's collected content into both React state (for the
-  // visible chat) and the query cache (so navigating away and back shows progress).
-  // Only updates React state when the session's chat is the one on screen — off-screen
-  // streams still write to the cache so content isn't lost.
-  const applyProjection = useCallback(
+  // Writes the buffer's collected tokens to React state (live chat) and/or
+  // the query cache (so navigating away and back preserves progress). Only touches
+  // React state when the session's chat is on screen — off-screen streams still
+  // write to the cache so content isn't lost on chat switch.
+  const flushBufferedContent = useCallback(
     (streamId: string, { writeToCache }: { writeToCache: boolean }) => {
-      const accumulator = accumulatorsRef.current.get(streamId);
+      const buffer = buffersRef.current.get(streamId);
       const session = streamSessionsRef.current.get(streamId);
-      if (!accumulator || !session) return;
+      if (!buffer || !session) return;
 
-      const update = buildProjectionUpdate(streamId, accumulator, session);
+      const update = buildContentFlushUpdate(streamId, buffer, session);
 
       if (session.chatId === chatIdRef.current) {
         setMessages((prevMessages) =>
@@ -244,8 +251,8 @@ export function useStreamCallbacks({
   );
 
   // Coalescing timer: only one pending flush per stream. Multiple envelopes arriving
-  // within the same 130ms window are batched into a single applyProjection call.
-  const scheduleProjection = useCallback(
+  // within the same 130ms window are batched into a single flushBufferedContent call.
+  const scheduleContentFlush = useCallback(
     (streamId: string) => {
       if (flushTimersRef.current.has(streamId)) {
         return;
@@ -253,25 +260,25 @@ export function useStreamCallbacks({
 
       const timer = setTimeout(() => {
         flushTimersRef.current.delete(streamId);
-        applyProjection(streamId, { writeToCache: true });
+        flushBufferedContent(streamId, { writeToCache: true });
       }, STREAM_FLUSH_INTERVAL_MS);
 
       flushTimersRef.current.set(streamId, timer);
     },
-    [applyProjection],
+    [flushBufferedContent],
   );
 
-  // Returns (or creates) the accumulator for a stream. On first call for a given
-  // streamId, seeds the accumulator from the message's existing content so that
+  // Returns (or creates) the content buffer for a stream. On first call for a
+  // given streamId, seeds the buffer from the message's existing content so that
   // reconnections append to prior content rather than starting from blank.
-  const ensureAccumulator = useCallback(
+  const ensureBuffer = useCallback(
     (
       streamId: string,
       messageId: string,
       seq: number,
       streamChatId: string,
-    ): StreamingContentAccumulator => {
-      const existing = accumulatorsRef.current.get(streamId);
+    ): StreamContentBuffer => {
+      const existing = buffersRef.current.get(streamId);
       if (existing) {
         const existingSession = streamSessionsRef.current.get(streamId);
         if (existingSession) {
@@ -295,15 +302,15 @@ export function useStreamCallbacks({
         seedText = existingMessage.content_text ?? '';
       }
 
-      const accumulator = new StreamingContentAccumulator(seedEvents, seedText);
-      accumulatorsRef.current.set(streamId, accumulator);
+      const buffer = new StreamContentBuffer(seedEvents, seedText);
+      buffersRef.current.set(streamId, buffer);
       streamSessionsRef.current.set(streamId, {
         messageId,
         lastSeq: seq,
         chatId: streamChatId,
       });
 
-      return accumulator;
+      return buffer;
     },
     [queryClient],
   );
@@ -314,24 +321,24 @@ export function useStreamCallbacks({
 
   useEffect(() => {
     const flushTimers = flushTimersRef.current;
-    const accumulators = accumulatorsRef.current;
+    const buffers = buffersRef.current;
     const streamSessions = streamSessionsRef.current;
 
     return () => {
       timerIdsRef.current.forEach(clearTimeout);
       timerIdsRef.current = [];
 
-      // Flush any pending projections to the query cache before clearing,
+      // Flush any pending content to the query cache before clearing,
       // so content already cursor-acked in chatStorage is not lost on unmount.
       // Write directly via queryClient using session.chatId — the hook-level
       // updateMessageInCache is scoped to the current chatId, which may differ
       // from the session's owning chat after cross-chat navigation.
       for (const [streamId, timer] of flushTimers.entries()) {
         clearTimeout(timer);
-        const accumulator = accumulators.get(streamId);
+        const buffer = buffers.get(streamId);
         const session = streamSessions.get(streamId);
-        if (accumulator && session) {
-          const update = buildProjectionUpdate(streamId, accumulator, session);
+        if (buffer && session) {
+          const update = buildContentFlushUpdate(streamId, buffer, session);
           queryClient.setQueryData(
             queryKeys.messages(session.chatId),
             (oldData: { pages: PaginatedMessages[]; pageParams: unknown[] } | undefined) => {
@@ -351,7 +358,7 @@ export function useStreamCallbacks({
       }
       flushTimers.clear();
 
-      accumulators.clear();
+      buffers.clear();
       streamSessions.clear();
     };
   }, []);
@@ -367,7 +374,7 @@ export function useStreamCallbacks({
   // Central dispatch for every envelope arriving from the EventSource. Handles
   // side-effect-only events (permissions, system metadata, plan mode transitions)
   // inline, then delegates renderable content (text, thinking, tools) to the
-  // accumulator → scheduleProjection pipeline for batched UI updates.
+  // buffer → scheduleContentFlush pipeline for batched UI updates.
   const onEnvelope = useCallback(
     (envelope: StreamEnvelope) => {
       if (pendingStopRef.current.has(envelope.messageId)) {
@@ -464,13 +471,13 @@ export function useStreamCallbacks({
         return;
       }
 
-      const accumulator = ensureAccumulator(
+      const buffer = ensureBuffer(
         envelope.streamId,
         envelope.messageId,
         envelope.seq,
         envelope.chatId,
       );
-      accumulator.push(renderEvent);
+      buffer.push(renderEvent);
 
       const session = streamSessionsRef.current.get(envelope.streamId);
       if (session) {
@@ -478,31 +485,36 @@ export function useStreamCallbacks({
         session.messageId = envelope.messageId;
       }
 
-      scheduleProjection(envelope.streamId);
+      scheduleContentFlush(envelope.streamId);
     },
     [
       chatId,
-      ensureAccumulator,
+      ensureBuffer,
       onContextUsageUpdate,
       onPermissionRequest,
       pendingStopRef,
-      scheduleProjection,
+      scheduleContentFlush,
       setPendingUserMessageId,
     ],
   );
 
+  // Terminal handler for a finished stream. Flushes any buffered content,
+  // clears per-stream session state, marks the message as completed/interrupted,
+  // and triggers post-stream side effects (notifications, file metadata refresh,
+  // usage/context invalidation). Runs for both on-screen and off-screen chats
+  // so the cache stays consistent, but only resets UI state for the active chat.
   const onComplete = useCallback(
     (
       messageId?: string,
       streamId?: string,
       terminalKind: 'complete' | 'cancelled' = 'complete',
     ) => {
-      const resolvedStreamId = streamId ?? resolveStreamIdForMessage(messageId);
+      const resolvedStreamId = streamId ?? findStreamIdByMessage(messageId);
       const isCancelled = terminalKind === 'cancelled';
       const isCurrentChat = chatId === chatIdRef.current;
 
       if (resolvedStreamId) {
-        applyProjection(resolvedStreamId, { writeToCache: true });
+        flushBufferedContent(resolvedStreamId, { writeToCache: true });
       }
 
       // Session cleanup is stateless and safe for any chat; always run it.
@@ -568,14 +580,14 @@ export function useStreamCallbacks({
       }
     },
     [
-      applyProjection,
+      flushBufferedContent,
       chatId,
       clearStreamSession,
       currentChat?.sandbox_id,
       currentChat?.parent_chat_id,
       queryClient,
       refetchFilesMetadata,
-      resolveStreamIdForMessage,
+      findStreamIdByMessage,
       setCurrentMessageId,
       setMessages,
       setPendingUserMessageId,
@@ -587,11 +599,11 @@ export function useStreamCallbacks({
 
   const onError = useCallback(
     (streamError: Error, assistantMessageId?: string, streamId?: string) => {
-      const resolvedStreamId = streamId ?? resolveStreamIdForMessage(assistantMessageId);
+      const resolvedStreamId = streamId ?? findStreamIdByMessage(assistantMessageId);
       const isCurrentChat = chatId === chatIdRef.current;
 
       if (resolvedStreamId) {
-        applyProjection(resolvedStreamId, { writeToCache: true });
+        flushBufferedContent(resolvedStreamId, { writeToCache: true });
       }
       clearStreamSession(resolvedStreamId);
 
@@ -620,11 +632,11 @@ export function useStreamCallbacks({
       setPendingUserMessageId(null);
     },
     [
-      applyProjection,
+      flushBufferedContent,
       chatId,
       clearStreamSession,
       updateMessageInCache,
-      resolveStreamIdForMessage,
+      findStreamIdByMessage,
       setCurrentMessageId,
       setError,
       setMessages,
@@ -633,6 +645,9 @@ export function useStreamCallbacks({
     ],
   );
 
+  // Handles queue continuation — when the backend picks up a queued follow-up
+  // message, this injects the new user+assistant message pair into both the cache
+  // and React state, and flushes any stale sessions from the previous turn.
   const onQueueProcess = useCallback(
     (data: QueueProcessingData) => {
       if (!chatId) return;
@@ -644,7 +659,7 @@ export function useStreamCallbacks({
         if (session.chatId !== chatId || session.messageId === data.assistantMessageId) {
           continue;
         }
-        applyProjection(streamId, { writeToCache: true });
+        flushBufferedContent(streamId, { writeToCache: true });
         clearStreamSession(streamId);
       }
 
@@ -690,7 +705,7 @@ export function useStreamCallbacks({
       setCurrentMessageId(data.assistantMessageId);
     },
     [
-      applyProjection,
+      flushBufferedContent,
       chatId,
       clearStreamSession,
       setMessages,

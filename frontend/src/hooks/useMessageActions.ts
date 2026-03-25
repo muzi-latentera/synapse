@@ -34,11 +34,17 @@ interface UseMessageActionsParams {
   isStreaming: boolean;
 }
 
+// Detects a leftover empty assistant message (e.g., from a previous failed
+// stream start) so sendMessage can replace it rather than stacking duplicates.
 const isEmptyBotPlaceholder = (msg?: Message) =>
   !!msg?.is_bot &&
   (!msg?.content_render?.events || msg.content_render.events.length === 0) &&
   !msg.content_text;
 
+// Exposes two layers: `sendMessage` opens the SSE stream and injects the
+// assistant placeholder into state; `handleMessageSend` is the form-level
+// wrapper that validates input size, creates the optimistic user message,
+// and rolls it back on failure.
 export function useMessageActions({
   chatId,
   selectedModelId,
@@ -120,6 +126,7 @@ export function useMessageActions({
           model_id: selectedModelId ?? undefined,
         };
 
+        // Replace a trailing empty placeholder if present, otherwise append.
         setMessages((prev) => {
           const lastMessage = prev[prev.length - 1];
           if (isEmptyBotPlaceholder(lastMessage)) {
