@@ -22,7 +22,11 @@ export const queryKeys = {
     gitDiff: (sandboxId: string, mode: DiffMode, fullContext: boolean = false, cwd?: string) =>
       ['sandbox', sandboxId, 'git-diff', mode, fullContext, cwd] as const,
     gitDiffAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-diff'] as const,
-    gitBranches: (sandboxId: string) => ['sandbox', sandboxId, 'git-branches'] as const,
+    gitBranches: (sandboxId: string, cwd?: string) =>
+      ['sandbox', sandboxId, 'git-branches', cwd] as const,
+    gitBranchesAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-branches'] as const,
+    gitRemoteUrl: (sandboxId: string, cwd?: string) =>
+      ['sandbox', sandboxId, 'git-remote-url', cwd] as const,
   },
   workspaces: ['workspaces'] as const,
   workspaceResources: (workspaceId: string) => ['workspaces', workspaceId, 'resources'] as const,
@@ -39,5 +43,9 @@ export const queryKeys = {
   },
   github: {
     repos: (query: string) => ['github-repos', query] as const,
+    pulls: (owner: string, repo: string) => ['github-pulls', owner, repo] as const,
+    prComments: (owner: string, repo: string, number: number) =>
+      ['github-pr-comments', owner, repo, number] as const,
+    collaborators: (owner: string, repo: string) => ['github-collaborators', owner, repo] as const,
   },
 } as const;

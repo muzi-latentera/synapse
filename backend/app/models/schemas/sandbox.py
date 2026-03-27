@@ -84,9 +84,34 @@ class GitBranchesResponse(BaseModel):
 
 class GitCheckoutRequest(BaseModel):
     branch: str = Field(..., min_length=1, max_length=256)
+    cwd: str | None = None
 
 
 class GitCheckoutResponse(BaseModel):
     success: bool
     current_branch: str
     error: str | None = None
+
+
+class GitCreateBranchRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=256)
+    base_branch: str | None = None
+    cwd: str | None = None
+
+
+class GitCreateBranchResponse(BaseModel):
+    success: bool
+    current_branch: str
+    error: str | None = None
+
+
+class GitPushPullResponse(BaseModel):
+    success: bool
+    output: str
+    error: str | None = None
+
+
+class GitRemoteUrlResponse(BaseModel):
+    owner: str
+    repo: str
+    remote_url: str

@@ -8,7 +8,10 @@ import type {
   FileMetadata,
   GitBranchesData,
   GitCheckoutData,
+  GitCreateBranchResult,
   GitDiffData,
+  GitPushPullResult,
+  GitRemoteUrlData,
   PortInfo,
   Secret,
   UpdateFileResult,
@@ -238,24 +241,82 @@ async function getGitDiff(
   });
 }
 
-async function getGitBranches(sandboxId: string): Promise<GitBranchesData> {
+async function getGitBranches(sandboxId: string, cwd?: string): Promise<GitBranchesData> {
   validateRequired(sandboxId, 'Sandbox ID');
 
   return serviceCall(async () => {
-    const response = await apiClient.get<GitBranchesData>(`/sandbox/${sandboxId}/git/branches`);
+    const qs = buildQueryString({ cwd: cwd || undefined });
+    const response = await apiClient.get<GitBranchesData>(
+      `/sandbox/${sandboxId}/git/branches${qs}`,
+    );
     return response ?? { branches: [], current_branch: '', is_git_repo: false };
   });
 }
 
-async function checkoutGitBranch(sandboxId: string, branch: string): Promise<GitCheckoutData> {
+async function checkoutGitBranch(
+  sandboxId: string,
+  branch: string,
+  cwd?: string,
+): Promise<GitCheckoutData> {
   validateRequired(sandboxId, 'Sandbox ID');
   validateRequired(branch, 'Branch name');
 
   return serviceCall(async () => {
     const response = await apiClient.post<GitCheckoutData>(`/sandbox/${sandboxId}/git/checkout`, {
       branch,
+      cwd: cwd || null,
     });
     return ensureResponse(response, 'Checkout failed');
+  });
+}
+
+async function gitPush(sandboxId: string, cwd?: string): Promise<GitPushPullResult> {
+  validateRequired(sandboxId, 'Sandbox ID');
+
+  return serviceCall(async () => {
+    const qs = buildQueryString({ cwd: cwd || undefined });
+    const response = await apiClient.post<GitPushPullResult>(`/sandbox/${sandboxId}/git/push${qs}`);
+    return response ?? { success: false, output: '', error: 'No response' };
+  });
+}
+
+async function gitPull(sandboxId: string, cwd?: string): Promise<GitPushPullResult> {
+  validateRequired(sandboxId, 'Sandbox ID');
+
+  return serviceCall(async () => {
+    const qs = buildQueryString({ cwd: cwd || undefined });
+    const response = await apiClient.post<GitPushPullResult>(`/sandbox/${sandboxId}/git/pull${qs}`);
+    return response ?? { success: false, output: '', error: 'No response' };
+  });
+}
+
+async function gitCreateBranch(
+  sandboxId: string,
+  name: string,
+  baseBranch?: string,
+  cwd?: string,
+): Promise<GitCreateBranchResult> {
+  validateRequired(sandboxId, 'Sandbox ID');
+  validateRequired(name, 'Branch name');
+
+  return serviceCall(async () => {
+    const response = await apiClient.post<GitCreateBranchResult>(
+      `/sandbox/${sandboxId}/git/create-branch`,
+      { name, base_branch: baseBranch || null, cwd: cwd || null },
+    );
+    return ensureResponse(response, 'Failed to create branch');
+  });
+}
+
+async function getGitRemoteUrl(sandboxId: string, cwd?: string): Promise<GitRemoteUrlData> {
+  validateRequired(sandboxId, 'Sandbox ID');
+
+  return serviceCall(async () => {
+    const qs = buildQueryString({ cwd: cwd || undefined });
+    const response = await apiClient.get<GitRemoteUrlData>(
+      `/sandbox/${sandboxId}/git/remote-url${qs}`,
+    );
+    return ensureResponse(response, 'Failed to get remote URL');
   });
 }
 
@@ -278,4 +339,8 @@ export const sandboxService = {
   getGitDiff,
   getGitBranches,
   checkoutGitBranch,
+  gitPush,
+  gitPull,
+  gitCreateBranch,
+  getGitRemoteUrl,
 };

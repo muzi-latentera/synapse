@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -16,3 +18,55 @@ class GitHubRepo(BaseModel):
 class GitHubReposResponse(BaseModel):
     items: list[GitHubRepo]
     has_more: bool
+
+
+class GitHubPullRequest(BaseModel):
+    number: int
+    title: str
+    body: str | None
+    state: str
+    html_url: str
+    head: dict[str, Any]
+    base: dict[str, Any]
+    user: dict[str, Any]
+    draft: bool
+    review_comments: int
+
+
+class GitHubPRListResponse(BaseModel):
+    items: list[GitHubPullRequest]
+
+
+class GitHubReviewComment(BaseModel):
+    id: int
+    body: str
+    path: str | None
+    line: int | None
+    user: dict[str, Any]
+    created_at: str
+
+
+class GitHubPRCommentsResponse(BaseModel):
+    comments: list[GitHubReviewComment]
+
+
+class CreatePullRequestRequest(BaseModel):
+    owner: str
+    repo: str
+    title: str
+    body: str
+    head: str
+    base: str
+    reviewers: list[str] = []
+
+
+class CreatePullRequestResponse(BaseModel):
+    number: int
+    html_url: str
+    title: str
+    reviewer_warning: str | None = None
+
+
+class GitHubCollaborator(BaseModel):
+    login: str
+    avatar_url: str

@@ -68,6 +68,17 @@ async def get_github_token(
         return None
 
 
+async def require_github_token(
+    github_token: str | None = Depends(get_github_token),
+) -> str:
+    if not github_token:
+        raise HTTPException(
+            status_code=400,
+            detail="GitHub personal access token not configured",
+        )
+    return github_token
+
+
 def get_marketplace_service() -> MarketplaceService:
     return MarketplaceService()
 

@@ -20,8 +20,14 @@ type UIStoreState = ThemeState &
     setCommandMenuOpen: (open: boolean) => void;
     subThreadDialogOpen: boolean;
     setSubThreadDialogOpen: (open: boolean) => void;
+    createPRDialogOpen: boolean;
+    setCreatePRDialogOpen: (open: boolean) => void;
+    createBranchDialogOpen: boolean;
+    setCreateBranchDialogOpen: (open: boolean) => void;
     pendingFilePath: string | null;
     openFileInEditor: (path: string) => void;
+    pendingChatMessage: string | null;
+    setPendingChatMessage: (message: string | null) => void;
   };
 
 const getInitialSidebarState = (): boolean => {
@@ -47,6 +53,13 @@ export const useUIStore = create<UIStoreState>()(
       setCommandMenuOpen: (open) => set({ commandMenuOpen: open }),
       subThreadDialogOpen: false,
       setSubThreadDialogOpen: (open) => set({ subThreadDialogOpen: open }),
+      createPRDialogOpen: false,
+      setCreatePRDialogOpen: (open) => set({ createPRDialogOpen: open }),
+      createBranchDialogOpen: false,
+      setCreateBranchDialogOpen: (open) => set({ createBranchDialogOpen: open }),
+
+      pendingChatMessage: null,
+      setPendingChatMessage: (message) => set({ pendingChatMessage: message }),
 
       pendingFilePath: null,
       // Sets the pending file path and ensures the editor pane is visible.

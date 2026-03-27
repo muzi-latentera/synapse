@@ -32,6 +32,7 @@ export type ViewType =
   | 'diff'
   | 'editor'
   | 'ide'
+  | 'prReview'
   | 'terminal'
   | 'secrets'
   | 'webPreview'

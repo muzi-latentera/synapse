@@ -62,6 +62,9 @@
 - When refactoring code that has `try/catch/finally` blocks, preserve cleanup logic in `finally` — do not move cleanup after an `await` without wrapping it in `try/finally`, or it will be skipped on failure
 - When extracting a shared utility from multiple callers with slightly different semantics, verify behavioral equivalence for every caller — especially for edge-case inputs like `null`, `undefined`, `0`, and empty strings
 - When accepting a caller-provided options/config object and spreading it into a builder, use `Omit<>` to exclude keys the factory controls — prevents silent shadowing at the type level instead of runtime `_ignored` destructuring
+- When a function receives an optional targeting parameter (e.g., `cwd`, `workspace_id`) and the value is provided but invalid, raise an error — do not silently fall back to a default target, as this causes the operation to succeed against the wrong resource
+- When adding new operations in a domain where existing operations already accept a context/targeting parameter (e.g., `cwd` for worktree paths), propagate that parameter through all new operations in the same chain — backend endpoint, frontend service, React Query hook, and UI component
+- When multiple endpoints share the same parameter validation (e.g., token presence check), extract it into a FastAPI dependency that raises on failure and returns the validated value — do not duplicate the check inline in each endpoint
 
 ## Naming Conventions
 
@@ -115,6 +118,7 @@
 - Shared UI components used by 2+ feature areas belong in `components/ui/shared/` — do not place them loose in a feature folder just because the first consumer lives there
 
 ### useEffect Discipline
+- Never place hooks (`useState`, `useCallback`, `useMemo`, `useEffect`) after conditional early returns in a component — React requires hooks to be called in the same order on every render; move all hooks above any `return` statements
 - Never call `useEffect` directly for mount-only effects — use `useMountEffect()` from `hooks/useMountEffect.ts` (`useEffect(fn, [])` wrapper) to make intent explicit and enable lint enforcement
 - Never use `useEffect` to derive state from other state or props — if state is always computable from existing values, use inline computation or `useMemo`; `useEffect(() => setX(f(y)), [y])` causes an unnecessary extra render cycle
 - When state must reset on a prop/ID change, use a ref-based render check instead of `useEffect` — pattern: `const prevRef = useRef(prop); if (prevRef.current !== prop) { prevRef.current = prop; setState(initial); }` — this runs synchronously during render and avoids the effect-induced double render
@@ -144,6 +148,7 @@
 - Zustand selectors passed to `useStore(...)` must return stable references; never create new objects/arrays/`Set`/`Map` inside the selector. Subscribe to stable slices and derive new collections with `useMemo`
 - Use `Set` instead of arrays for membership checks in render loops — wrap with `useMemo(() => new Set(arr), [arr])` and use `.has()` instead of `.includes()`
 - Do not wrap trivial expressions in `useMemo` (e.g., `useMemo(() => x || [], [x])`) — use direct expressions (`x ?? []`)
+- When query keys include optional dimensions (e.g., `cwd`), add a separate prefix key without the optional dimension for broad invalidation (e.g., `gitBranchesAll: (id) => ['sandbox', id, 'git-branches']` alongside `gitBranches: (id, cwd?) => ['sandbox', id, 'git-branches', cwd]`) — invalidation with `undefined` in the key array does not prefix-match real values
 - Hoist regex patterns to module-level constants — never create RegExp inside loops or frequently-called functions
 - Prefer single-pass iteration (`.reduce()`) over chained `.filter().map()` in render paths
 - When reordering a function call to run earlier in a per-event hot path (e.g., stream envelope processing), gate the call with the cheapest possible condition check at the call site — avoid paying function-call overhead for the 99% of events that will just early-return

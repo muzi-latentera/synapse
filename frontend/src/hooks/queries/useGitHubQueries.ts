@@ -1,6 +1,7 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query';
 import { githubService } from '@/services/githubService';
 import { queryKeys } from '@/hooks/queries/queryKeys';
+import type { CreatePRRequest, CreatePRResponse } from '@/types/github.types';
 
 export function useGitHubReposQuery(query: string, enabled: boolean) {
   return useQuery({
@@ -9,5 +10,43 @@ export function useGitHubReposQuery(query: string, enabled: boolean) {
     enabled,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+  });
+}
+
+export function useGitHubPullsQuery(owner: string, repo: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.github.pulls(owner, repo),
+    queryFn: () => githubService.listPullRequests(owner, repo),
+    enabled: enabled && !!owner && !!repo,
+    staleTime: 30_000,
+  });
+}
+
+export function useGitHubPRCommentsQuery(
+  owner: string,
+  repo: string,
+  number: number,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: queryKeys.github.prComments(owner, repo, number),
+    queryFn: () => githubService.getPRComments(owner, repo, number),
+    enabled: enabled && !!owner && !!repo && number > 0,
+    staleTime: 60_000,
+  });
+}
+
+export function useGitHubCollaboratorsQuery(owner: string, repo: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.github.collaborators(owner, repo),
+    queryFn: () => githubService.getCollaborators(owner, repo),
+    enabled: enabled && !!owner && !!repo,
+    staleTime: 300_000,
+  });
+}
+
+export function useCreatePullRequestMutation() {
+  return useMutation<CreatePRResponse, Error, CreatePRRequest>({
+    mutationFn: (request) => githubService.createPullRequest(request),
   });
 }

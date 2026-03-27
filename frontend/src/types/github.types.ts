@@ -14,3 +14,50 @@ export interface GitHubReposResponse {
   items: GitHubRepo[];
   has_more: boolean;
 }
+
+export interface GitHubPullRequest {
+  number: number;
+  title: string;
+  body: string | null;
+  state: string;
+  html_url: string;
+  head: { ref: string; repo: { full_name: string } };
+  base: { ref: string };
+  user: { login: string; avatar_url: string };
+  draft: boolean;
+  review_comments: number;
+}
+
+export interface GitHubPRListResponse {
+  items: GitHubPullRequest[];
+}
+
+export interface GitHubReviewComment {
+  id: number;
+  body: string;
+  path: string | null;
+  line: number | null;
+  user: { login: string; avatar_url: string };
+  created_at: string;
+}
+
+export interface GitHubPRCommentsResponse {
+  comments: GitHubReviewComment[];
+}
+
+export interface CreatePRRequest {
+  owner: string;
+  repo: string;
+  title: string;
+  body: string;
+  head: string;
+  base: string;
+  reviewers: string[];
+}
+
+export interface CreatePRResponse {
+  number: number;
+  html_url: string;
+  title: string;
+  reviewer_warning?: string;
+}

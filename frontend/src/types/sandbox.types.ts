@@ -58,3 +58,21 @@ export interface GitCheckoutData {
   current_branch: string;
   error?: string;
 }
+
+export interface GitPushPullResult {
+  success: boolean;
+  output: string;
+  error?: string;
+}
+
+export interface GitCreateBranchResult {
+  success: boolean;
+  current_branch: string;
+  error?: string;
+}
+
+export interface GitRemoteUrlData {
+  owner: string;
+  repo: string;
+  remote_url: string;
+}
