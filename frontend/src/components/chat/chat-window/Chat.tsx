@@ -28,6 +28,7 @@ import {
   useChatSessionActions,
 } from '@/hooks/useChatSessionContext';
 import { useChatInputMessageContext } from '@/hooks/useChatInputMessageContext';
+import { useUIStore } from '@/store/uiStore';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { SubThreadBanner } from '@/components/chat/sub-threads/SubThreadBanner';
 
@@ -89,6 +90,15 @@ export const Chat = memo(function Chat() {
     actions;
 
   const { inputMessage, setInputMessage } = useChatInputMessageContext();
+
+  useEffect(() => {
+    return useUIStore.subscribe((state, prev) => {
+      if (state.pendingChatMessage && state.pendingChatMessage !== prev.pendingChatMessage) {
+        setInputMessage(state.pendingChatMessage);
+        useUIStore.getState().setPendingChatMessage(null);
+      }
+    });
+  }, [setInputMessage]);
 
   const { activeStreams, streamIdByChatMessage } = useStreamStore(
     useShallow((s) => ({

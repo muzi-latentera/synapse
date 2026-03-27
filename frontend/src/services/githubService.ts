@@ -1,6 +1,12 @@
 import { apiClient } from '@/lib/api';
 import { ensureResponse, withAuth, buildQueryString } from '@/services/base/BaseService';
-import type { GitHubReposResponse } from '@/types/github.types';
+import type {
+  GitHubReposResponse,
+  GitHubPRListResponse,
+  GitHubPRCommentsResponse,
+  CreatePRRequest,
+  CreatePRResponse,
+} from '@/types/github.types';
 
 async function searchRepositories(
   query: string,
@@ -14,6 +20,51 @@ async function searchRepositories(
   });
 }
 
+async function listPullRequests(owner: string, repo: string): Promise<GitHubPRListResponse> {
+  return withAuth(async () => {
+    const qs = buildQueryString({ owner, repo });
+    const response = await apiClient.get<GitHubPRListResponse>(`/github/pulls${qs}`);
+    return ensureResponse(response, 'Failed to fetch pull requests');
+  });
+}
+
+async function getPRComments(
+  owner: string,
+  repo: string,
+  number: number,
+): Promise<GitHubPRCommentsResponse> {
+  return withAuth(async () => {
+    const response = await apiClient.get<GitHubPRCommentsResponse>(
+      `/github/pulls/${owner}/${repo}/${number}/comments`,
+    );
+    return ensureResponse(response, 'Failed to fetch PR comments');
+  });
+}
+
+async function createPullRequest(request: CreatePRRequest): Promise<CreatePRResponse> {
+  return withAuth(async () => {
+    const response = await apiClient.post<CreatePRResponse>('/github/pulls', request);
+    return ensureResponse(response, 'Failed to create pull request');
+  });
+}
+
+async function getCollaborators(
+  owner: string,
+  repo: string,
+): Promise<Array<{ login: string; avatar_url: string }>> {
+  return withAuth(async () => {
+    const qs = buildQueryString({ owner, repo });
+    const response = await apiClient.get<Array<{ login: string; avatar_url: string }>>(
+      `/github/collaborators${qs}`,
+    );
+    return response ?? [];
+  });
+}
+
 export const githubService = {
   searchRepositories,
+  listPullRequests,
+  getPRComments,
+  createPullRequest,
+  getCollaborators,
 };

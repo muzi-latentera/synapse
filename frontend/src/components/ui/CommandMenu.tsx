@@ -13,10 +13,17 @@ import {
   Search,
   PanelRight,
   PanelBottom,
+  GitPullRequest,
+  Inbox,
+  ArrowUpFromLine,
+  ArrowDownFromLine,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useUIStore } from '@/store/uiStore';
 import { useChatStore } from '@/store/chatStore';
+import { useQueryClient } from '@tanstack/react-query';
+import { sandboxService } from '@/services/sandboxService';
+import { queryKeys } from '@/hooks/queries/queryKeys';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useActiveViews } from '@/hooks/useActiveViews';
 import { fuzzySearch } from '@/utils/fuzzySearch';
@@ -64,6 +71,7 @@ const VIEW_COMMANDS: ViewCommandItem[] = [
   { type: 'view', id: 'editor', label: 'Editor', icon: Code },
   { type: 'view', id: 'terminal', label: 'Terminal', icon: SquareTerminal },
   { type: 'view', id: 'diff', label: 'Diff', icon: GitCompareArrows },
+  { type: 'view', id: 'prReview', label: 'PR Review Inbox', icon: Inbox },
   { type: 'view', id: 'secrets', label: 'Secrets', icon: KeyRound },
   { type: 'view', id: 'webPreview', label: 'Web Preview', icon: Globe },
   { type: 'view', id: 'mobilePreview', label: 'Mobile Preview', icon: Smartphone },
@@ -72,9 +80,38 @@ const VIEW_COMMANDS: ViewCommandItem[] = [
 
 const ACTION_COMMANDS: ActionCommandItem[] = [
   { type: 'action', id: 'new-sub-thread', label: 'New sub-thread', icon: GitBranch },
+  { type: 'action', id: 'create-pr', label: 'Create pull request', icon: GitPullRequest },
+  { type: 'action', id: 'create-branch', label: 'Create branch', icon: GitBranch },
+  { type: 'action', id: 'push-remote', label: 'Push to remote', icon: ArrowUpFromLine },
+  { type: 'action', id: 'pull-remote', label: 'Pull from remote', icon: ArrowDownFromLine },
 ];
 
 const ALL_COMMANDS: CommandItem[] = [...ACTION_COMMANDS, ...VIEW_COMMANDS];
+
+function executeGitRemoteCommand(
+  fn: (
+    sandboxId: string,
+    cwd?: string,
+  ) => Promise<{ success: boolean; output: string; error?: string }>,
+  label: string,
+  onSuccess?: () => void,
+) {
+  const chat = useChatStore.getState().currentChat;
+  if (!chat?.sandbox_id) {
+    toast.error('No sandbox connected');
+    return;
+  }
+  void fn(chat.sandbox_id, chat.worktree_cwd ?? undefined)
+    .then((r) => {
+      if (r.success) {
+        toast.success(`${label}${r.output ? `: ${r.output.slice(0, 80)}` : ''}`);
+        onSuccess?.();
+      } else {
+        toast.error(r.error || `${label} failed`);
+      }
+    })
+    .catch(() => toast.error(`${label} failed`));
+}
 
 export function CommandMenu() {
   const [query, setQuery] = useState('');
@@ -87,6 +124,7 @@ export function CommandMenu() {
   const isOpen = useUIStore((state) => state.commandMenuOpen);
   const isMobile = useIsMobile();
   const activeLeaves = useActiveViews();
+  const queryClient = useQueryClient();
 
   const visibleCommands = useMemo(
     () => ALL_COMMANDS.filter((cmd) => !isMobile || !cmd.hideOnMobile),
@@ -125,10 +163,38 @@ export function CommandMenu() {
         } else {
           useUIStore.getState().setSubThreadDialogOpen(true);
         }
+      } else if (cmd.id === 'create-pr') {
+        useUIStore.getState().setCreatePRDialogOpen(true);
+      } else if (cmd.id === 'create-branch') {
+        useUIStore.getState().setCreateBranchDialogOpen(true);
+      } else if (cmd.id === 'push-remote') {
+        const sandboxId = useChatStore.getState().currentChat?.sandbox_id;
+        executeGitRemoteCommand(sandboxService.gitPush, 'Pushed to remote', () => {
+          if (sandboxId) {
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.sandbox.gitBranchesAll(sandboxId),
+            });
+          }
+        });
+      } else if (cmd.id === 'pull-remote') {
+        const sandboxId = useChatStore.getState().currentChat?.sandbox_id;
+        executeGitRemoteCommand(sandboxService.gitPull, 'Pulled from remote', () => {
+          if (sandboxId) {
+            void Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.sandbox.gitBranchesAll(sandboxId),
+              }),
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
+              }),
+              queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.gitDiffAll(sandboxId) }),
+            ]);
+          }
+        });
       }
       close();
     },
-    [close],
+    [close, queryClient],
   );
 
   const handleSplit = useCallback(

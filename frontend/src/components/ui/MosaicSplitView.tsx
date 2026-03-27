@@ -15,6 +15,7 @@ const VIEW_LABELS: Record<ViewType, string> = {
   diff: 'Diff',
   editor: 'Editor',
   ide: 'IDE',
+  prReview: 'PR Review Inbox',
   terminal: 'Terminal',
   secrets: 'Secrets',
   webPreview: 'Web Preview',

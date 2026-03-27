@@ -5,7 +5,9 @@ import type {
   DiffMode,
   FileContent,
   FileMetadata,
+  GitCreateBranchResult,
   GitDiffData,
+  GitPushPullResult,
   PortInfo,
   Secret,
   UpdateFileResult,
@@ -116,10 +118,10 @@ export const useDeleteSecretMutation = createSecretMutation<{ sandboxId: string;
   ({ sandboxId, key }) => sandboxService.deleteSecret(sandboxId, key),
 );
 
-export const useGitBranchesQuery = (sandboxId: string, enabled: boolean) => {
+export const useGitBranchesQuery = (sandboxId: string, enabled: boolean, cwd?: string) => {
   return useQuery({
-    queryKey: queryKeys.sandbox.gitBranches(sandboxId),
-    queryFn: () => sandboxService.getGitBranches(sandboxId),
+    queryKey: queryKeys.sandbox.gitBranches(sandboxId, cwd),
+    queryFn: () => sandboxService.getGitBranches(sandboxId, cwd),
     enabled: !!sandboxId && enabled,
     staleTime: 30_000,
   });
@@ -128,13 +130,13 @@ export const useGitBranchesQuery = (sandboxId: string, enabled: boolean) => {
 export const useCheckoutBranchMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ sandboxId, branch }: { sandboxId: string; branch: string }) =>
-      sandboxService.checkoutGitBranch(sandboxId, branch),
+    mutationFn: ({ sandboxId, branch, cwd }: { sandboxId: string; branch: string; cwd?: string }) =>
+      sandboxService.checkoutGitBranch(sandboxId, branch, cwd),
     onSuccess: async (data, variables) => {
       if (!data.success) return;
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.sandbox.gitBranches(variables.sandboxId),
+          queryKey: queryKeys.sandbox.gitBranchesAll(variables.sandboxId),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.sandbox.filesMetadata(variables.sandboxId),
@@ -219,5 +221,70 @@ export const useStopBrowserMutation = createMutation<void, Error, { sandboxId: s
     await queryClient.invalidateQueries({
       queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
     });
+  },
+);
+
+export const useGitRemoteUrlQuery = (sandboxId: string, enabled: boolean, cwd?: string) => {
+  return useQuery({
+    queryKey: queryKeys.sandbox.gitRemoteUrl(sandboxId, cwd),
+    queryFn: () => sandboxService.getGitRemoteUrl(sandboxId, cwd),
+    enabled: !!sandboxId && enabled,
+    staleTime: 300_000,
+  });
+};
+
+export const useGitPushMutation = createMutation<
+  GitPushPullResult,
+  Error,
+  { sandboxId: string; cwd?: string }
+>(
+  ({ sandboxId, cwd }) => sandboxService.gitPush(sandboxId, cwd),
+  async (queryClient, _data, variables) => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.sandbox.gitBranchesAll(variables.sandboxId),
+    });
+  },
+);
+
+export const useGitPullMutation = createMutation<
+  GitPushPullResult,
+  Error,
+  { sandboxId: string; cwd?: string }
+>(
+  ({ sandboxId, cwd }) => sandboxService.gitPull(sandboxId, cwd),
+  async (queryClient, _data, variables) => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.gitBranchesAll(variables.sandboxId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.filesMetadata(variables.sandboxId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.gitDiffAll(variables.sandboxId),
+      }),
+    ]);
+  },
+);
+
+export const useGitCreateBranchMutation = createMutation<
+  GitCreateBranchResult,
+  Error,
+  { sandboxId: string; name: string; baseBranch?: string; cwd?: string }
+>(
+  ({ sandboxId, name, baseBranch, cwd }) =>
+    sandboxService.gitCreateBranch(sandboxId, name, baseBranch, cwd),
+  async (queryClient, _data, variables) => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.gitBranchesAll(variables.sandboxId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.filesMetadata(variables.sandboxId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sandbox.gitDiffAll(variables.sandboxId),
+      }),
+    ]);
   },
 );

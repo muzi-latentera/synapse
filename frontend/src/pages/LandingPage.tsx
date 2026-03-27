@@ -38,7 +38,10 @@ export function LandingPage() {
   const createChat = useCreateChatMutation();
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const initialWorkspaceId = (location.state as { workspaceId?: string })?.workspaceId ?? null;
+  const consumedInitialMessageRef = useRef(false);
+  const routeState = location.state as { workspaceId?: string; initialMessage?: string } | null;
+  const initialWorkspaceId = routeState?.workspaceId ?? null;
+  const initialMessage = routeState?.initialMessage ?? null;
   const consumedWorkspaceRef = useRef<string | null>(null);
 
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
@@ -63,6 +66,11 @@ export function LandingPage() {
       setSelectedWorkspaceId(null);
     }
   }, [workspaces, selectedWorkspaceId]);
+
+  if (initialMessage && !consumedInitialMessageRef.current) {
+    consumedInitialMessageRef.current = true;
+    setMessage(initialMessage);
+  }
 
   const { data: settings } = useSettingsQuery({
     enabled: isAuthenticated,

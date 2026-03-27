@@ -49,6 +49,17 @@ const DiffView = lazy(() =>
 const TerminalContainer = lazy(() =>
   import('@/components/sandbox/terminal/Container').then((m) => ({ default: m.Container })),
 );
+const PRReviewView = lazy(() =>
+  import('@/components/views/PRReviewView').then((m) => ({ default: m.PRReviewView })),
+);
+const CreateBranchDialog = lazy(() =>
+  import('@/components/chat/github/CreateBranchDialog').then((m) => ({
+    default: m.CreateBranchDialog,
+  })),
+);
+const CreatePRDialog = lazy(() =>
+  import('@/components/chat/github/CreatePRDialog').then((m) => ({ default: m.CreatePRDialog })),
+);
 
 const viewLoadingFallback = (
   <div className="flex h-full w-full items-center justify-center bg-surface-secondary dark:bg-surface-dark-secondary">
@@ -61,6 +72,8 @@ export function ChatPage() {
   const navigate = useNavigate();
   useCommandMenu();
   const subThreadDialogOpen = useUIStore((s) => s.subThreadDialogOpen);
+  const createPRDialogOpen = useUIStore((s) => s.createPRDialogOpen);
+  const createBranchDialogOpen = useUIStore((s) => s.createBranchDialogOpen);
 
   const activeViews = useActiveViews();
 
@@ -142,7 +155,12 @@ export function ChatPage() {
     prevChatIdForResetRef.current = chatId;
     setSelectedFile(null);
     useUIStore.getState().setCurrentView('agent');
-    useUIStore.setState({ pendingFilePath: null, subThreadDialogOpen: false });
+    useUIStore.setState({
+      pendingFilePath: null,
+      subThreadDialogOpen: false,
+      createPRDialogOpen: false,
+      createBranchDialogOpen: false,
+    });
   }
 
   const pendingFilePath = useUIStore((s) => s.pendingFilePath);
@@ -239,6 +257,12 @@ export function ChatPage() {
               <DiffView sandboxId={currentChat?.sandbox_id} cwd={worktreeCwd} />
             </Suspense>
           );
+        case 'prReview':
+          return (
+            <Suspense fallback={viewLoadingFallback}>
+              <PRReviewView />
+            </Suspense>
+          );
         default:
           return null;
       }
@@ -310,6 +334,18 @@ export function ChatPage() {
               parentChat={currentChat}
               onClose={() => useUIStore.getState().setSubThreadDialogOpen(false)}
             />
+          )}
+          {createPRDialogOpen && (
+            <Suspense fallback={null}>
+              <CreatePRDialog onClose={() => useUIStore.getState().setCreatePRDialogOpen(false)} />
+            </Suspense>
+          )}
+          {createBranchDialogOpen && (
+            <Suspense fallback={null}>
+              <CreateBranchDialog
+                onClose={() => useUIStore.getState().setCreateBranchDialogOpen(false)}
+              />
+            </Suspense>
           )}
         </div>
       </ChatSessionOrchestrator>
