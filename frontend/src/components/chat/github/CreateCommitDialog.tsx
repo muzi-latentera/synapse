@@ -20,7 +20,12 @@ export function CreateCommitDialog({ onClose }: CreateCommitDialogProps) {
   const commitMutation = useGitCommitMutation();
   const generateMessage = useGenerateCommitMessageMutation();
 
-  const { data: diffData, isPlaceholderData } = useGitDiffQuery(sandboxId, 'all', false, worktreeCwd);
+  const { data: diffData, isPlaceholderData } = useGitDiffQuery(
+    sandboxId,
+    'all',
+    false,
+    worktreeCwd,
+  );
   const { selectedModelId } = useChatSessionState();
 
   const hasDiff = !!diffData?.diff && !isPlaceholderData;
@@ -110,9 +115,7 @@ export function CreateCommitDialog({ onClose }: CreateCommitDialogProps) {
                   : 'cursor-not-allowed opacity-50'
               }`}
             >
-              <Sparkles
-                className={`h-3 w-3 ${generateMessage.isPending ? 'animate-pulse' : ''}`}
-              />
+              <Sparkles className={`h-3 w-3 ${generateMessage.isPending ? 'animate-pulse' : ''}`} />
               {generateMessage.isPending ? 'Generating...' : 'Generate with AI'}
             </Button>
           </div>
