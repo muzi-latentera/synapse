@@ -15,10 +15,11 @@ from app.models.schemas.sandbox import (
     GitBranchesResponse,
     GitCheckoutRequest,
     GitCheckoutResponse,
+    GitCommandResponse,
+    GitCommitRequest,
     GitCreateBranchRequest,
     GitCreateBranchResponse,
     GitDiffResponse,
-    GitPushPullResponse,
     GitRemoteUrlResponse,
     IDEUrlResponse,
     SandboxFilesMetadataResponse,
@@ -53,7 +54,7 @@ def _git_cd_prefix(cwd: str | None = None) -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid cwd path",
         )
-    return f"cd '{cwd}'; "
+    return f"cd '{cwd}' && "
 
 
 @router.get("/{sandbox_id}/preview-links", response_model=PreviewLinksResponse)
@@ -482,12 +483,12 @@ async def checkout_git_branch(
         )
 
 
-async def _run_git_push_pull(
+async def _run_git_command(
     sandbox_id: str,
     command: str,
     sandbox_service: SandboxService,
     cwd: str | None = None,
-) -> GitPushPullResponse:
+) -> GitCommandResponse:
     try:
         cd_prefix = _git_cd_prefix(cwd)
         result = await sandbox_service.execute_command(
@@ -495,12 +496,12 @@ async def _run_git_push_pull(
             f"{cd_prefix}{command} 2>&1",
         )
         if result.exit_code != 0:
-            return GitPushPullResponse(
+            return GitCommandResponse(
                 success=False,
                 output="",
                 error=result.stdout.strip() or result.stderr.strip(),
             )
-        return GitPushPullResponse(success=True, output=result.stdout.strip())
+        return GitCommandResponse(success=True, output=result.stdout.strip())
     except SandboxException as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -508,24 +509,39 @@ async def _run_git_push_pull(
         )
 
 
-@router.post("/{sandbox_id}/git/push", response_model=GitPushPullResponse)
+@router.post("/{sandbox_id}/git/push", response_model=GitCommandResponse)
 async def git_push(
     sandbox_id: str = Depends(validate_sandbox_ownership),
     sandbox_service: SandboxService = Depends(get_sandbox_service),
     cwd: str | None = Query(None),
-) -> GitPushPullResponse:
-    return await _run_git_push_pull(
+) -> GitCommandResponse:
+    return await _run_git_command(
         sandbox_id, "git push -u origin HEAD", sandbox_service, cwd
     )
 
 
-@router.post("/{sandbox_id}/git/pull", response_model=GitPushPullResponse)
+@router.post("/{sandbox_id}/git/pull", response_model=GitCommandResponse)
 async def git_pull(
     sandbox_id: str = Depends(validate_sandbox_ownership),
     sandbox_service: SandboxService = Depends(get_sandbox_service),
     cwd: str | None = Query(None),
-) -> GitPushPullResponse:
-    return await _run_git_push_pull(sandbox_id, "git pull", sandbox_service, cwd)
+) -> GitCommandResponse:
+    return await _run_git_command(sandbox_id, "git pull", sandbox_service, cwd)
+
+
+@router.post("/{sandbox_id}/git/commit", response_model=GitCommandResponse)
+async def git_commit(
+    request: GitCommitRequest,
+    sandbox_id: str = Depends(validate_sandbox_ownership),
+    sandbox_service: SandboxService = Depends(get_sandbox_service),
+) -> GitCommandResponse:
+    msg = request.message.replace("'", "'\\''")
+    return await _run_git_command(
+        sandbox_id,
+        f"git add -A && git commit -m '{msg}'",
+        sandbox_service,
+        request.cwd,
+    )
 
 
 @router.post("/{sandbox_id}/git/create-branch", response_model=GitCreateBranchResponse)

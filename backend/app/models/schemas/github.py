@@ -80,3 +80,12 @@ class GeneratePRDescriptionRequest(BaseModel):
 
 class GeneratePRDescriptionResponse(BaseModel):
     description: str
+
+
+class GenerateCommitMessageRequest(BaseModel):
+    diff: str = Field(min_length=1, max_length=200_000)
+    model_id: str = Field(max_length=128)
+
+
+class GenerateCommitMessageResponse(BaseModel):
+    message: str

@@ -105,7 +105,12 @@ class GitCreateBranchResponse(BaseModel):
     error: str | None = None
 
 
-class GitPushPullResponse(BaseModel):
+class GitCommitRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
+    cwd: str | None = None
+
+
+class GitCommandResponse(BaseModel):
     success: bool
     output: str
     error: str | None = None

@@ -5,6 +5,7 @@ import type {
   DiffMode,
   FileContent,
   FileMetadata,
+  GitCommitResult,
   GitCreateBranchResult,
   GitDiffData,
   GitPushPullResult,
@@ -232,6 +233,19 @@ export const useGitRemoteUrlQuery = (sandboxId: string, enabled: boolean, cwd?: 
     staleTime: 300_000,
   });
 };
+
+export const useGitCommitMutation = createMutation<
+  GitCommitResult,
+  Error,
+  { sandboxId: string; message: string; cwd?: string }
+>(
+  ({ sandboxId, message, cwd }) => sandboxService.gitCommit(sandboxId, message, cwd),
+  async (queryClient, _data, variables) => {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.sandbox.gitDiffAll(variables.sandboxId),
+    });
+  },
+);
 
 export const useGitPushMutation = createMutation<
   GitPushPullResult,

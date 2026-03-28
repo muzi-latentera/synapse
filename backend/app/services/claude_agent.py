@@ -25,6 +25,9 @@ from app.models.db_models.enums import MessageRole
 from app.models.db_models.user import User, UserSettings
 from app.models.schemas.settings import ProviderType
 from app.prompts.enhance_prompt import ENHANCE_PROMPT
+from app.prompts.generate_commit_message import (
+    GENERATE_COMMIT_MESSAGE_SYSTEM_PROMPT,
+)
 from app.prompts.generate_pr_description import (
     GENERATE_PR_DESCRIPTION_SYSTEM_PROMPT,
     GENERATE_PR_DESCRIPTION_TITLE_PREFIX,
@@ -336,8 +339,13 @@ class ClaudeAgentService:
             logger.debug("Title generation SDK call failed for user %s", user.id)
             return None
 
-    async def generate_pr_description(
-        self, title: str, diff: str, model_id: str, user: User
+    async def _generate_with_ai(
+        self,
+        system_prompt: str,
+        user_message: str,
+        model_id: str,
+        user: User,
+        empty_error: str,
     ) -> str:
         user_settings = await UserService(
             session_factory=self.session_factory
@@ -347,7 +355,7 @@ class ClaudeAgentService:
         env, _, actual_model_id = self._build_auth_env(model_id, user_settings)
 
         options = ClaudeAgentOptions(
-            system_prompt=GENERATE_PR_DESCRIPTION_SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             permission_mode="default",
             model=actual_model_id,
             max_turns=1,
@@ -355,21 +363,40 @@ class ClaudeAgentService:
         )
 
         try:
-            description = ""
+            result = ""
             async with ClaudeSDKClient(options=options) as client:
-                user_message = (
-                    GENERATE_PR_DESCRIPTION_TITLE_PREFIX + title + "\n\n" + diff
-                )
                 await client.query(user_message)
                 async for message in client.receive_response():
                     if isinstance(message, ResultMessage) and message.result:
-                        description = message.result
+                        result = message.result
 
-            if not description:
-                raise ClaudeAgentException("AI returned an empty description")
-            return description
+            if not result:
+                raise ClaudeAgentException(empty_error)
+            return result
         except ClaudeSDKError as e:
-            raise ClaudeAgentException(f"Failed to generate PR description: {e}") from e
+            raise ClaudeAgentException(f"{empty_error}: {e}") from e
+
+    async def generate_pr_description(
+        self, title: str, diff: str, model_id: str, user: User
+    ) -> str:
+        return await self._generate_with_ai(
+            GENERATE_PR_DESCRIPTION_SYSTEM_PROMPT,
+            GENERATE_PR_DESCRIPTION_TITLE_PREFIX + title + "\n\n" + diff,
+            model_id,
+            user,
+            "AI returned an empty description",
+        )
+
+    async def generate_commit_message(
+        self, diff: str, model_id: str, user: User
+    ) -> str:
+        return await self._generate_with_ai(
+            GENERATE_COMMIT_MESSAGE_SYSTEM_PROMPT,
+            diff,
+            model_id,
+            user,
+            "AI returned an empty commit message",
+        )
 
     @staticmethod
     def _build_permission_server(

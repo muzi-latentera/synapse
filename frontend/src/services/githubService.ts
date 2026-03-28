@@ -6,6 +6,8 @@ import type {
   GitHubPRCommentsResponse,
   CreatePRRequest,
   CreatePRResponse,
+  GenerateCommitMessageRequest,
+  GenerateCommitMessageResponse,
   GeneratePRDescriptionRequest,
   GeneratePRDescriptionResponse,
 } from '@/types/github.types';
@@ -62,6 +64,18 @@ async function generatePRDescription(
   });
 }
 
+async function generateCommitMessage(
+  request: GenerateCommitMessageRequest,
+): Promise<GenerateCommitMessageResponse> {
+  return withAuth(async () => {
+    const response = await apiClient.post<GenerateCommitMessageResponse>(
+      '/github/generate-commit-message',
+      request,
+    );
+    return ensureResponse(response, 'Failed to generate commit message');
+  });
+}
+
 async function getCollaborators(
   owner: string,
   repo: string,
@@ -81,5 +95,6 @@ export const githubService = {
   getPRComments,
   createPullRequest,
   generatePRDescription,
+  generateCommitMessage,
   getCollaborators,
 };

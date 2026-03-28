@@ -7,6 +7,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useChatSessionState } from '@/hooks/useChatSessionContext';
 import { sandboxService } from '@/services/sandboxService';
 import { openExternalUrl } from '@/utils/openExternal';
+import { MAX_DIFF_LENGTH } from '@/config/constants';
 import {
   useGitBranchesQuery,
   useGitDiffQuery,
@@ -25,7 +26,6 @@ interface CreatePRDialogProps {
 
 const DIFF_HEADER_RE = /^a\/(.+?) b\//;
 const DEFAULT_BASES = ['main', 'master', 'develop', 'trunk'];
-const MAX_DIFF_LENGTH = 150_000;
 
 function parseChangedFiles(
   diff: string,

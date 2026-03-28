@@ -24,6 +24,8 @@ type UIStoreState = ThemeState &
     setCreatePRDialogOpen: (open: boolean) => void;
     createBranchDialogOpen: boolean;
     setCreateBranchDialogOpen: (open: boolean) => void;
+    createCommitDialogOpen: boolean;
+    setCreateCommitDialogOpen: (open: boolean) => void;
     pendingFilePath: string | null;
     openFileInEditor: (path: string) => void;
     pendingChatMessage: string | null;
@@ -57,6 +59,8 @@ export const useUIStore = create<UIStoreState>()(
       setCreatePRDialogOpen: (open) => set({ createPRDialogOpen: open }),
       createBranchDialogOpen: false,
       setCreateBranchDialogOpen: (open) => set({ createBranchDialogOpen: open }),
+      createCommitDialogOpen: false,
+      setCreateCommitDialogOpen: (open) => set({ createCommitDialogOpen: open }),
 
       pendingChatMessage: null,
       setPendingChatMessage: (message) => set({ pendingChatMessage: message }),

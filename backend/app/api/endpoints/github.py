@@ -8,6 +8,8 @@ from app.models.db_models.user import User
 from app.models.schemas.github import (
     CreatePullRequestRequest,
     CreatePullRequestResponse,
+    GenerateCommitMessageRequest,
+    GenerateCommitMessageResponse,
     GeneratePRDescriptionRequest,
     GeneratePRDescriptionResponse,
     GitHubCollaborator,
@@ -107,6 +109,32 @@ async def generate_pr_description(
             detail=str(e),
         ) from e
     return GeneratePRDescriptionResponse(description=description)
+
+
+@router.post(
+    "/generate-commit-message",
+    response_model=GenerateCommitMessageResponse,
+)
+async def generate_commit_message(
+    request: GenerateCommitMessageRequest,
+    current_user: User = Depends(get_current_user),
+    ai_service: ClaudeAgentService = Depends(get_claude_agent_service),
+) -> GenerateCommitMessageResponse:
+    try:
+        message = await ai_service.generate_commit_message(
+            request.diff, request.model_id, current_user
+        )
+    except APIKeyValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except ClaudeAgentException as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+    return GenerateCommitMessageResponse(message=message)
 
 
 @router.get("/collaborators")

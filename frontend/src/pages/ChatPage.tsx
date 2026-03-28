@@ -57,6 +57,11 @@ const CreateBranchDialog = lazy(() =>
     default: m.CreateBranchDialog,
   })),
 );
+const CreateCommitDialog = lazy(() =>
+  import('@/components/chat/github/CreateCommitDialog').then((m) => ({
+    default: m.CreateCommitDialog,
+  })),
+);
 const CreatePRDialog = lazy(() =>
   import('@/components/chat/github/CreatePRDialog').then((m) => ({ default: m.CreatePRDialog })),
 );
@@ -72,6 +77,7 @@ export function ChatPage() {
   const navigate = useNavigate();
   useCommandMenu();
   const subThreadDialogOpen = useUIStore((s) => s.subThreadDialogOpen);
+  const createCommitDialogOpen = useUIStore((s) => s.createCommitDialogOpen);
   const createPRDialogOpen = useUIStore((s) => s.createPRDialogOpen);
   const createBranchDialogOpen = useUIStore((s) => s.createBranchDialogOpen);
 
@@ -158,6 +164,7 @@ export function ChatPage() {
     useUIStore.setState({
       pendingFilePath: null,
       subThreadDialogOpen: false,
+      createCommitDialogOpen: false,
       createPRDialogOpen: false,
       createBranchDialogOpen: false,
     });
@@ -334,6 +341,13 @@ export function ChatPage() {
               parentChat={currentChat}
               onClose={() => useUIStore.getState().setSubThreadDialogOpen(false)}
             />
+          )}
+          {createCommitDialogOpen && (
+            <Suspense fallback={null}>
+              <CreateCommitDialog
+                onClose={() => useUIStore.getState().setCreateCommitDialogOpen(false)}
+              />
+            </Suspense>
           )}
           {createPRDialogOpen && (
             <Suspense fallback={null}>

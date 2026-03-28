@@ -71,3 +71,12 @@ export interface GeneratePRDescriptionRequest {
 export interface GeneratePRDescriptionResponse {
   description: string;
 }
+
+export interface GenerateCommitMessageRequest {
+  diff: string;
+  model_id: string;
+}
+
+export interface GenerateCommitMessageResponse {
+  message: string;
+}
