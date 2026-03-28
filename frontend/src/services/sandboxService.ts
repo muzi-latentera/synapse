@@ -8,6 +8,7 @@ import type {
   FileMetadata,
   GitBranchesData,
   GitCheckoutData,
+  GitCommitResult,
   GitCreateBranchResult,
   GitDiffData,
   GitPushPullResult,
@@ -270,6 +271,23 @@ async function checkoutGitBranch(
   });
 }
 
+async function gitCommit(
+  sandboxId: string,
+  message: string,
+  cwd?: string,
+): Promise<GitCommitResult> {
+  validateRequired(sandboxId, 'Sandbox ID');
+  validateRequired(message, 'Commit message');
+
+  return serviceCall(async () => {
+    const response = await apiClient.post<GitCommitResult>(`/sandbox/${sandboxId}/git/commit`, {
+      message,
+      cwd: cwd || null,
+    });
+    return response ?? { success: false, output: '', error: 'No response' };
+  });
+}
+
 async function gitPush(sandboxId: string, cwd?: string): Promise<GitPushPullResult> {
   validateRequired(sandboxId, 'Sandbox ID');
 
@@ -339,6 +357,7 @@ export const sandboxService = {
   getGitDiff,
   getGitBranches,
   checkoutGitBranch,
+  gitCommit,
   gitPush,
   gitPull,
   gitCreateBranch,

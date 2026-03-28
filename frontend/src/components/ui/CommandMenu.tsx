@@ -14,6 +14,7 @@ import {
   PanelRight,
   PanelBottom,
   GitPullRequest,
+  GitCommitHorizontal,
   Inbox,
   ArrowUpFromLine,
   ArrowDownFromLine,
@@ -80,6 +81,7 @@ const VIEW_COMMANDS: ViewCommandItem[] = [
 
 const ACTION_COMMANDS: ActionCommandItem[] = [
   { type: 'action', id: 'new-sub-thread', label: 'New sub-thread', icon: GitBranch },
+  { type: 'action', id: 'create-commit', label: 'Create commit', icon: GitCommitHorizontal },
   { type: 'action', id: 'create-pr', label: 'Create pull request', icon: GitPullRequest },
   { type: 'action', id: 'create-branch', label: 'Create branch', icon: GitBranch },
   { type: 'action', id: 'push-remote', label: 'Push to remote', icon: ArrowUpFromLine },
@@ -163,6 +165,8 @@ export function CommandMenu() {
         } else {
           useUIStore.getState().setSubThreadDialogOpen(true);
         }
+      } else if (cmd.id === 'create-commit') {
+        useUIStore.getState().setCreateCommitDialogOpen(true);
       } else if (cmd.id === 'create-pr') {
         useUIStore.getState().setCreatePRDialogOpen(true);
       } else if (cmd.id === 'create-branch') {

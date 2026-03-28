@@ -4,6 +4,8 @@ import { queryKeys } from '@/hooks/queries/queryKeys';
 import type {
   CreatePRRequest,
   CreatePRResponse,
+  GenerateCommitMessageRequest,
+  GenerateCommitMessageResponse,
   GeneratePRDescriptionRequest,
   GeneratePRDescriptionResponse,
 } from '@/types/github.types';
@@ -59,5 +61,11 @@ export function useCreatePullRequestMutation() {
 export function useGeneratePRDescriptionMutation() {
   return useMutation<GeneratePRDescriptionResponse, Error, GeneratePRDescriptionRequest>({
     mutationFn: (request) => githubService.generatePRDescription(request),
+  });
+}
+
+export function useGenerateCommitMessageMutation() {
+  return useMutation<GenerateCommitMessageResponse, Error, GenerateCommitMessageRequest>({
+    mutationFn: (request) => githubService.generateCommitMessage(request),
   });
 }

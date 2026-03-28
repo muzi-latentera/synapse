@@ -59,6 +59,12 @@ export interface GitCheckoutData {
   error?: string;
 }
 
+export interface GitCommitResult {
+  success: boolean;
+  output: string;
+  error?: string;
+}
+
 export interface GitPushPullResult {
   success: boolean;
   output: string;
