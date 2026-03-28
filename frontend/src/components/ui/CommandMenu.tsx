@@ -84,11 +84,35 @@ const VIEW_COMMANDS: ViewCommandItem[] = [
 
 const ACTION_COMMANDS: ActionCommandItem[] = [
   { type: 'action', id: 'new-sub-thread', label: 'New sub-thread', icon: GitBranch, shortcut: 'n' },
-  { type: 'action', id: 'create-commit', label: 'Create commit', icon: GitCommitHorizontal, shortcut: 'c' },
-  { type: 'action', id: 'create-pr', label: 'Create pull request', icon: GitPullRequest, shortcut: 'l' },
+  {
+    type: 'action',
+    id: 'create-commit',
+    label: 'Create commit',
+    icon: GitCommitHorizontal,
+    shortcut: 'c',
+  },
+  {
+    type: 'action',
+    id: 'create-pr',
+    label: 'Create pull request',
+    icon: GitPullRequest,
+    shortcut: 'l',
+  },
   { type: 'action', id: 'create-branch', label: 'Create branch', icon: GitBranch, shortcut: 'h' },
-  { type: 'action', id: 'push-remote', label: 'Push to remote', icon: ArrowUpFromLine, shortcut: 'u' },
-  { type: 'action', id: 'pull-remote', label: 'Pull from remote', icon: ArrowDownFromLine, shortcut: 'j' },
+  {
+    type: 'action',
+    id: 'push-remote',
+    label: 'Push to remote',
+    icon: ArrowUpFromLine,
+    shortcut: 'u',
+  },
+  {
+    type: 'action',
+    id: 'pull-remote',
+    label: 'Pull from remote',
+    icon: ArrowDownFromLine,
+    shortcut: 'j',
+  },
 ];
 
 const ALL_COMMANDS: CommandItem[] = [...ACTION_COMMANDS, ...VIEW_COMMANDS];
