@@ -1,10 +1,12 @@
 import { useState, useMemo, useRef } from 'react';
-import { GitPullRequest } from 'lucide-react';
+import { ExternalLink, GitPullRequest, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { Button } from '@/components/ui/primitives/Button';
 import { useChatStore } from '@/store/chatStore';
+import { useChatSessionState } from '@/hooks/useChatSessionContext';
 import { sandboxService } from '@/services/sandboxService';
+import { openExternalUrl } from '@/utils/openExternal';
 import {
   useGitBranchesQuery,
   useGitDiffQuery,
@@ -12,7 +14,9 @@ import {
 } from '@/hooks/queries/useSandboxQueries';
 import {
   useGitHubCollaboratorsQuery,
+  useGitHubPullsQuery,
   useCreatePullRequestMutation,
+  useGeneratePRDescriptionMutation,
 } from '@/hooks/queries/useGitHubQueries';
 
 interface CreatePRDialogProps {
@@ -21,6 +25,7 @@ interface CreatePRDialogProps {
 
 const DIFF_HEADER_RE = /^a\/(.+?) b\//;
 const DEFAULT_BASES = ['main', 'master', 'develop', 'trunk'];
+const MAX_DIFF_LENGTH = 150_000;
 
 function parseChangedFiles(
   diff: string,
@@ -55,6 +60,7 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
   const { data: branchesData } = useGitBranchesQuery(sandboxId, !!sandboxId, worktreeCwd);
   const { data: diffData } = useGitDiffQuery(sandboxId, 'branch', false, worktreeCwd);
   const { data: collaborators } = useGitHubCollaboratorsQuery(owner, repo, !!owner && !!repo);
+  const { data: pullsData } = useGitHubPullsQuery(owner, repo, !!owner && !!repo);
 
   const changedFiles = useMemo(
     () => (diffData?.diff ? parseChangedFiles(diffData.diff) : []),
@@ -77,10 +83,26 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
   }, [changedFiles]);
 
   const headBranch = branchesData?.current_branch ?? '';
-  const detectedBase = useMemo(() => {
+  const repoFullName = owner && repo ? `${owner}/${repo}` : '';
+  const existingPR = useMemo(
+    () =>
+      headBranch && repoFullName
+        ? pullsData?.items.find(
+            (pr) => pr.head.ref === headBranch && pr.head.repo.full_name === repoFullName,
+          )
+        : undefined,
+    [pullsData?.items, headBranch, repoFullName],
+  );
+  const sortedBranches = useMemo(() => {
     const candidates = branchesData?.branches.filter((b) => b !== headBranch) ?? [];
-    return candidates.find((b) => DEFAULT_BASES.includes(b)) ?? '';
+    const defaults = candidates
+      .filter((b) => DEFAULT_BASES.includes(b))
+      .sort((a, b) => DEFAULT_BASES.indexOf(a) - DEFAULT_BASES.indexOf(b));
+    const rest = candidates.filter((b) => !DEFAULT_BASES.includes(b));
+    return [...defaults, ...rest];
   }, [branchesData?.branches, headBranch]);
+
+  const detectedBase = sortedBranches.find((b) => DEFAULT_BASES.includes(b)) ?? '';
 
   const [title, setTitle] = useState(currentChat?.title?.slice(0, 72) ?? '');
   const [body, setBody] = useState(defaultBody);
@@ -94,13 +116,37 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
     setBody(defaultBody);
   }
 
-  const prevDetectedBaseRef = useRef(detectedBase);
-  if (prevDetectedBaseRef.current !== detectedBase && !baseBranch) {
-    prevDetectedBaseRef.current = detectedBase;
+  if (!baseBranch && detectedBase) {
     setBaseBranch(detectedBase);
   }
 
+  const { selectedModelId } = useChatSessionState();
   const createPR = useCreatePullRequestMutation();
+  const generateDescription = useGeneratePRDescriptionMutation();
+  const hasDiff = !!diffData?.diff;
+  const diffError = diffData?.error;
+  const hasModel = !!selectedModelId.trim();
+  const canGenerate = hasDiff && hasModel && !generateDescription.isPending;
+
+  const handleGenerateDescription = async () => {
+    if (!diffData?.diff) return;
+    const rawDiff = diffData.diff;
+    const diff =
+      rawDiff.length > MAX_DIFF_LENGTH
+        ? rawDiff.slice(0, MAX_DIFF_LENGTH) + '\n\n(diff truncated)'
+        : rawDiff;
+    try {
+      const result = await generateDescription.mutateAsync({
+        title: title || 'Untitled PR',
+        diff,
+        model_id: selectedModelId,
+      });
+      bodyEditedRef.current = true;
+      setBody(result.description);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to generate description');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -191,6 +237,26 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
           </p>
         ) : (
           <div className="mt-4 space-y-3">
+            {existingPR && (
+              <div className="flex items-center justify-between rounded-lg border border-border/50 bg-surface-secondary px-3 py-2.5 dark:border-border-dark/50 dark:bg-surface-dark-secondary">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-text-primary dark:text-text-dark-primary">
+                    PR #{existingPR.number} already exists for this branch
+                  </p>
+                  <p className="truncate text-2xs text-text-tertiary dark:text-text-dark-tertiary">
+                    {existingPR.title}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openExternalUrl(existingPR.html_url)}
+                  className="ml-3 flex flex-shrink-0 items-center gap-1 rounded-md px-2 py-1 text-2xs text-text-secondary transition-colors duration-200 hover:bg-surface-hover dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover"
+                >
+                  View on GitHub
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              </div>
+            )}
             <div>
               <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
                 Title
@@ -205,9 +271,34 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
-                Description
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
+                  Description
+                </label>
+                <Button
+                  type="button"
+                  variant="unstyled"
+                  onClick={handleGenerateDescription}
+                  disabled={!canGenerate}
+                  title={
+                    !hasModel
+                      ? 'Select a model first'
+                      : !hasDiff
+                        ? (diffError ?? 'Commit your changes first')
+                        : undefined
+                  }
+                  className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-text-tertiary transition-colors duration-200 dark:text-text-dark-tertiary ${
+                    canGenerate
+                      ? 'hover:bg-surface-hover hover:text-text-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary'
+                      : 'cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  <Sparkles
+                    className={`h-3 w-3 ${generateDescription.isPending ? 'animate-pulse' : ''}`}
+                  />
+                  {generateDescription.isPending ? 'Generating...' : 'Generate with AI'}
+                </Button>
+              </div>
               <textarea
                 value={body}
                 onChange={(e) => {
@@ -229,13 +320,11 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
                   onChange={(e) => setBaseBranch(e.target.value)}
                   className="w-full rounded-lg border border-border/50 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
                 >
-                  {branchesData?.branches
-                    .filter((b) => b !== headBranch)
-                    .map((b) => (
-                      <option key={b} value={b}>
-                        {b}
-                      </option>
-                    ))}
+                  {sortedBranches.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -289,7 +378,12 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
               </div>
             )}
 
-            {!diffData?.has_changes && (
+            {diffError && (
+              <p className="text-xs text-text-quaternary dark:text-text-dark-quaternary">
+                {diffError}
+              </p>
+            )}
+            {!diffError && !diffData?.has_changes && (
               <p className="text-xs text-text-quaternary dark:text-text-dark-quaternary">
                 No changes detected on this branch. Make sure you have committed your changes.
               </p>
@@ -313,7 +407,7 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
           variant="primary"
           size="sm"
           onClick={handleSubmit}
-          disabled={createPR.isPending || !owner}
+          disabled={createPR.isPending || !owner || !!existingPR}
         >
           {createPR.isPending ? 'Creating...' : 'Create pull request'}
         </Button>

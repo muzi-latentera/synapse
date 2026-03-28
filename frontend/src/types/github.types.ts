@@ -61,3 +61,13 @@ export interface CreatePRResponse {
   title: string;
   reviewer_warning?: string;
 }
+
+export interface GeneratePRDescriptionRequest {
+  title: string;
+  diff: string;
+  model_id: string;
+}
+
+export interface GeneratePRDescriptionResponse {
+  description: string;
+}

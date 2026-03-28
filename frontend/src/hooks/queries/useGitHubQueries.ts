@@ -1,7 +1,12 @@
 import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query';
 import { githubService } from '@/services/githubService';
 import { queryKeys } from '@/hooks/queries/queryKeys';
-import type { CreatePRRequest, CreatePRResponse } from '@/types/github.types';
+import type {
+  CreatePRRequest,
+  CreatePRResponse,
+  GeneratePRDescriptionRequest,
+  GeneratePRDescriptionResponse,
+} from '@/types/github.types';
 
 export function useGitHubReposQuery(query: string, enabled: boolean) {
   return useQuery({
@@ -48,5 +53,11 @@ export function useGitHubCollaboratorsQuery(owner: string, repo: string, enabled
 export function useCreatePullRequestMutation() {
   return useMutation<CreatePRResponse, Error, CreatePRRequest>({
     mutationFn: (request) => githubService.createPullRequest(request),
+  });
+}
+
+export function useGeneratePRDescriptionMutation() {
+  return useMutation<GeneratePRDescriptionResponse, Error, GeneratePRDescriptionRequest>({
+    mutationFn: (request) => githubService.generatePRDescription(request),
   });
 }

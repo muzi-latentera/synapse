@@ -37,6 +37,9 @@
 - Narrow `except` clauses to specific exception types — never `except Exception` when the actual failure modes are known (e.g., `except (KeyError, SomeLibError)` not `except Exception`)
 - Do not translate exceptions across boundaries just to change the type — if an upstream function already raises a meaningful error, let it propagate; only catch-and-wrap when the caller genuinely needs a different status code or error shape that the original doesn't provide
 - Do not handle hypothetical input shapes — if you have evidence of the actual data format (logs, tests, type definitions), write code for that format only; do not add branches for types or structures you have not observed
+- Do not use Python's `str.format()` or f-strings to interpolate untrusted/user-provided content that may contain `{` or `}` characters (e.g., code diffs, source code snippets, JSON) — use string concatenation or `string.Template` instead
+- Add `Field(max_length=...)` to all `str` fields on Pydantic request models — bare `str` allows unbounded payloads; also add `min_length=1` when empty strings are invalid
+- Do not instantiate services directly in FastAPI route handlers — add a factory function in `deps.py` and inject via `Depends()`; route files should not import `SessionLocal`
 - Don't add comments or docstrings for self-explanatory code — but do add inline comments for non-obvious logic, implicit conventions, or design decisions that aren't clear from the code alone
 - Do not delete existing comments without asking first — they may capture context that isn't obvious from the code
 - Let the code speak for itself - use clear variable/function names instead of comments
@@ -213,7 +216,7 @@
 - Use CSS keyframe animations via Tailwind (`animate-fade-in`, `animate-fade-in-up`, `animate-dot-pulse`, etc.) for enter/state transitions — do not use `framer-motion` or other JS animation libraries
 - Use `transition-colors duration-200` for hover/focus, `transition-all duration-300` for complex state changes like drag-and-drop
 - Use `transition-[padding] duration-500 ease-in-out` for sidebar/layout animations
-- Loading states: `animate-spin` for spinners, `animate-pulse` for skeletons, `animate-bounce` with staggered `animationDelay` for dot loaders
+- Loading states: `animate-spin` for circular spinner icons only (e.g., `Loader2`), `animate-pulse` for non-circular icons used as loading indicators and skeletons, `animate-bounce` with staggered `animationDelay` for dot loaders
 - Expandable content: `transition-all duration-200` with `max-h-*` and `opacity` toggling
 - Dropdowns: `animate-fadeIn` for entry — no scale transforms on buttons
 

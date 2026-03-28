@@ -25,6 +25,10 @@ from app.models.db_models.enums import MessageRole
 from app.models.db_models.user import User, UserSettings
 from app.models.schemas.settings import ProviderType
 from app.prompts.enhance_prompt import ENHANCE_PROMPT
+from app.prompts.generate_pr_description import (
+    GENERATE_PR_DESCRIPTION_SYSTEM_PROMPT,
+    GENERATE_PR_DESCRIPTION_TITLE_PREFIX,
+)
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 from app.prompts.generate_title import (
     GENERATE_TITLE_SYSTEM_PROMPT,
@@ -39,6 +43,7 @@ from app.services.tool_handler import ToolHandlerRegistry
 from app.services.transports import SandboxTransport
 from app.services.transports.factory import create_sandbox_transport
 from app.services.user import UserService
+from app.utils.validators import validate_model_api_keys
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -330,6 +335,41 @@ class ClaudeAgentService:
         except ClaudeSDKError:
             logger.debug("Title generation SDK call failed for user %s", user.id)
             return None
+
+    async def generate_pr_description(
+        self, title: str, diff: str, model_id: str, user: User
+    ) -> str:
+        user_settings = await UserService(
+            session_factory=self.session_factory
+        ).get_user_settings(user.id)
+
+        validate_model_api_keys(user_settings, model_id)
+        env, _, actual_model_id = self._build_auth_env(model_id, user_settings)
+
+        options = ClaudeAgentOptions(
+            system_prompt=GENERATE_PR_DESCRIPTION_SYSTEM_PROMPT,
+            permission_mode="default",
+            model=actual_model_id,
+            max_turns=1,
+            env=env,
+        )
+
+        try:
+            description = ""
+            async with ClaudeSDKClient(options=options) as client:
+                user_message = (
+                    GENERATE_PR_DESCRIPTION_TITLE_PREFIX + title + "\n\n" + diff
+                )
+                await client.query(user_message)
+                async for message in client.receive_response():
+                    if isinstance(message, ResultMessage) and message.result:
+                        description = message.result
+
+            if not description:
+                raise ClaudeAgentException("AI returned an empty description")
+            return description
+        except ClaudeSDKError as e:
+            raise ClaudeAgentException(f"Failed to generate PR description: {e}") from e
 
     @staticmethod
     def _build_permission_server(
