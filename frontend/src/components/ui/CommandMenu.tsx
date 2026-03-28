@@ -317,7 +317,10 @@ export function CommandMenu() {
   );
 
   const filteredCommands = useMemo(
-    () => (mode !== 'commands' ? [] : fuzzySearch(query, visibleCommands, { keys: ['label'], limit: 20 })),
+    () =>
+      mode !== 'commands'
+        ? []
+        : fuzzySearch(query, visibleCommands, { keys: ['label'], limit: 20 }),
     [query, visibleCommands, mode],
   );
 
@@ -534,8 +537,7 @@ export function CommandMenu() {
               {filteredCommands.map((cmd, index) => {
                 const Icon = cmd.icon;
                 const isActive =
-                  (cmd.type === 'view' && activeLeafSet.has(cmd.id)) ||
-                  cmd.id === `theme-${theme}`;
+                  (cmd.type === 'view' && activeLeafSet.has(cmd.id)) || cmd.id === `theme-${theme}`;
 
                 return (
                   <div
