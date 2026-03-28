@@ -39,37 +39,6 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "F401"]
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "--tb=short --disable-warnings -v"
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-    "ignore::RuntimeWarning",
-    "ignore::sqlalchemy.exc.SAWarning",
-]
-
-[tool.coverage.run]
-source = ["app"]
-omit = [
-    "app/migrations/*",
-    "app/admin/*",
-    "app/__init__.py",
-]
-
-[tool.coverage.report]
-fail_under = 70
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-]
-
 [tool.mypy]
 python_version = "3.13"
 strict_optional = true
@@ -88,7 +57,6 @@ strict_equality = true
 extra_checks = true
 exclude = [
     "migrations/",
-    "tests/",
     "venv/",
 ]
 [[tool.mypy.overrides]]
@@ -116,7 +84,6 @@ known_first_party = ["app"]
 ignore_notebooks = true
 exclude = [
     "migrations/",
-    "tests/",
     "venv/",
     ".venv/",
 ]
