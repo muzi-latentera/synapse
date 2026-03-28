@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GitHubRepo(BaseModel):
@@ -70,3 +70,13 @@ class CreatePullRequestResponse(BaseModel):
 class GitHubCollaborator(BaseModel):
     login: str
     avatar_url: str
+
+
+class GeneratePRDescriptionRequest(BaseModel):
+    title: str = Field(max_length=256)
+    diff: str = Field(min_length=1, max_length=200_000)
+    model_id: str = Field(max_length=128)
+
+
+class GeneratePRDescriptionResponse(BaseModel):
+    description: str

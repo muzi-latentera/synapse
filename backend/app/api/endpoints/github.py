@@ -1,20 +1,24 @@
 from typing import NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.deps import get_github_service
+from app.core.deps import get_claude_agent_service, get_github_service
 from app.core.security import get_current_user
 from app.models.db_models.user import User
 from app.models.schemas.github import (
     CreatePullRequestRequest,
     CreatePullRequestResponse,
+    GeneratePRDescriptionRequest,
+    GeneratePRDescriptionResponse,
     GitHubCollaborator,
     GitHubPRCommentsResponse,
     GitHubPRListResponse,
     GitHubReposResponse,
 )
-from app.services.exceptions import GitHubException
+from app.services.claude_agent import ClaudeAgentService
+from app.services.exceptions import ClaudeAgentException, GitHubException
 from app.services.github import GitHubService
+from app.utils.validators import APIKeyValidationError
 
 router = APIRouter()
 
@@ -77,6 +81,32 @@ async def create_pull_request(
         return await github.create_pull_request(request)
     except GitHubException as exc:
         _raise_from_github(exc)
+
+
+@router.post(
+    "/generate-pr-description",
+    response_model=GeneratePRDescriptionResponse,
+)
+async def generate_pr_description(
+    request: GeneratePRDescriptionRequest,
+    current_user: User = Depends(get_current_user),
+    ai_service: ClaudeAgentService = Depends(get_claude_agent_service),
+) -> GeneratePRDescriptionResponse:
+    try:
+        description = await ai_service.generate_pr_description(
+            request.title, request.diff, request.model_id, current_user
+        )
+    except APIKeyValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except ClaudeAgentException as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
+    return GeneratePRDescriptionResponse(description=description)
 
 
 @router.get("/collaborators")

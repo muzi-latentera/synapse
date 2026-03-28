@@ -12,6 +12,7 @@ from app.models.db_models.workspace import Workspace
 from app.models.db_models.user import User
 from app.services.agent import AgentService
 from app.services.chat import ChatService
+from app.services.claude_agent import ClaudeAgentService
 from app.services.command import CommandService
 from app.services.exceptions import UserException
 from app.services.github import GitHubService
@@ -84,6 +85,10 @@ def get_github_service(
     github_token: str = Depends(require_github_token),
 ) -> GitHubService:
     return GitHubService(token=github_token)
+
+
+def get_claude_agent_service() -> ClaudeAgentService:
+    return ClaudeAgentService(session_factory=SessionLocal)
 
 
 def get_marketplace_service() -> MarketplaceService:

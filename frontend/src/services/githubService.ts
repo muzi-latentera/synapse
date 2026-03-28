@@ -6,6 +6,8 @@ import type {
   GitHubPRCommentsResponse,
   CreatePRRequest,
   CreatePRResponse,
+  GeneratePRDescriptionRequest,
+  GeneratePRDescriptionResponse,
 } from '@/types/github.types';
 
 async function searchRepositories(
@@ -48,6 +50,18 @@ async function createPullRequest(request: CreatePRRequest): Promise<CreatePRResp
   });
 }
 
+async function generatePRDescription(
+  request: GeneratePRDescriptionRequest,
+): Promise<GeneratePRDescriptionResponse> {
+  return withAuth(async () => {
+    const response = await apiClient.post<GeneratePRDescriptionResponse>(
+      '/github/generate-pr-description',
+      request,
+    );
+    return ensureResponse(response, 'Failed to generate PR description');
+  });
+}
+
 async function getCollaborators(
   owner: string,
   repo: string,
@@ -66,5 +80,6 @@ export const githubService = {
   listPullRequests,
   getPRComments,
   createPullRequest,
+  generatePRDescription,
   getCollaborators,
 };
