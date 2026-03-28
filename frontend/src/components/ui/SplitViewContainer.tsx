@@ -1,5 +1,4 @@
 import { memo, lazy, Suspense, ReactNode } from 'react';
-import { useMountEffect } from '@/hooks/useMountEffect';
 import { useUIStore } from '@/store/uiStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Spinner } from '@/components/ui/primitives/Spinner';
@@ -26,17 +25,6 @@ export const SplitViewContainer = memo(function SplitViewContainer({
   const currentView = useUIStore((state) => state.currentView);
   const mosaicLayout = useUIStore((state) => state.mosaicLayout);
   const isMobile = useIsMobile();
-
-  useMountEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const layout = useUIStore.getState().mosaicLayout;
-      if (event.key === 'Escape' && layout && isMosaicSplitNode(layout)) {
-        useUIStore.getState().exitSplitMode();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  });
 
   const isSingleView = isMobile || !mosaicLayout || !isMosaicSplitNode(mosaicLayout);
 

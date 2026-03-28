@@ -22,12 +22,13 @@ import {
 import toast from 'react-hot-toast';
 import { useUIStore } from '@/store/uiStore';
 import { useChatStore } from '@/store/chatStore';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { sandboxService } from '@/services/sandboxService';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useActiveViews } from '@/hooks/useActiveViews';
 import { fuzzySearch } from '@/utils/fuzzySearch';
+import { getLeaves } from '@/utils/mosaicHelpers';
 import { HighlightMatch } from '@/components/editor/file-tree/HighlightMatch';
 import { cn } from '@/utils/cn';
 import type { ViewType, MosaicDirection } from '@/types/ui.types';
@@ -53,6 +54,7 @@ interface ViewCommandItem {
   id: ViewType;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  shortcut: string;
   hideOnMobile?: boolean;
 }
 
@@ -61,34 +63,46 @@ interface ActionCommandItem {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  shortcut: string;
   hideOnMobile?: boolean;
 }
 
 type CommandItem = ViewCommandItem | ActionCommandItem;
 
 const VIEW_COMMANDS: ViewCommandItem[] = [
-  { type: 'view', id: 'agent', label: 'Agent', icon: MessagesSquare },
-  { type: 'view', id: 'ide', label: 'IDE', icon: VSCodeIcon, hideOnMobile: true },
-  { type: 'view', id: 'editor', label: 'Editor', icon: Code },
-  { type: 'view', id: 'terminal', label: 'Terminal', icon: SquareTerminal },
-  { type: 'view', id: 'diff', label: 'Diff', icon: GitCompareArrows },
-  { type: 'view', id: 'prReview', label: 'PR Review Inbox', icon: Inbox },
-  { type: 'view', id: 'secrets', label: 'Secrets', icon: KeyRound },
-  { type: 'view', id: 'webPreview', label: 'Web Preview', icon: Globe },
-  { type: 'view', id: 'mobilePreview', label: 'Mobile Preview', icon: Smartphone },
-  { type: 'view', id: 'browser', label: 'Browser', icon: Monitor },
+  { type: 'view', id: 'agent', label: 'Agent', icon: MessagesSquare, shortcut: 'a' },
+  { type: 'view', id: 'ide', label: 'IDE', icon: VSCodeIcon, shortcut: 'i', hideOnMobile: true },
+  { type: 'view', id: 'editor', label: 'Editor', icon: Code, shortcut: 'e' },
+  { type: 'view', id: 'terminal', label: 'Terminal', icon: SquareTerminal, shortcut: 't' },
+  { type: 'view', id: 'diff', label: 'Diff', icon: GitCompareArrows, shortcut: 'd' },
+  { type: 'view', id: 'prReview', label: 'PR Review Inbox', icon: Inbox, shortcut: 'r' },
+  { type: 'view', id: 'secrets', label: 'Secrets', icon: KeyRound, shortcut: 's' },
+  { type: 'view', id: 'webPreview', label: 'Web Preview', icon: Globe, shortcut: 'w' },
+  { type: 'view', id: 'mobilePreview', label: 'Mobile Preview', icon: Smartphone, shortcut: 'm' },
+  { type: 'view', id: 'browser', label: 'Browser', icon: Monitor, shortcut: 'b' },
 ];
 
 const ACTION_COMMANDS: ActionCommandItem[] = [
-  { type: 'action', id: 'new-sub-thread', label: 'New sub-thread', icon: GitBranch },
-  { type: 'action', id: 'create-commit', label: 'Create commit', icon: GitCommitHorizontal },
-  { type: 'action', id: 'create-pr', label: 'Create pull request', icon: GitPullRequest },
-  { type: 'action', id: 'create-branch', label: 'Create branch', icon: GitBranch },
-  { type: 'action', id: 'push-remote', label: 'Push to remote', icon: ArrowUpFromLine },
-  { type: 'action', id: 'pull-remote', label: 'Pull from remote', icon: ArrowDownFromLine },
+  { type: 'action', id: 'new-sub-thread', label: 'New sub-thread', icon: GitBranch, shortcut: 'n' },
+  { type: 'action', id: 'create-commit', label: 'Create commit', icon: GitCommitHorizontal, shortcut: 'c' },
+  { type: 'action', id: 'create-pr', label: 'Create pull request', icon: GitPullRequest, shortcut: 'l' },
+  { type: 'action', id: 'create-branch', label: 'Create branch', icon: GitBranch, shortcut: 'h' },
+  { type: 'action', id: 'push-remote', label: 'Push to remote', icon: ArrowUpFromLine, shortcut: 'u' },
+  { type: 'action', id: 'pull-remote', label: 'Pull from remote', icon: ArrowDownFromLine, shortcut: 'j' },
 ];
 
 const ALL_COMMANDS: CommandItem[] = [...ACTION_COMMANDS, ...VIEW_COMMANDS];
+
+export const SHORTCUT_MAP = new Map<string, CommandItem>(
+  ALL_COMMANDS.map((cmd) => [`Key${cmd.shortcut.toUpperCase()}`, cmd]),
+);
+
+const IS_MAC = navigator.platform.toUpperCase().startsWith('MAC');
+
+function formatShortcut(key: string): string {
+  const mod = IS_MAC ? '⌘' : 'Ctrl';
+  return `${mod}⇧${key.toUpperCase()}`;
+}
 
 function executeGitRemoteCommand(
   fn: (
@@ -115,6 +129,56 @@ function executeGitRemoteCommand(
     .catch(() => toast.error(`${label} failed`));
 }
 
+export function executeCommand(cmd: CommandItem, queryClient: QueryClient, toggle: boolean) {
+  const ui = useUIStore.getState();
+
+  if (cmd.type === 'view') {
+    const leaves = getLeaves(ui.mosaicLayout ?? ui.currentView);
+    if (toggle && leaves.includes(cmd.id)) {
+      ui.removeTileFromMosaic(cmd.id);
+    } else {
+      ui.handleViewClick(cmd.id, true);
+    }
+  } else if (cmd.id === 'new-sub-thread') {
+    const chat = useChatStore.getState().currentChat;
+    if (!chat || chat.parent_chat_id) {
+      toast.error('Open a top-level thread first');
+    } else {
+      ui.setSubThreadDialogOpen(toggle ? !ui.subThreadDialogOpen : true);
+    }
+  } else if (cmd.id === 'create-commit') {
+    ui.setCreateCommitDialogOpen(toggle ? !ui.createCommitDialogOpen : true);
+  } else if (cmd.id === 'create-pr') {
+    ui.setCreatePRDialogOpen(toggle ? !ui.createPRDialogOpen : true);
+  } else if (cmd.id === 'create-branch') {
+    ui.setCreateBranchDialogOpen(toggle ? !ui.createBranchDialogOpen : true);
+  } else if (cmd.id === 'push-remote') {
+    const sandboxId = useChatStore.getState().currentChat?.sandbox_id;
+    executeGitRemoteCommand(sandboxService.gitPush, 'Pushed to remote', () => {
+      if (sandboxId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.gitBranchesAll(sandboxId),
+        });
+      }
+    });
+  } else if (cmd.id === 'pull-remote') {
+    const sandboxId = useChatStore.getState().currentChat?.sandbox_id;
+    executeGitRemoteCommand(sandboxService.gitPull, 'Pulled from remote', () => {
+      if (sandboxId) {
+        void Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.sandbox.gitBranchesAll(sandboxId),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
+          }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.gitDiffAll(sandboxId) }),
+        ]);
+      }
+    });
+  }
+}
+
 export function CommandMenu() {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
@@ -126,6 +190,7 @@ export function CommandMenu() {
   const isOpen = useUIStore((state) => state.commandMenuOpen);
   const isMobile = useIsMobile();
   const activeLeaves = useActiveViews();
+  const activeLeafSet = useMemo(() => new Set(activeLeaves), [activeLeaves]);
   const queryClient = useQueryClient();
 
   const visibleCommands = useMemo(
@@ -156,46 +221,7 @@ export function CommandMenu() {
 
   const handleSelectItem = useCallback(
     (cmd: CommandItem) => {
-      if (cmd.type === 'view') {
-        useUIStore.getState().handleViewClick(cmd.id, true);
-      } else if (cmd.id === 'new-sub-thread') {
-        const chat = useChatStore.getState().currentChat;
-        if (!chat || chat.parent_chat_id) {
-          toast.error('Open a top-level thread first');
-        } else {
-          useUIStore.getState().setSubThreadDialogOpen(true);
-        }
-      } else if (cmd.id === 'create-commit') {
-        useUIStore.getState().setCreateCommitDialogOpen(true);
-      } else if (cmd.id === 'create-pr') {
-        useUIStore.getState().setCreatePRDialogOpen(true);
-      } else if (cmd.id === 'create-branch') {
-        useUIStore.getState().setCreateBranchDialogOpen(true);
-      } else if (cmd.id === 'push-remote') {
-        const sandboxId = useChatStore.getState().currentChat?.sandbox_id;
-        executeGitRemoteCommand(sandboxService.gitPush, 'Pushed to remote', () => {
-          if (sandboxId) {
-            void queryClient.invalidateQueries({
-              queryKey: queryKeys.sandbox.gitBranchesAll(sandboxId),
-            });
-          }
-        });
-      } else if (cmd.id === 'pull-remote') {
-        const sandboxId = useChatStore.getState().currentChat?.sandbox_id;
-        executeGitRemoteCommand(sandboxService.gitPull, 'Pulled from remote', () => {
-          if (sandboxId) {
-            void Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.sandbox.gitBranchesAll(sandboxId),
-              }),
-              queryClient.invalidateQueries({
-                queryKey: queryKeys.sandbox.filesMetadata(sandboxId),
-              }),
-              queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.gitDiffAll(sandboxId) }),
-            ]);
-          }
-        });
-      }
+      executeCommand(cmd, queryClient, false);
       close();
     },
     [close, queryClient],
@@ -295,7 +321,7 @@ export function CommandMenu() {
         <div className="max-h-64 overflow-y-auto py-1" role="listbox" id={listId}>
           {filteredCommands.map((cmd, index) => {
             const Icon = cmd.icon;
-            const isActive = cmd.type === 'view' && activeLeaves.includes(cmd.id);
+            const isActive = cmd.type === 'view' && activeLeafSet.has(cmd.id);
 
             return (
               <div
@@ -328,6 +354,11 @@ export function CommandMenu() {
                     <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
                   )}
                 </button>
+                {!isMobile && (
+                  <kbd className="ml-auto shrink-0 font-mono text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+                    {formatShortcut(cmd.shortcut)}
+                  </kbd>
+                )}
                 {cmd.type === 'view' && !isMobile && !isActive && (
                   <div className="flex items-center gap-0.5">
                     <button
@@ -362,7 +393,7 @@ export function CommandMenu() {
         {!isMobile && (
           <div className="flex items-center justify-between border-t border-border/50 px-3 py-2 dark:border-border-dark/50">
             <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              Enter to add · Click icons to split · Esc to close
+              ↵ Select · Split via icons · Shortcuts work globally · Esc to close
             </span>
           </div>
         )}
