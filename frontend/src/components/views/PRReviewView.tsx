@@ -9,6 +9,7 @@ import { useGitRemoteUrlQuery } from '@/hooks/queries/useSandboxQueries';
 import { useGitHubPullsQuery, useGitHubPRCommentsQuery } from '@/hooks/queries/useGitHubQueries';
 import { queryKeys } from '@/hooks/queries/queryKeys';
 import { cn } from '@/utils/cn';
+import { openExternalUrl } from '@/utils/openExternal';
 
 type ReviewComment = {
   path: string | null;
@@ -250,15 +251,16 @@ export const PRReviewView = memo(function PRReviewView() {
                         )}
                       </div>
                     </div>
-                    <a
-                      href={pr.html_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
+                    <span
+                      role="link"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openExternalUrl(pr.html_url);
+                      }}
                       className="flex-shrink-0 text-2xs text-text-quaternary underline transition-colors duration-200 hover:text-text-primary dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
                     >
                       GitHub
-                    </a>
+                    </span>
                   </button>
 
                   {isExpanded && (
