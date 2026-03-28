@@ -14,6 +14,7 @@ from app.services.agent import AgentService
 from app.services.chat import ChatService
 from app.services.command import CommandService
 from app.services.exceptions import UserException
+from app.services.github import GitHubService
 from app.services.marketplace import MarketplaceService
 from app.services.plugin_installer import PluginInstallerService
 from app.services.provider import ProviderService
@@ -77,6 +78,12 @@ async def require_github_token(
             detail="GitHub personal access token not configured",
         )
     return github_token
+
+
+def get_github_service(
+    github_token: str = Depends(require_github_token),
+) -> GitHubService:
+    return GitHubService(token=github_token)
 
 
 def get_marketplace_service() -> MarketplaceService:

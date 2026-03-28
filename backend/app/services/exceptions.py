@@ -23,6 +23,8 @@ class ErrorCode(str, Enum):
     WORKSPACE_NOT_FOUND = "WORKSPACE_NOT_FOUND"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
+    GITHUB_TOKEN_INVALID = "GITHUB_TOKEN_INVALID"
+    GITHUB_API_FAILED = "GITHUB_API_FAILED"
 
 
 class ServiceException(Exception):
@@ -168,6 +170,17 @@ class MarketplaceException(ServiceException):
         error_code: ErrorCode = ErrorCode.MARKETPLACE_FETCH_FAILED,
         details: dict[str, str] | None = None,
         status_code: int = 400,
+    ):
+        super().__init__(message, error_code, details, status_code)
+
+
+class GitHubException(ServiceException):
+    def __init__(
+        self,
+        message: str,
+        error_code: ErrorCode = ErrorCode.GITHUB_API_FAILED,
+        details: dict[str, str] | None = None,
+        status_code: int = 502,
     ):
         super().__init__(message, error_code, details, status_code)
 
