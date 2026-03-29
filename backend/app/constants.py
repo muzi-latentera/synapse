@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 from typing import Final
 
+from app.models.schemas.settings import ProviderType
+
 CLAUDE_DIR: Final[Path] = (
     Path(d) if (d := os.environ.get("CLAUDE_CONFIG_DIR")) else Path.home() / ".claude"
 )
@@ -173,3 +175,9 @@ DEFAULT_PTY_COLS: Final[int] = 80
 DOCKER_STATUS_RUNNING: Final[str] = "running"
 
 SANDBOX_BASHRC_PATH: Final[str] = "/home/user/.bashrc"
+
+BRIDGE_PROVIDER_TYPES: Final[set[str]] = {
+    ProviderType.OPENROUTER.value,
+    ProviderType.OPENAI.value,
+    ProviderType.COPILOT.value,
+}

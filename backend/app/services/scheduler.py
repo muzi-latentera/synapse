@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.constants import BRIDGE_PROVIDER_TYPES
 from app.core.config import get_settings
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.workspace import Workspace
@@ -730,8 +731,17 @@ class SchedulerService(BaseDbService[ScheduledTask]):
 
             system_prompt = build_system_prompt_for_chat(user_settings)
 
-            context_window = ProviderService().get_model_context_window(
+            provider_service = ProviderService()
+            context_window = provider_service.get_model_context_window(
                 user_settings, model_id
+            )
+            provider, _ = provider_service.get_provider_for_model(
+                user_settings, model_id
+            )
+            uses_bridge = (
+                provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
+                if provider
+                else False
             )
             stream_request = ChatStreamRequest(
                 prompt=prompt_message,
@@ -744,6 +754,7 @@ class SchedulerService(BaseDbService[ScheduledTask]):
                 session_id=None,
                 assistant_message_id=str(assistant_message_id),
                 thinking_mode="ultra",
+                uses_bridge=uses_bridge,
                 attachments=None,
                 selected_persona_name=DEFAULT_PERSONA_NAME,
             )

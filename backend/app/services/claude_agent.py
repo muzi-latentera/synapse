@@ -1,4 +1,6 @@
+import base64
 import logging
+import mimetypes
 import sys
 from collections.abc import AsyncIterator, Callable
 from functools import partial
@@ -13,6 +15,7 @@ from claude_agent_sdk import (
 )
 
 from app.constants import (
+    BRIDGE_PROVIDER_TYPES,
     SANDBOX_GIT_ASKPASS_PATH,
     SANDBOX_HOME_DIR,
     SANDBOX_WORKSPACE_DIR,
@@ -188,16 +191,21 @@ class ClaudeAgentService:
         session_callback: Callable[[str, str | None], None] | None = None,
         attachments: list[dict[str, Any]] | None = None,
         attachment_base_dir: str = SANDBOX_HOME_DIR,
+        uses_bridge: bool = False,
     ) -> AsyncIterator[StreamEvent]:
         # Send a prompt to the Claude SDK client and yield processed stream
         # events, handling plan mode transitions on tool success/failure.
-        user_prompt = self.prepare_user_prompt(
-            prompt, custom_instructions, attachments, attachment_base_dir
+        user_content = self.build_user_message_content(
+            prompt,
+            custom_instructions,
+            attachments,
+            attachment_base_dir,
+            uses_bridge=uses_bridge,
         )
 
         prompt_message = {
             "type": "user",
-            "message": {"role": MessageRole.USER.value, "content": user_prompt},
+            "message": {"role": MessageRole.USER.value, "content": user_content},
             "parent_tool_use_id": None,
             "session_id": session_id,
         }
@@ -252,11 +260,7 @@ class ClaudeAgentService:
             # existing login; in Docker mode an explicit token is needed.
             if auth_token:
                 env["CLAUDE_CODE_OAUTH_TOKEN"] = auth_token
-        elif provider_type in (
-            ProviderType.OPENROUTER.value,
-            ProviderType.OPENAI.value,
-            ProviderType.COPILOT.value,
-        ):
+        elif provider_type in BRIDGE_PROVIDER_TYPES:
             # Non-Anthropic providers route through our local bridge
             # (https://github.com/Mng-dev-ai/anthropic-bridge) that translates
             # Anthropic API calls to the provider's format.
@@ -624,6 +628,80 @@ class ClaudeAgentService:
 
         parts.append(f"<user_prompt>{prompt}</user_prompt>")
         return "".join(parts)
+
+    @classmethod
+    def build_user_message_content(
+        cls,
+        prompt: str,
+        custom_instructions: str | None,
+        attachments: list[dict[str, Any]] | None = None,
+        attachment_base_dir: str = SANDBOX_HOME_DIR,
+        uses_bridge: bool = False,
+    ) -> str | list[dict[str, Any]]:
+        # Anthropic's API handles image attachments natively, but bridge-backed
+        # providers (OpenAI, OpenRouter, Copilot) need images inlined as base64
+        # content blocks since the bridge translates to their format.
+        if not uses_bridge:
+            return cls.prepare_user_prompt(
+                prompt,
+                custom_instructions,
+                attachments,
+                attachment_base_dir,
+            )
+
+        # Slash commands must stay as bare strings for the SDK to handle them.
+        if any(prompt.startswith(cmd) for cmd in ALLOWED_SLASH_COMMANDS):
+            return prompt
+
+        image_blocks: list[dict[str, Any]] = []
+        for attachment in attachments or []:
+            if attachment.get("file_type") == "image":
+                image_block = cls._attachment_to_image_block(attachment)
+                if image_block:
+                    image_blocks.append(image_block)
+
+        # Keep all attachments (including images) in the text block so the
+        # model sees filenames and can map them to the inline image blocks.
+        prompt_text = cls.prepare_user_prompt(
+            prompt,
+            custom_instructions,
+            attachments,
+            attachment_base_dir,
+        )
+        if not image_blocks:
+            return prompt_text
+
+        return [{"type": "text", "text": prompt_text}, *image_blocks]
+
+    @staticmethod
+    def _attachment_to_image_block(attachment: dict[str, Any]) -> dict[str, Any] | None:
+        relative_path = attachment.get("file_path")
+        if not isinstance(relative_path, str) or not relative_path:
+            return None
+
+        file_path = Path(settings.STORAGE_PATH) / relative_path
+        try:
+            raw = file_path.read_bytes()
+        except OSError:
+            logger.warning(
+                "Image attachment not found for inline bridge send: %s",
+                file_path,
+            )
+            return None
+
+        mime_type, _ = mimetypes.guess_type(str(file_path))
+        media_type = (
+            mime_type if mime_type and mime_type.startswith("image/") else "image/png"
+        )
+        encoded = base64.b64encode(raw).decode("ascii")
+        return {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": media_type,
+                "data": encoded,
+            },
+        }
 
     @staticmethod
     async def _create_prompt_iterable(
