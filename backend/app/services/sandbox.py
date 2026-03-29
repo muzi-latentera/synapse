@@ -14,6 +14,7 @@ from typing import Any, Callable, Coroutine
 from app.constants import (
     ANTHROPIC_BRIDGE_HOST,
     ANTHROPIC_BRIDGE_PORT,
+    BRIDGE_PROVIDER_TYPES,
     SANDBOX_CLAUDE_DIR,
     SANDBOX_CLAUDE_JSON_PATH,
     SANDBOX_GIT_ASKPASS_PATH,
@@ -626,13 +627,8 @@ class SandboxService:
     ) -> bool:
         if not custom_providers:
             return False
-        bridge_types = {
-            ProviderType.OPENROUTER.value,
-            ProviderType.OPENAI.value,
-            ProviderType.COPILOT.value,
-        }
         return any(
-            provider.get("provider_type") in bridge_types
+            provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
             and provider.get("enabled", True)
             for provider in custom_providers
         )

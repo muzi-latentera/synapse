@@ -48,6 +48,7 @@ class ChatStreamRequest:
     assistant_message_id: str | None
     thinking_mode: str | None
     worktree: bool = False
+    uses_bridge: bool = False
     attachments: list[dict[str, Any]] | None
     context_window: int | None = None
     selected_persona_name: str = DEFAULT_PERSONA_NAME

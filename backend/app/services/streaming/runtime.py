@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
 from app.constants import (
+    BRIDGE_PROVIDER_TYPES,
     REDIS_KEY_CHAT_CONTEXT_USAGE,
     REDIS_KEY_CHAT_STREAM_LIVE,
     SANDBOX_HOME_DIR,
@@ -147,6 +148,7 @@ class ChatStreamRuntime:
         self.session_container: dict[str, Any] = {"session_id": request.session_id}
         self.assistant_message_id = request.assistant_message_id
         self.model_id = request.model_id
+        self.uses_bridge = request.uses_bridge
         self.context_window = request.context_window
         self.prompt = request.prompt
         self._is_new_chat = request.session_id is None
@@ -167,6 +169,20 @@ class ChatStreamRuntime:
         self._cancel_event: asyncio.Event | None = None
         self._cancelled: bool = False
         self._send_now_pending: bool = False
+
+    @property
+    def attachment_base_dir(self) -> str:
+        # Files are written to the sandbox home dir
+        # (/home/user/ → {host_base}/{sandbox_id}/), so in host mode
+        # point Claude at the real host path, not the workspace path.
+        if self.chat.sandbox_provider == SandboxProviderType.HOST:
+            sid = self.chat.sandbox_id
+            if sid:
+                host_base = (
+                    Path(settings.get_host_sandbox_base_dir()).expanduser().resolve()
+                )
+                return str(host_base / sid)
+        return SANDBOX_HOME_DIR
 
     async def run(
         self,
@@ -495,6 +511,17 @@ class ChatStreamRuntime:
                         self.model_id = resolved_model
                         if self._session:
                             self._session.current_model = resolved_model
+                    user_settings = await UserService(
+                        session_factory=self.session_factory
+                    ).get_user_settings(self.chat.user_id, db=None)
+                    provider, _ = ProviderService().get_provider_for_model(
+                        user_settings, queued_model
+                    )
+                    self.uses_bridge = (
+                        provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
+                        if provider
+                        else False
+                    )
                 queued_permission = queued_msg.get("permission_mode")
                 if queued_permission:
                     sdk_permission = SDK_PERMISSION_MODE_MAP.get(
@@ -502,14 +529,16 @@ class ChatStreamRuntime:
                     )
                     await self.client.set_permission_mode(sdk_permission)
 
-            prompt = ai_service.prepare_user_prompt(
+            user_content = ai_service.build_user_message_content(
                 queued_msg["content"],
                 self.custom_instructions,
                 queued_msg.get("attachments"),
+                self.attachment_base_dir,
+                uses_bridge=self.uses_bridge,
             )
             injection = {
                 "type": "user",
-                "message": {"role": "user", "content": prompt},
+                "message": {"role": "user", "content": user_content},
                 "parent_tool_use_id": None,
                 "session_id": self.session_container.get("session_id"),
             }
@@ -848,8 +877,17 @@ class ChatStreamRuntime:
             user_settings,
             selected_persona_name=selected_persona_name,
         )
-        context_window = ProviderService().get_model_context_window(
+        provider_service = ProviderService()
+        context_window = provider_service.get_model_context_window(
             user_settings, queued_msg["model_id"]
+        )
+        provider, _ = provider_service.get_provider_for_model(
+            user_settings, queued_msg["model_id"]
+        )
+        uses_bridge = (
+            provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
+            if provider
+            else False
         )
         return ChatStreamRequest(
             prompt=queued_msg["content"],
@@ -872,6 +910,7 @@ class ChatStreamRuntime:
             assistant_message_id=assistant_message_id,
             thinking_mode=queued_msg.get("thinking_mode"),
             worktree=queued_msg.get("worktree", False),
+            uses_bridge=uses_bridge,
             attachments=queued_msg.get("attachments"),
             selected_persona_name=selected_persona_name,
         )
@@ -1117,20 +1156,6 @@ class ChatStreamRuntime:
                         params.options.permission_mode
                     )
                 stream_result = StreamResult()
-                attachment_base_dir = SANDBOX_HOME_DIR
-                if runtime.chat.sandbox_provider == SandboxProviderType.HOST:
-                    # Files are written to the sandbox home dir
-                    # (/home/user/ → {host_base}/{sandbox_id}/), so
-                    # point Claude at the real host path, not the
-                    # workspace path.
-                    host_base = (
-                        Path(settings.get_host_sandbox_base_dir())
-                        .expanduser()
-                        .resolve()
-                    )
-                    sid = runtime.chat.sandbox_id
-                    assert sid is not None
-                    attachment_base_dir = str(host_base / sid)
                 stream = ai_service.stream_response(
                     client=session.client,
                     prompt=request.prompt,
@@ -1139,7 +1164,8 @@ class ChatStreamRuntime:
                     result=stream_result,
                     session_callback=session_callback,
                     attachments=request.attachments,
-                    attachment_base_dir=attachment_base_dir,
+                    attachment_base_dir=runtime.attachment_base_dir,
+                    uses_bridge=request.uses_bridge,
                 )
                 return await runtime.run(ai_service, stream_result, stream)
             except (

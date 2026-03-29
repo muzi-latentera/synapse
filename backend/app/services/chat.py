@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.orm import aliased, selectinload
 
-from app.constants import REDIS_KEY_CHAT_STREAM_LIVE
+from app.constants import BRIDGE_PROVIDER_TYPES, REDIS_KEY_CHAT_STREAM_LIVE
 from app.core.config import get_settings
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.enums import MessageRole, MessageStreamStatus, StreamEventKind
@@ -852,6 +852,14 @@ class ChatService(BaseDbService[Chat]):
         context_window = self._provider_service.get_model_context_window(
             user_settings, request.model_id
         )
+        provider, _ = self._provider_service.get_provider_for_model(
+            user_settings, request.model_id
+        )
+        uses_bridge = (
+            provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
+            if provider
+            else False
+        )
 
         try:
             await self._enqueue_chat_task(
@@ -865,6 +873,7 @@ class ChatService(BaseDbService[Chat]):
                 assistant_message_id=str(assistant_message.id),
                 thinking_mode=request.thinking_mode,
                 worktree=request.worktree,
+                uses_bridge=uses_bridge,
                 attachments=attachments,
                 context_window=context_window,
                 selected_persona_name=request.selected_persona_name,
@@ -896,6 +905,7 @@ class ChatService(BaseDbService[Chat]):
         assistant_message_id: str,
         thinking_mode: str | None,
         worktree: bool = False,
+        uses_bridge: bool = False,
         attachments: list[MessageAttachmentDict] | None,
         context_window: int | None = None,
         selected_persona_name: str = DEFAULT_PERSONA_NAME,
@@ -925,6 +935,7 @@ class ChatService(BaseDbService[Chat]):
             assistant_message_id=assistant_message_id,
             thinking_mode=thinking_mode,
             worktree=worktree,
+            uses_bridge=uses_bridge,
             attachments=stream_attachments,
             selected_persona_name=selected_persona_name,
         )
