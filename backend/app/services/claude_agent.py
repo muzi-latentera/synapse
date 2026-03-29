@@ -539,10 +539,11 @@ class ClaudeAgentService:
             for env_var in user_settings.custom_env_vars:
                 env[env_var["key"]] = env_var["value"]
 
-        # WebSearch is an Anthropic-only tool — non-Anthropic providers don't support it
+        # WebSearch and WebFetch are Anthropic-only tools — non-Anthropic providers don't support them
         disallowed_tools: list[str] = []
         if provider_type != ProviderType.ANTHROPIC.value:
             disallowed_tools.append("WebSearch")
+            disallowed_tools.append("WebFetch")
 
         sdk_permission_mode = SDK_PERMISSION_MODE_MAP.get(
             permission_mode, "acceptEdits"
