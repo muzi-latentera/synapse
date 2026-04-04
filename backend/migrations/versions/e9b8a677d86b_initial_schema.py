@@ -1,8 +1,8 @@
-"""Initial schema
+"""initial_schema
 
-Revision ID: bf49a708566f
+Revision ID: e9b8a677d86b
 Revises: 
-Create Date: 2026-02-28 08:09:52.756612
+Create Date: 2026-04-05 00:55:13.187626
 
 """
 from typing import Sequence, Union
@@ -10,12 +10,11 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from app.db.migration_helpers import uuid_server_default, now_server_default
-from app.db.types import EncryptedJSON
 from app.db.types import EncryptedString
 from app.db.types import GUID
 
 # revision identifiers, used by Alembic.
-revision: str = 'bf49a708566f'
+revision: str = 'e9b8a677d86b'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -56,25 +55,6 @@ def upgrade() -> None:
     )
     op.create_index('idx_refresh_token_user_revoked', 'refresh_tokens', ['user_id', 'revoked_at'], unique=False)
     op.create_index(op.f('ix_refresh_tokens_token_hash'), 'refresh_tokens', ['token_hash'], unique=False)
-    op.create_table('scheduled_tasks',
-    sa.Column('id', GUID(), server_default=uuid_server_default(), nullable=False),
-    sa.Column('user_id', GUID(), nullable=False),
-    sa.Column('task_name', sa.String(length=255), nullable=False),
-    sa.Column('prompt_message', sa.Text(), nullable=False),
-    sa.Column('recurrence_type', sa.Enum('once', 'daily', 'weekly', 'monthly', name='recurrencetype'), nullable=False),
-    sa.Column('scheduled_time', sa.String(length=8), nullable=False),
-    sa.Column('scheduled_day', sa.Integer(), nullable=True),
-    sa.Column('next_execution', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('status', sa.Enum('pending', 'active', 'paused', 'completed', 'failed', name='taskstatus'), server_default='active', nullable=False),
-    sa.Column('model_id', sa.String(length=128), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('idx_scheduled_tasks_status_next', 'scheduled_tasks', ['status', 'next_execution'], unique=False)
-    op.create_index('idx_scheduled_tasks_user_next', 'scheduled_tasks', ['user_id', 'next_execution'], unique=False)
-    op.create_index(op.f('ix_scheduled_tasks_next_execution'), 'scheduled_tasks', ['next_execution'], unique=False)
     op.create_table('user_settings',
     sa.Column('id', GUID(), server_default=uuid_server_default(), nullable=False),
     sa.Column('user_id', GUID(), nullable=False),
@@ -82,21 +62,13 @@ def upgrade() -> None:
     sa.Column('sandbox_provider', sa.String(length=32), server_default='docker', nullable=False),
     sa.Column('timezone', sa.String(length=64), server_default='UTC', nullable=False),
     sa.Column('custom_instructions', sa.Text(), nullable=True),
-    sa.Column('custom_providers', EncryptedJSON(), nullable=True),
-    sa.Column('custom_agents', sa.JSON(), nullable=True),
     sa.Column('custom_mcps', sa.JSON(), nullable=True),
     sa.Column('custom_env_vars', sa.JSON(), nullable=True),
-    sa.Column('custom_skills', sa.JSON(), nullable=True),
-    sa.Column('custom_slash_commands', sa.JSON(), nullable=True),
-    sa.Column('custom_prompts', sa.JSON(), nullable=True),
+    sa.Column('personas', sa.JSON(), nullable=True),
     sa.Column('notifications_enabled', sa.Boolean(), server_default='true', nullable=False),
     sa.Column('auto_compact_disabled', sa.Boolean(), server_default='false', nullable=False),
     sa.Column('attribution_disabled', sa.Boolean(), server_default='false', nullable=False),
     sa.Column('installed_plugins', sa.JSON(), nullable=True),
-    sa.Column('gmail_oauth_client', EncryptedJSON(), nullable=True),
-    sa.Column('gmail_oauth_tokens', EncryptedJSON(), nullable=True),
-    sa.Column('gmail_connected_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('gmail_email', sa.String(length=320), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
@@ -125,34 +97,24 @@ def upgrade() -> None:
     sa.Column('user_id', GUID(), nullable=False),
     sa.Column('workspace_id', GUID(), nullable=False),
     sa.Column('session_id', sa.String(length=128), nullable=True),
+    sa.Column('session_agent_kind', sa.String(length=32), nullable=True),
+    sa.Column('worktree_cwd', sa.String(length=512), nullable=True),
     sa.Column('context_token_usage', sa.Integer(), server_default='0', nullable=False),
     sa.Column('last_event_seq', sa.BigInteger(), server_default='0', nullable=False),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('pinned_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('parent_chat_id', GUID(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
+    sa.ForeignKeyConstraint(['parent_chat_id'], ['chats.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('idx_chats_parent_chat_id', 'chats', ['parent_chat_id'], unique=False)
     op.create_index('idx_chats_user_id_deleted_at', 'chats', ['user_id', 'deleted_at'], unique=False)
     op.create_index('idx_chats_user_id_updated_at_desc', 'chats', ['user_id', 'updated_at'], unique=False)
     op.create_index('idx_chats_workspace_id_deleted_at', 'chats', ['workspace_id', 'deleted_at'], unique=False)
-    op.create_table('task_executions',
-    sa.Column('id', GUID(), server_default=uuid_server_default(), nullable=False),
-    sa.Column('task_id', GUID(), nullable=False),
-    sa.Column('executed_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('status', sa.Enum('running', 'success', 'failed', name='taskexecutionstatus'), nullable=False),
-    sa.Column('chat_id', GUID(), nullable=True),
-    sa.Column('error_message', sa.Text(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=now_server_default(), nullable=False),
-    sa.ForeignKeyConstraint(['task_id'], ['scheduled_tasks.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('idx_task_executions_status', 'task_executions', ['status'], unique=False)
-    op.create_index('idx_task_executions_task_created', 'task_executions', ['task_id', 'created_at'], unique=False)
     op.create_table('messages',
     sa.Column('id', GUID(), server_default=uuid_server_default(), nullable=False),
     sa.Column('chat_id', GUID(), nullable=False),
@@ -162,7 +124,6 @@ def upgrade() -> None:
     sa.Column('active_stream_id', GUID(), nullable=True),
     sa.Column('role', sa.Enum('user', 'assistant', name='messagerole'), nullable=False),
     sa.Column('model_id', sa.String(length=128), nullable=True),
-    sa.Column('checkpoint_id', sa.String(length=40), nullable=True),
     sa.Column('session_id', sa.String(length=128), nullable=True),
     sa.Column('total_cost_usd', sa.Float(), server_default='0.0', nullable=True),
     sa.Column('stream_status', sa.Enum('in_progress', 'completed', 'failed', 'interrupted', name='messagestreamstatus'), server_default='in_progress', nullable=False),
@@ -225,20 +186,14 @@ def downgrade() -> None:
     op.drop_index('idx_messages_chat_id_deleted_at', table_name='messages')
     op.drop_index('idx_messages_chat_id_created_at', table_name='messages')
     op.drop_table('messages')
-    op.drop_index('idx_task_executions_task_created', table_name='task_executions')
-    op.drop_index('idx_task_executions_status', table_name='task_executions')
-    op.drop_table('task_executions')
     op.drop_index('idx_chats_workspace_id_deleted_at', table_name='chats')
     op.drop_index('idx_chats_user_id_updated_at_desc', table_name='chats')
     op.drop_index('idx_chats_user_id_deleted_at', table_name='chats')
+    op.drop_index('idx_chats_parent_chat_id', table_name='chats')
     op.drop_table('chats')
     op.drop_index('idx_workspaces_user_id_deleted_at', table_name='workspaces')
     op.drop_table('workspaces')
     op.drop_table('user_settings')
-    op.drop_index(op.f('ix_scheduled_tasks_next_execution'), table_name='scheduled_tasks')
-    op.drop_index('idx_scheduled_tasks_user_next', table_name='scheduled_tasks')
-    op.drop_index('idx_scheduled_tasks_status_next', table_name='scheduled_tasks')
-    op.drop_table('scheduled_tasks')
     op.drop_index(op.f('ix_refresh_tokens_token_hash'), table_name='refresh_tokens')
     op.drop_index('idx_refresh_token_user_revoked', table_name='refresh_tokens')
     op.drop_table('refresh_tokens')
