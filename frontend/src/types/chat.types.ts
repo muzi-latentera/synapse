@@ -1,5 +1,5 @@
 import type { ToolEventPayload } from './tools.types';
-import type { ProviderType } from './user.types';
+import type { PermissionMode } from '@/store/chatSettingsStore';
 
 export interface MessageAttachment {
   id: string;
@@ -46,6 +46,7 @@ export type AssistantStreamEvent =
       request_id: string;
       tool_name: string;
       tool_input: Record<string, unknown>;
+      options: PermissionOption[];
     }
   | { type: 'prompt_suggestions'; suggestions: string[] };
 
@@ -62,6 +63,7 @@ export interface Chat {
   worktree_cwd?: string | null;
   parent_chat_id?: string | null;
   sub_thread_count?: number;
+  session_agent_kind?: AgentKind | null;
 }
 
 export interface ChatRequest {
@@ -69,9 +71,10 @@ export interface ChatRequest {
   chat_id?: string;
   model_id: string;
   attached_files?: File[];
-  permission_mode: 'plan' | 'ask' | 'auto';
+  permission_mode: PermissionMode;
   thinking_mode?: string;
   worktree?: boolean;
+  plan_mode?: boolean;
   selected_persona_name: string;
 }
 
@@ -82,20 +85,30 @@ export interface CreateChatRequest {
   parent_chat_id?: string;
 }
 
-export interface PreviewLinksResponse {
-  links: Array<{
-    port: number;
-    preview_url: string;
-  }>;
-}
+export type AgentKind = 'claude' | 'codex';
 
 export interface Model {
   model_id: string;
   name: string;
-  provider_id: string;
-  provider_name: string;
-  provider_type: ProviderType;
+  agent_kind: AgentKind;
   context_window: number | null;
+}
+
+const CODEX_MODEL_IDS = new Set([
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.3-codex',
+  'gpt-5.2-codex',
+  'gpt-5.2',
+  'gpt-5.1-codex-max',
+  'gpt-5.1-codex-mini',
+]);
+
+export function getAgentKindForModelId(modelId: string | null | undefined): AgentKind {
+  if (!modelId) {
+    return 'claude';
+  }
+  return CODEX_MODEL_IDS.has(modelId) ? 'codex' : 'claude';
 }
 
 export interface ContextUsage {
@@ -104,10 +117,18 @@ export interface ContextUsage {
   percentage: number;
 }
 
+export interface PermissionOption {
+  kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always';
+  name: string;
+  option_id: string;
+  permission_mode?: PermissionMode | null;
+}
+
 export interface PermissionRequest {
   request_id: string;
   tool_name: string;
   tool_input: Record<string, unknown>;
+  options: PermissionOption[];
 }
 
 export interface QuestionOption {

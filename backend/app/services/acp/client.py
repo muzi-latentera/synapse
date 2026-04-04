@@ -1,0 +1,467 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from typing import Any, cast
+
+from acp.schema import (
+    AgentMessageChunk,
+    AgentThoughtChunk,
+    AllowedOutcome,
+    CreateTerminalResponse,
+    DeniedOutcome,
+    KillTerminalResponse,
+    PermissionOption,
+    ReadTextFileResponse,
+    ReleaseTerminalResponse,
+    RequestPermissionResponse,
+    SessionInfoUpdate,
+    TerminalOutputResponse,
+    ToolCallProgress,
+    ToolCallStart,
+    ToolCallUpdate,
+    UsageUpdate,
+    UserMessageChunk,
+    WaitForTerminalExitResponse,
+    WriteTextFileResponse,
+)
+
+from app.models.types import PermissionMode
+from app.models.db_models.enums import ToolStatus
+from app.services.streaming.types import StreamEvent, ToolPayload
+
+logger = logging.getLogger(__name__)
+
+# Placed on event_queue to signal that the ACP prompt has finished
+# (either completed or errored) so consumers know to stop reading.
+_SENTINEL = object()
+
+# Valid ACP option_ids that match our PermissionMode literals directly.
+VALID_PERMISSION_MODES: set[str] = {
+    "default",
+    "acceptEdits",
+    "plan",
+    "bypassPermissions",
+    "auto",
+    "read-only",
+    "full-access",
+}
+
+# Normalizes human-readable option names (e.g. "Accept Edits") to our
+# PermissionMode literals when the option_id doesn't match directly.
+PERMISSION_MODE_BY_OPTION_NAME: dict[str, PermissionMode] = {
+    "default": "default",
+    "accept edits": "acceptEdits",
+    "plan": "plan",
+    "bypass permissions": "bypassPermissions",
+    "auto": "auto",
+    "read only": "read-only",
+    "full access": "full-access",
+}
+
+
+class AcpClientHandler:
+    # Implements the ACP client-side handler interface. The ACP SDK calls
+    # methods on this class as the agent emits events (text chunks, tool calls,
+    # permission requests, usage updates). Each method translates the ACP event
+    # into a StreamEvent and enqueues it for the SSE layer to forward to the frontend.
+
+    def __init__(self) -> None:
+        self.event_queue: asyncio.Queue[StreamEvent | object] = asyncio.Queue()
+        self._active_tools: dict[str, ToolPayload] = {}
+        self._pending_permissions: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        # Tracks which permission mode the user selected for each tool call,
+        # so we can include it in the tool_completed/tool_failed event.
+        self._resolved_permissions: dict[str, PermissionMode | None] = {}
+        # Maps request_id → {option_id → permission_mode} so resolve_permission
+        # can look up the mode that request_permission already derived.
+        self._permission_option_modes: dict[str, dict[str, PermissionMode | None]] = {}
+        self.total_cost_usd: float = 0.0
+        self.usage: dict[str, int] | None = None
+        # Set to True during load_session to suppress replayed history events.
+        self.muted: bool = False
+
+    # Required by ACP Client protocol interface
+    def on_connect(self, conn: Any) -> None:
+        pass
+
+    def finish(self) -> None:
+        self._active_tools.clear()
+        self._resolved_permissions.clear()
+        self._permission_option_modes.clear()
+        self.event_queue.put_nowait(_SENTINEL)
+
+    def cancel_pending_permissions(self) -> None:
+        for future in self._pending_permissions.values():
+            if not future.done():
+                future.cancel()
+        self._pending_permissions.clear()
+
+    @staticmethod
+    def is_sentinel(obj: Any) -> bool:
+        return obj is _SENTINEL
+
+    async def session_update(
+        self,
+        session_id: str,
+        update: Any,
+        **kwargs: Any,
+    ) -> None:
+        if self.muted:
+            return
+        event = self._map_update(update)
+        if event is not None:
+            if isinstance(update, SessionInfoUpdate) and session_id:
+                data = event.get("data")
+                if isinstance(data, dict):
+                    data.setdefault("session_id", session_id)
+                    update_meta = getattr(update, "field_meta", None) or {}
+                    cwd = update_meta.get("cwd") or kwargs.get("cwd")
+                    if cwd:
+                        data["worktree_cwd"] = cwd
+            self.event_queue.put_nowait(event)
+
+    async def request_permission(
+        self,
+        options: list[PermissionOption],
+        session_id: str,
+        tool_call: ToolCallUpdate,
+        **kwargs: Any,
+    ) -> RequestPermissionResponse:
+        # Called by the ACP SDK when the agent wants to perform a gated action
+        # (file write, shell command, etc.). We forward the options to the
+        # frontend as a permission_request event and block until the user responds.
+        request_id = tool_call.tool_call_id
+        tool_name = self._extract_tool_name(tool_call)
+        tool_input = self._extract_raw_input(tool_call.raw_input)
+
+        option_dicts = []
+        for opt in options:
+            option_id: str = getattr(opt, "option_id", getattr(opt, "optionId", ""))
+            permission_mode: PermissionMode | None = (
+                cast(PermissionMode, option_id)
+                if option_id in VALID_PERMISSION_MODES
+                else None
+            )
+            if permission_mode is None:
+                permission_mode = PERMISSION_MODE_BY_OPTION_NAME.get(
+                    opt.name.strip().lower()
+                )
+            option_dicts.append(
+                {
+                    "kind": opt.kind,
+                    "name": opt.name,
+                    "option_id": option_id,
+                    "permission_mode": permission_mode,
+                }
+            )
+
+        self._permission_option_modes[request_id] = {
+            od["option_id"]: od["permission_mode"] for od in option_dicts
+        }
+
+        event = StreamEvent(
+            type="permission_request",
+            request_id=request_id,
+            tool_name=tool_name,
+            tool_input=tool_input or {},
+            data={"options": option_dicts},
+        )
+        self.event_queue.put_nowait(event)
+
+        future: asyncio.Future[dict[str, Any]] = (
+            asyncio.get_running_loop().create_future()
+        )
+        self._pending_permissions[request_id] = future
+
+        try:
+            result = await future
+        finally:
+            self._pending_permissions.pop(request_id, None)
+
+        return result.get("response")
+
+    def resolve_permission(
+        self,
+        request_id: str,
+        *,
+        option_id: str = "",
+        user_answers: dict[str, Any] | None = None,
+        alternative_instruction: str | None = None,
+    ) -> bool:
+        # Called from the SSE endpoint when the user responds to a permission
+        # request. Unblocks the matching request_permission() awaiter with
+        # either an AllowedOutcome (option selected) or DeniedOutcome (cancelled).
+        future = self._pending_permissions.get(request_id)
+        if future is None or future.done():
+            return False
+
+        meta: dict[str, Any] = {}
+        if user_answers:
+            meta["userAnswers"] = user_answers
+        if alternative_instruction:
+            meta["alternativeInstruction"] = alternative_instruction
+        response_meta = meta or None
+
+        if option_id:
+            option_modes = self._permission_option_modes.pop(request_id, {})
+            self._resolved_permissions[request_id] = option_modes.get(option_id)
+            outcome = AllowedOutcome(outcome="selected", option_id=option_id)
+        else:
+            self._permission_option_modes.pop(request_id, None)
+            outcome = DeniedOutcome(outcome="cancelled")
+
+        response = RequestPermissionResponse(
+            outcome=outcome,
+            field_meta=response_meta,
+        )
+        future.set_result({"response": response})
+        return True
+
+    async def read_text_file(
+        self,
+        path: str,
+        session_id: str,
+        limit: int | None = None,
+        line: int | None = None,
+        **kwargs: Any,
+    ) -> ReadTextFileResponse:
+        # ACP protocol stubs — the agent binary handles file I/O and terminal
+        # operations internally. These no-op implementations satisfy the ACP
+        # client interface contract without duplicating sandbox logic here.
+        return ReadTextFileResponse(content="", line_count=0)
+
+    async def write_text_file(
+        self,
+        content: str,
+        path: str,
+        session_id: str,
+        **kwargs: Any,
+    ) -> WriteTextFileResponse | None:
+        return WriteTextFileResponse()
+
+    async def create_terminal(
+        self,
+        command: str,
+        session_id: str,
+        args: list[str] | None = None,
+        cwd: str | None = None,
+        env: Any = None,
+        output_byte_limit: int | None = None,
+        **kwargs: Any,
+    ) -> CreateTerminalResponse:
+        return CreateTerminalResponse(terminal_id="stub")
+
+    async def terminal_output(
+        self,
+        session_id: str,
+        terminal_id: str,
+        **kwargs: Any,
+    ) -> TerminalOutputResponse:
+        return TerminalOutputResponse(output="")
+
+    async def release_terminal(
+        self,
+        session_id: str,
+        terminal_id: str,
+        **kwargs: Any,
+    ) -> ReleaseTerminalResponse | None:
+        return ReleaseTerminalResponse()
+
+    async def wait_for_terminal_exit(
+        self,
+        session_id: str,
+        terminal_id: str,
+        **kwargs: Any,
+    ) -> WaitForTerminalExitResponse:
+        return WaitForTerminalExitResponse(exit_code=0)
+
+    async def kill_terminal(
+        self,
+        session_id: str,
+        terminal_id: str,
+        **kwargs: Any,
+    ) -> KillTerminalResponse | None:
+        return KillTerminalResponse()
+
+    async def ext_method(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        return {}
+
+    async def ext_notification(self, method: str, params: dict[str, Any]) -> None:
+        pass
+
+    def _map_update(self, update: Any) -> StreamEvent | None:
+        if isinstance(update, AgentMessageChunk):
+            return self._map_agent_message(update)
+        if isinstance(update, AgentThoughtChunk):
+            return self._map_agent_thought(update)
+        if isinstance(update, ToolCallStart):
+            return self._map_tool_call_start(update)
+        if isinstance(update, (ToolCallProgress, ToolCallUpdate)):
+            return self._map_tool_call_progress(update)
+        if isinstance(update, UsageUpdate):
+            return self._map_usage_update(update)
+        if isinstance(update, UserMessageChunk):
+            return self._map_user_message(update)
+        if isinstance(update, SessionInfoUpdate):
+            return self._map_session_info(update)
+        logger.debug("Unhandled ACP update type: %s", type(update).__name__)
+        return None
+
+    def _map_agent_message(self, chunk: AgentMessageChunk) -> StreamEvent | None:
+        if chunk.content.type == "text":
+            return StreamEvent(type="assistant_text", text=chunk.content.text)
+        return None
+
+    def _map_agent_thought(self, chunk: AgentThoughtChunk) -> StreamEvent | None:
+        if chunk.content.type == "text":
+            return StreamEvent(type="assistant_thinking", thinking=chunk.content.text)
+        return None
+
+    def _map_user_message(self, chunk: UserMessageChunk) -> StreamEvent | None:
+        if chunk.content.type == "text":
+            return StreamEvent(type="user_text", text=chunk.content.text)
+        return None
+
+    def _map_tool_call_start(self, tc: ToolCallStart) -> StreamEvent:
+        payload = ToolPayload(
+            id=tc.tool_call_id,
+            name=self._extract_tool_name(tc),
+            title=tc.title,
+            status=ToolStatus.STARTED.value,
+            parent_id=None,
+            input=self._extract_raw_input(tc.raw_input),
+        )
+        self._active_tools[tc.tool_call_id] = payload
+        return StreamEvent(type="tool_started", tool=payload)
+
+    def _map_tool_call_progress(self, tc: ToolCallProgress) -> StreamEvent | None:
+        # Handles both in-progress updates and terminal states (completed/failed).
+        # ACP may send multiple progress events per tool call — e.g. Codex's
+        # fetch tool sends title updates as it navigates pages. We track
+        # accumulated state in _active_tools and only re-emit when something changed.
+        status = tc.status
+
+        existing = self._active_tools.get(tc.tool_call_id)
+        if existing is None and status is None:
+            return None
+
+        if existing is None:
+            existing = ToolPayload(
+                id=tc.tool_call_id,
+                name="unknown",
+                title="Unknown tool",
+                status=ToolStatus.STARTED.value,
+                parent_id=None,
+                input=None,
+            )
+
+        changed = False
+        if tc.title and tc.title != existing.get("title"):
+            existing["title"] = tc.title
+            changed = True
+        if tc.raw_input is not None and existing.get("input") is None:
+            existing["input"] = self._extract_raw_input(tc.raw_input)
+            changed = True
+
+        if status == "completed":
+            self._active_tools.pop(tc.tool_call_id, None)
+            existing["status"] = ToolStatus.COMPLETED.value
+            existing["result"] = self._extract_tool_result(tc)
+            selected_mode = self._resolved_permissions.pop(tc.tool_call_id, None)
+            if selected_mode is not None:
+                existing["permission_mode"] = selected_mode
+            return StreamEvent(type="tool_completed", tool=existing)
+        if status == "failed":
+            self._active_tools.pop(tc.tool_call_id, None)
+            existing["status"] = ToolStatus.FAILED.value
+            existing["error"] = self._extract_tool_error(tc)
+            selected_mode = self._resolved_permissions.pop(tc.tool_call_id, None)
+            if selected_mode is not None:
+                existing["permission_mode"] = selected_mode
+            return StreamEvent(type="tool_failed", tool=existing)
+
+        self._active_tools[tc.tool_call_id] = existing
+        # Re-emit tool_started so the frontend can update the loading title
+        # when input arrives or title changes.
+        if changed:
+            return StreamEvent(type="tool_started", tool=existing)
+        return None
+
+    def _map_usage_update(self, usage: UsageUpdate) -> StreamEvent | None:
+        if usage.cost is not None:
+            self.total_cost_usd = usage.cost.amount
+        self.usage = {
+            "input_tokens": usage.used,
+            "context_window": usage.size,
+        }
+        return StreamEvent(type="usage", data=self.usage)
+
+    def _map_session_info(self, info: SessionInfoUpdate) -> StreamEvent | None:
+        # session_id and cwd are not on SessionInfoUpdate — they come from
+        # the outer SessionNotification and are injected by session_update().
+        # Always emit so the caller can attach the session_id.
+        return StreamEvent(type="system", data={})
+
+    @staticmethod
+    def _extract_tool_name(tc: Any) -> str:
+        # Claude embeds the tool name in field_meta.claudeCode.toolName (e.g.
+        # "Read", "Edit"). Codex uses the top-level `kind` field instead (e.g.
+        # "execute", "read", "edit"). Falls back to title for unknown agents.
+        meta = getattr(tc, "field_meta", None) or {}
+        claude_meta = meta.get("claudeCode", {})
+        if tool_name := claude_meta.get("toolName"):
+            return str(tool_name)
+        kind = getattr(tc, "kind", None)
+        if kind:
+            return str(kind)
+        return str(getattr(tc, "title", None) or "unknown")
+
+    @staticmethod
+    def _extract_raw_input(raw_input: Any) -> dict[str, Any] | None:
+        if not raw_input:
+            return None
+        if isinstance(raw_input, dict):
+            return raw_input
+        try:
+            parsed = json.loads(str(raw_input))
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+        return {"raw": str(raw_input)}
+
+    @staticmethod
+    def _extract_content_texts(tc: ToolCallProgress) -> list[str]:
+        if not tc.content:
+            return []
+        texts = []
+        for block in tc.content:
+            inner = getattr(block, "content", None)
+            if inner and getattr(inner, "type", None) == "text":
+                texts.append(inner.text)
+        return texts
+
+    @classmethod
+    def _extract_tool_result(cls, tc: ToolCallProgress) -> Any:
+        # Claude puts structured results in field_meta.claudeCode.toolResponse,
+        # while Codex uses raw_output directly. Content text blocks are the
+        # last resort for agents that use neither convention.
+        meta = getattr(tc, "field_meta", None) or {}
+        claude_meta = meta.get("claudeCode", {})
+        if "toolResponse" in claude_meta:
+            return claude_meta["toolResponse"]
+        if tc.raw_output is not None:
+            return tc.raw_output
+        texts = cls._extract_content_texts(tc)
+        return "\n".join(texts) if texts else None
+
+    @classmethod
+    def _extract_tool_error(cls, tc: ToolCallProgress) -> str:
+        if tc.raw_output is not None:
+            if isinstance(tc.raw_output, dict):
+                return str(tc.raw_output.get("formatted_output", str(tc.raw_output)))
+            return str(tc.raw_output)
+        texts = cls._extract_content_texts(tc)
+        return "\n".join(texts) if texts else "Tool execution failed"

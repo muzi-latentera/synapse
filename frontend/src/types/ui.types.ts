@@ -26,17 +26,7 @@ export interface ModelSelectionState {
   selectModel: (chatId: string, modelId: string) => void;
 }
 
-export type ViewType =
-  | 'agent'
-  | 'browser'
-  | 'diff'
-  | 'editor'
-  | 'ide'
-  | 'prReview'
-  | 'terminal'
-  | 'secrets'
-  | 'webPreview'
-  | 'mobilePreview';
+export type ViewType = 'agent' | 'diff' | 'editor' | 'prReview' | 'terminal' | 'secrets';
 
 export type MosaicDirection = 'row' | 'column';
 

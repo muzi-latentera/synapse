@@ -85,9 +85,7 @@ backend/*beat-schedule*
 .bashrc
 .claude.json
 .codex/
-.ide_connection_token
 .npm/
-.openvscode-server/
 .git-askpass.sh
 .gitconfig
 Library/

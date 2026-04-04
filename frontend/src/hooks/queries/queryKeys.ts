@@ -11,14 +11,10 @@ export const queryKeys = {
   },
   settings: 'settings',
   sandbox: {
-    previewLinks: (sandboxId: string) => ['sandbox', sandboxId, 'preview-links'] as const,
     fileContent: (sandboxId: string, filePath: string) =>
       ['sandbox', sandboxId, 'file-content', filePath] as const,
     filesMetadata: (sandboxId: string) => ['sandbox', sandboxId, 'files-metadata'] as const,
     secrets: (sandboxId: string) => ['sandbox', sandboxId, 'secrets'] as const,
-    ideUrl: (sandboxId: string) => ['sandbox', sandboxId, 'ide-url'] as const,
-    vncUrl: (sandboxId: string) => ['sandbox', sandboxId, 'vnc-url'] as const,
-    browserStatus: (sandboxId: string) => ['sandbox', sandboxId, 'browser-status'] as const,
     gitDiff: (sandboxId: string, mode: DiffMode, fullContext: boolean = false, cwd?: string) =>
       ['sandbox', sandboxId, 'git-diff', mode, fullContext, cwd] as const,
     gitDiffAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-diff'] as const,
@@ -31,11 +27,6 @@ export const queryKeys = {
   workspaces: ['workspaces'] as const,
   workspaceResources: (workspaceId: string) => ['workspaces', workspaceId, 'resources'] as const,
   models: 'models',
-  scheduler: {
-    tasks: ['scheduler', 'tasks'] as const,
-    task: (taskId: string) => ['scheduler', 'tasks', taskId] as const,
-    history: (taskId: string) => ['scheduler', 'tasks', taskId, 'history'] as const,
-  },
   marketplace: {
     catalog: ['marketplace', 'catalog'] as const,
     pluginDetails: (pluginName: string) => ['marketplace', 'plugin', pluginName] as const,

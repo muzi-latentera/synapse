@@ -13,11 +13,6 @@ export interface TerminalSize {
   rows: number;
 }
 
-export interface PortInfo {
-  port: number;
-  previewUrl: string;
-}
-
 export interface FileMetadata {
   path: string;
   type: string;

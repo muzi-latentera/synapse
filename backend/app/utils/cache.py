@@ -66,6 +66,8 @@ class MemoryPubSub:
         pass
 
 
+# In-memory Redis-compatible store for desktop mode where Redis isn't available.
+# Uses asyncio.TimerHandle for key expiry so TTLs work without a background sweep.
 class MemoryStore:
     _instance: "MemoryStore | None" = None
 

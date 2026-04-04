@@ -2,10 +2,12 @@ import os
 from pathlib import Path
 from typing import Final
 
-from app.models.schemas.settings import ProviderType
 
 CLAUDE_DIR: Final[Path] = (
     Path(d) if (d := os.environ.get("CLAUDE_CONFIG_DIR")) else Path.home() / ".claude"
+)
+CODEX_DIR: Final[Path] = (
+    Path(d) if (d := os.environ.get("CODEX_HOME")) else Path.home() / ".codex"
 )
 
 HOST_REQUIRED_PATH_PREFIX: Final[str] = (
@@ -34,11 +36,8 @@ DOCKER_AVAILABLE_PORTS: Final[list[int]] = [
     3000,
     3001,
     5000,
-    5900,
-    6080,
     8000,
     8080,
-    8765,
     5173,
     4200,
     8888,
@@ -48,23 +47,6 @@ DOCKER_AVAILABLE_PORTS: Final[list[int]] = [
     1234,
     4000,
 ]
-
-VNC_PORT: Final[int] = 5900
-VNC_WEBSOCKET_PORT: Final[int] = 6080
-OPENVSCODE_PORT: Final[int] = 8765
-CHROME_DEVTOOLS_PORT: Final[int] = 9222
-
-EXCLUDED_PREVIEW_PORTS: Final[set[int]] = {
-    22,
-    3456,
-    4040,
-    49982,
-    49983,
-    VNC_PORT,
-    VNC_WEBSOCKET_PORT,
-    OPENVSCODE_PORT,
-    CHROME_DEVTOOLS_PORT,
-}
 
 SANDBOX_SYSTEM_VARIABLES: Final[list[str]] = [
     "SHELL",
@@ -150,11 +132,6 @@ SANDBOX_WORKSPACE_DIR: Final[str] = "/home/user/workspace"
 SANDBOX_CLAUDE_DIR: Final[str] = "/home/user/.claude"
 SANDBOX_CLAUDE_JSON_PATH: Final[str] = "/home/user/.claude.json"
 SANDBOX_GIT_ASKPASS_PATH: Final[str] = "/home/user/.git-askpass.sh"
-SANDBOX_IDE_CONFIG_DIR: Final[str] = "/home/user/.openvscode-server/data/Machine"
-SANDBOX_IDE_SETTINGS_PATH: Final[str] = (
-    "/home/user/.openvscode-server/data/Machine/settings.json"
-)
-SANDBOX_IDE_TOKEN_PATH: Final[str] = "/home/user/.ide_connection_token"
 
 WS_MSG_AUTH: Final[str] = "auth"
 WS_MSG_INIT: Final[str] = "init"
@@ -166,18 +143,9 @@ WS_MSG_DETACH: Final[str] = "detach"
 WS_CLOSE_AUTH_FAILED: Final[int] = 4001
 WS_CLOSE_SANDBOX_NOT_FOUND: Final[int] = 4004
 
-ANTHROPIC_BRIDGE_PORT: Final[int] = 3456
-ANTHROPIC_BRIDGE_HOST: Final[str] = "0.0.0.0"
-
 TERMINAL_TYPE: Final[str] = "xterm-256color"
 DEFAULT_PTY_ROWS: Final[int] = 24
 DEFAULT_PTY_COLS: Final[int] = 80
 DOCKER_STATUS_RUNNING: Final[str] = "running"
 
 SANDBOX_BASHRC_PATH: Final[str] = "/home/user/.bashrc"
-
-BRIDGE_PROVIDER_TYPES: Final[set[str]] = {
-    ProviderType.OPENROUTER.value,
-    ProviderType.OPENAI.value,
-    ProviderType.COPILOT.value,
-}

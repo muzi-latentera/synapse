@@ -53,7 +53,6 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 user_settings = UserSettings(
                     user_id=user.id,
                     github_personal_access_token=None,
-                    custom_providers=[],
                 )
                 session.add(user_settings)
                 await session.commit()

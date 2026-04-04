@@ -22,9 +22,7 @@ from app.api.endpoints import (
     integrations,
     marketplace,
     mcps,
-    permissions,
     sandbox,
-    scheduler,
     workspace,
 )
 from app.api.endpoints import settings as settings_router
@@ -32,8 +30,8 @@ from app.api.endpoints import skills, websocket
 from app.core.config import get_settings
 from app.core.middleware import setup_middleware
 from app.db.session import SessionLocal, engine
-from app.services.claude_session_registry import session_registry
 from app.services.maintenance import MaintenanceService
+from app.services.session_registry import session_registry
 from app.services.streaming.runtime import ChatStreamRuntime
 from app.utils.cache import cache_connection
 
@@ -158,16 +156,6 @@ def create_application() -> FastAPI:
         attachments.router,
         prefix=f"{settings.API_V1_STR}",
         tags=["Attachments"],
-    )
-    application.include_router(
-        permissions.router,
-        prefix=f"{settings.API_V1_STR}",
-        tags=["Permissions"],
-    )
-    application.include_router(
-        scheduler.router,
-        prefix=f"{settings.API_V1_STR}/scheduler",
-        tags=["Scheduler"],
     )
     application.include_router(
         ai_model.router,

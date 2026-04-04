@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api';
 import { ensureResponse, serviceCall } from '@/services/base/BaseService';
 import { DEFAULT_PERSONA } from '@/store/chatSettingsStore';
+import type { PermissionMode } from '@/store/chatSettingsStore';
 import { validateId, validateRequired } from '@/utils/validation';
 import type { QueuedMessage, QueueAddResponse } from '@/types/queue.types';
 
@@ -8,9 +9,10 @@ async function queueMessage(
   chatId: string,
   content: string,
   modelId: string,
-  permissionMode: string = 'auto',
+  permissionMode: PermissionMode = 'acceptEdits',
   thinkingMode: string | null = null,
   worktree: boolean = false,
+  planMode: boolean = false,
   selectedPersonaName: string = DEFAULT_PERSONA,
   files?: File[],
 ): Promise<QueueAddResponse> {
@@ -28,6 +30,9 @@ async function queueMessage(
     }
     if (worktree) {
       formData.append('worktree', 'true');
+    }
+    if (planMode) {
+      formData.append('plan_mode', 'true');
     }
     formData.append('selected_persona_name', selectedPersonaName);
 

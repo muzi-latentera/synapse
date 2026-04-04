@@ -1,3 +1,23 @@
+import type { PermissionOption } from '@/types/chat.types';
+
+export function findOptionId(options: PermissionOption[], prefix: 'allow' | 'reject'): string {
+  return options.find((o) => o.kind.startsWith(prefix))?.option_id ?? '';
+}
+
+export function findOptionIdByKind(
+  options: PermissionOption[],
+  kind: PermissionOption['kind'],
+): string {
+  return options.find((o) => o.kind === kind)?.option_id ?? '';
+}
+
+export function filterOptions(
+  options: PermissionOption[],
+  prefix: 'allow' | 'reject',
+): PermissionOption[] {
+  return options.filter((o) => o.kind.startsWith(prefix));
+}
+
 // Tracks recently resolved permission request IDs in localStorage so that
 // duplicate SSE permission_request envelopes (e.g., after reconnection) are
 // silently ignored instead of re-showing the approval dialog. Capped at 100

@@ -1,5 +1,3 @@
-from typing import Literal
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -46,27 +44,6 @@ class AddSecretRequest(BaseModel):
 
 class UpdateSecretRequest(BaseModel):
     value: str = Field(..., min_length=1)
-
-
-class UpdateIDEThemeRequest(BaseModel):
-    theme: Literal["dark", "light"]
-
-
-class IDEUrlResponse(BaseModel):
-    url: str | None
-
-
-class VNCUrlResponse(BaseModel):
-    url: str | None
-
-
-class StartBrowserRequest(BaseModel):
-    url: str = Field(default="about:blank")
-
-
-class BrowserStatusResponse(BaseModel):
-    running: bool
-    current_url: str | None = None
 
 
 class GitDiffResponse(BaseModel):

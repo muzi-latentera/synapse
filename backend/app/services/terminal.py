@@ -174,6 +174,8 @@ class TerminalSessionRecord:
 
     @staticmethod
     def _force_enqueue(queue: "asyncio.Queue[_T]", item: "_T") -> bool:
+        # Drop the oldest item if the queue is full so fast producers (PTY output,
+        # user keystrokes) never block — losing a stale frame is better than backpressure.
         try:
             queue.put_nowait(item)
             return True
@@ -190,6 +192,9 @@ class TerminalSessionRecord:
 
     @staticmethod
     async def _drain(queue: "asyncio.Queue[_T]") -> "list[_T]":
+        # Wait for at least one item, then grab everything else available without
+        # blocking. This batches rapid bursts (e.g. fast terminal output) into a
+        # single WebSocket frame or PTY write.
         first = await queue.get()
         buffer = [first]
         while True:

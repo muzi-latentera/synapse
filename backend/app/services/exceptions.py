@@ -13,7 +13,6 @@ class ErrorCode(str, Enum):
     STORAGE_FILE_NOT_FOUND = "STORAGE_FILE_NOT_FOUND"
     AI_SERVICE_ERROR = "AI_SERVICE_ERROR"
     API_KEY_MISSING = "API_KEY_MISSING"
-    SCHEDULER_TASK_NOT_FOUND = "SCHEDULER_TASK_NOT_FOUND"
     SKILL_NOT_FOUND = "SKILL_NOT_FOUND"
     COMMAND_NOT_FOUND = "COMMAND_NOT_FOUND"
     AGENT_NOT_FOUND = "AGENT_NOT_FOUND"
@@ -97,22 +96,11 @@ class StorageException(ServiceException):
         super().__init__(message, error_code, details, status_code)
 
 
-class ClaudeAgentException(ServiceException):
+class AiServiceException(ServiceException):
     def __init__(
         self,
         message: str,
         error_code: ErrorCode = ErrorCode.AI_SERVICE_ERROR,
-        details: dict[str, str] | None = None,
-        status_code: int = 400,
-    ):
-        super().__init__(message, error_code, details, status_code)
-
-
-class SchedulerException(ServiceException):
-    def __init__(
-        self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.SCHEDULER_TASK_NOT_FOUND,
         details: dict[str, str] | None = None,
         status_code: int = 400,
     ):

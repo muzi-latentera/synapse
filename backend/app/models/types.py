@@ -1,4 +1,14 @@
-from typing import Literal, TypedDict
+from typing import Literal, TypeAlias, TypedDict
+
+PermissionMode: TypeAlias = Literal[
+    "default",
+    "acceptEdits",
+    "plan",
+    "bypassPermissions",
+    "auto",
+    "read-only",
+    "full-access",
+]
 
 
 class BaseResourceDict(TypedDict, total=False):
@@ -8,7 +18,6 @@ class BaseResourceDict(TypedDict, total=False):
 
 
 class CustomAgentDict(BaseResourceDict, total=False):
-    model: Literal["sonnet", "opus", "haiku", "inherit"]
     allowed_tools: list[str] | None
 
 
@@ -38,14 +47,6 @@ class CustomSkillDict(TypedDict, total=False):
 class CustomSlashCommandDict(BaseResourceDict, total=False):
     argument_hint: str | None
     allowed_tools: list[str] | None
-    model: (
-        Literal[
-            "claude-sonnet-4-5-20250929",
-            "claude-opus-4-5-20251101",
-            "claude-haiku-4-5-20251001",
-        ]
-        | None
-    )
 
 
 class PersonaDict(TypedDict, total=False):
@@ -135,20 +136,3 @@ class InstalledPluginDict(TypedDict, total=False):
     version: str | None
     installed_at: str
     components: list[str]
-
-
-class CustomProviderModelDict(TypedDict, total=False):
-    model_id: str
-    name: str
-    enabled: bool
-    context_window: int | None
-
-
-class CustomProviderDict(TypedDict, total=False):
-    id: str
-    name: str
-    provider_type: Literal["anthropic", "openrouter", "openai", "copilot", "custom"]
-    base_url: str | None
-    auth_token: str | None
-    enabled: bool
-    models: list[CustomProviderModelDict]

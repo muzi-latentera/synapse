@@ -5,10 +5,16 @@ import { ThinkingModeSelector } from '@/components/chat/thinking-mode-selector/T
 import { PersonaSelector } from '@/components/chat/persona-selector/PersonaSelector';
 import { BranchSelector } from '@/components/chat/branch-selector/BranchSelector';
 import { useInputState, useInputActions } from '@/hooks/useInputContext';
+import { useModelMap } from '@/hooks/queries/useModelQueries';
+import { useChatQuery } from '@/hooks/queries/useChatQueries';
 
 export function InputControls() {
   const state = useInputState();
   const actions = useInputActions();
+  const modelMap = useModelMap();
+  const agentKind = modelMap.get(state.selectedModelId)?.agent_kind;
+  const { data: chat } = useChatQuery(state.chatId ?? '', { enabled: !!state.chatId });
+  const lockedAgentKind = chat?.session_agent_kind ?? null;
 
   return (
     <div
@@ -23,12 +29,14 @@ export function InputControls() {
 
       <PermissionModeSelector
         chatId={state.chatId}
+        agentKind={agentKind}
         dropdownPosition={state.dropdownPosition}
         disabled={state.isLoading}
       />
 
       <ThinkingModeSelector
         chatId={state.chatId}
+        agentKind={agentKind}
         dropdownPosition={state.dropdownPosition}
         disabled={state.isLoading}
       />
@@ -42,8 +50,10 @@ export function InputControls() {
       <ModelSelector
         selectedModelId={state.selectedModelId}
         onModelChange={actions.onModelChange}
+        chatId={state.chatId}
         dropdownPosition={state.dropdownPosition}
-        disabled={state.isLoading}
+        disabled={state.isLoading || state.isStreaming}
+        lockedAgentKind={lockedAgentKind}
       />
 
       <BranchSelector dropdownPosition={state.dropdownPosition} disabled={state.isLoading} />

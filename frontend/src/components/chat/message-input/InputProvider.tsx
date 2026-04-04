@@ -6,11 +6,15 @@ import { useSlashCommandSuggestions } from '@/hooks/useSlashCommandSuggestions';
 import { useEnhancePromptMutation } from '@/hooks/queries/useChatQueries';
 import { useMentionSuggestions } from '@/hooks/useMentionSuggestions';
 import { useMessageQueueStore } from '@/store/messageQueueStore';
+import { useModelMap } from '@/hooks/queries/useModelQueries';
+import { coercePermissionModeForAgent } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
+import { coerceThinkingModeForAgent } from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
 import {
   useChatSettingsStore,
   DEFAULT_PERMISSION_MODE,
   DEFAULT_THINKING_MODE,
   DEFAULT_WORKTREE,
+  DEFAULT_PLAN_MODE,
   DEFAULT_PERSONA,
 } from '@/store/chatSettingsStore';
 import { resolvePersona } from '@/utils/settings';
@@ -26,6 +30,7 @@ import {
 } from './InputContext';
 import type { InputProps } from './Input';
 import type { MentionItem, SlashCommand } from '@/types/ui.types';
+import { getAgentKindForModelId } from '@/types/chat.types';
 
 export function InputProvider({
   message,
@@ -50,6 +55,7 @@ export function InputProvider({
   children,
 }: InputProps & { children: ReactNode }) {
   const { fileStructure, customAgents, customSlashCommands, personas } = useChatContext();
+  const modelMap = useModelMap();
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [previewDismissed, setPreviewDismissed] = useState(false);
@@ -200,9 +206,19 @@ export function InputProvider({
 
     if (isStreaming && hasMessage && chatId) {
       const settings = useChatSettingsStore.getState();
-      const permissionMode = settings.permissionModeByChat[chatId] ?? DEFAULT_PERMISSION_MODE;
-      const thinkingMode = settings.thinkingModeByChat[chatId] ?? DEFAULT_THINKING_MODE;
+      const agentKind =
+        modelMap.get(selectedModelId)?.agent_kind ?? getAgentKindForModelId(selectedModelId);
+      const permissionMode = coercePermissionModeForAgent(
+        settings.permissionModeByChat[chatId] ?? DEFAULT_PERMISSION_MODE,
+        agentKind,
+      );
+      const thinkingMode = coerceThinkingModeForAgent(
+        settings.thinkingModeByChat[chatId] ?? DEFAULT_THINKING_MODE,
+        agentKind,
+      );
       const worktree = settings.worktreeByChat[chatId] ?? DEFAULT_WORKTREE;
+      const planMode =
+        agentKind === 'codex' && (settings.planModeByChat[chatId] ?? DEFAULT_PLAN_MODE);
       const storedPersona = settings.personaByChat[chatId] ?? DEFAULT_PERSONA;
       const validPersona = resolvePersona(storedPersona, personas);
       const fullMessage = messageRef.current.trim();
@@ -215,6 +231,7 @@ export function InputProvider({
           permissionMode,
           thinkingMode,
           worktree,
+          planMode,
           validPersona,
           attachedFiles ?? undefined,
         );
@@ -255,6 +272,7 @@ export function InputProvider({
     attachedFiles,
     setMessage,
     clearAttachedFiles,
+    modelMap,
     selectedModelId,
   ]);
 

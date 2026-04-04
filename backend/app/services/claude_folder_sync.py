@@ -79,6 +79,8 @@ class ClaudeFolderSync:
 
     @staticmethod
     def rewrite_installed_plugins_for_container(
+        # Rewrite host-local installPath values in installed_plugins.json to
+        # container-local paths so plugins are discoverable inside the sandbox.
         container_cache_dir: str,
         data: dict[str, Any] | None = None,
     ) -> str | None:

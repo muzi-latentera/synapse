@@ -7,6 +7,7 @@ from hashlib import sha256
 from typing import Any, Literal, TypedDict
 from uuid import UUID
 
+from app.models.types import PermissionMode
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 
 
@@ -20,10 +21,14 @@ StreamEventType = Literal[
     "system",
     "permission_request",
     "prompt_suggestions",
+    "usage",
 ]
 MAX_AUDIT_STRING_LENGTH = 4096
+# The agent embeds prompt suggestions as an XML tag at the end of its response.
+# This regex extracts them so they can be sent as a structured event and stripped
+# from the visible assistant text.
 PROMPT_SUGGESTIONS_RE = re.compile(
-    r"<prompt_suggestions>\s*.*?\s*</prompt_suggestions>",
+    r"<prompt_suggestions>\s*(.*?)\s*</prompt_suggestions>",
     re.DOTALL,
 )
 SENSITIVE_KEY_PARTS = (
@@ -43,12 +48,12 @@ class ChatStreamRequest:
     custom_instructions: str | None
     chat_data: dict[str, Any]
     model_id: str
-    permission_mode: str
+    permission_mode: PermissionMode
     session_id: str | None
     assistant_message_id: str | None
     thinking_mode: str | None
     worktree: bool = False
-    uses_bridge: bool = False
+    plan_mode: bool = False
     attachments: list[dict[str, Any]] | None
     context_window: int | None = None
     selected_persona_name: str = DEFAULT_PERSONA_NAME
@@ -63,6 +68,7 @@ class ToolPayload(TypedDict, total=False):
     input: dict[str, Any] | None
     result: Any
     error: str
+    permission_mode: PermissionMode
 
 
 class StreamEvent(TypedDict, total=False):
@@ -77,25 +83,9 @@ class StreamEvent(TypedDict, total=False):
     suggestions: list[str]
 
 
-@dataclass
-class ActiveToolState:
-    id: str
-    name: str
-    title: str
-    parent_id: str | None
-    input: dict[str, Any] | None
-
-    def to_payload(self) -> ToolPayload:
-        payload: ToolPayload = {
-            "id": self.id,
-            "name": self.name,
-            "title": self.title,
-            "parent_id": self.parent_id,
-            "input": self.input or None,
-        }
-        return payload
-
-
+# Accumulates stream events during a generation so the runtime can persist
+# a complete snapshot to DB periodically (for SSE reconnection catch-up)
+# without replaying the entire event history each time.
 @dataclass
 class StreamSnapshotAccumulator:
     events: list[dict[str, Any]] = field(default_factory=list)
@@ -164,6 +154,9 @@ class StreamEnvelope:
 
     @staticmethod
     def sanitize_payload(value: Any) -> Any:
+        # Recursively redact sensitive keys (tokens, passwords) and truncate
+        # long strings with a sha256 hash for traceability. Used to build the
+        # audit_payload stored alongside the render_payload in message_events.
         if isinstance(value, dict):
             redacted: dict[str, Any] = {}
             for key, nested in value.items():

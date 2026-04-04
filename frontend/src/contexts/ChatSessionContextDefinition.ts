@@ -28,8 +28,8 @@ export interface ChatSessionActions {
   onModelChange: (modelId: string) => void;
   onDismissError: () => void;
   fetchNextPage: () => void;
-  onPermissionApprove: () => void;
-  onPermissionReject: (alternativeInstruction?: string) => void;
+  onPermissionApprove: (optionId: string) => void;
+  onPermissionReject: (optionId: string, alternativeInstruction?: string) => void;
 }
 
 interface ChatSessionContextValue {

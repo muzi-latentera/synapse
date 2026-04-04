@@ -14,21 +14,18 @@ import aiodocker
 from app.constants import (
     DOCKER_AVAILABLE_PORTS,
     DOCKER_STATUS_RUNNING,
-    EXCLUDED_PREVIEW_PORTS,
     SANDBOX_DEFAULT_COMMAND_TIMEOUT,
     SANDBOX_HOME_DIR,
     TERMINAL_TYPE,
-    VNC_WEBSOCKET_PORT,
 )
 from app.core.config import get_settings
 from app.services.exceptions import SandboxException
-from app.services.sandbox_providers.base import LISTENING_PORTS_COMMAND, SandboxProvider
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.sandbox_providers.types import (
     CommandResult,
     DockerConfig,
     FileContent,
     FileMetadata,
-    PreviewLink,
     PtyDataCallbackType,
     PtySession,
     PtySize,
@@ -57,6 +54,9 @@ class LocalDockerProvider(SandboxProvider):
         )
 
     async def _get_docker(self) -> aiodocker.Docker:
+        # aiodocker binds to the event loop that created it — if the loop has
+        # changed (e.g. test teardown/recreation), the old client is stale and
+        # must be replaced along with its cached container handles.
         loop = asyncio.get_running_loop()
         if self._docker is not None and self._docker_loop is not loop:
             try:
@@ -124,6 +124,10 @@ class LocalDockerProvider(SandboxProvider):
 
     @staticmethod
     def _resolve_host_path(workspace_dir: Path) -> Path:
+        # When the API itself runs inside a container, STORAGE_PATH is the
+        # container-local mount point but Docker bind mounts need the host path.
+        # HOST_STORAGE_PATH maps from container path to host path so the sandbox
+        # container can mount the same directory.
         host_storage = settings.HOST_STORAGE_PATH
         if not host_storage:
             return workspace_dir
@@ -159,6 +163,9 @@ class LocalDockerProvider(SandboxProvider):
         if self.config.runtime:
             host_config["Runtime"] = self.config.runtime
         else:
+            # Without a dedicated runtime (e.g. sysbox), we need privileged mode
+            # so tools like Docker-in-Docker work inside the sandbox. Restrict
+            # new privilege escalation as a mitigation.
             host_config["Privileged"] = True
             host_config["SecurityOpt"] = ["no-new-privileges=true"]
 
@@ -191,7 +198,6 @@ class LocalDockerProvider(SandboxProvider):
                 f"TERM={TERMINAL_TYPE}",
                 f"HOME={self.config.user_home}",
                 "USER=user",
-                f"OPENVSCODE_PORT={self.config.openvscode_port}",
             ],
             "HostConfig": host_config,
         }
@@ -286,6 +292,9 @@ class LocalDockerProvider(SandboxProvider):
         path: str = SANDBOX_HOME_DIR,
         excluded_patterns: list[str] | None = None,
     ) -> list[FileMetadata]:
+        # If a workspace is bind-mounted, list its contents instead of ~/ so
+        # the file tree shows project files, not shell dotfiles. When there's
+        # no workspace mount (bare sandbox), exclude dotfiles from ~/ listing.
         target_path = path
         if path == SANDBOX_HOME_DIR:
             container = await self._get_container(sandbox_id)
@@ -368,6 +377,8 @@ class LocalDockerProvider(SandboxProvider):
         path: str,
         content: str | bytes,
     ) -> None:
+        # Docker's put_archive API requires a tar stream — we create a single-file
+        # tar in memory with uid/gid 1000 (the sandbox "user" account).
         container = await self._get_container(sandbox_id)
         normalized_path = self.normalize_path(path)
 
@@ -554,33 +565,6 @@ class LocalDockerProvider(SandboxProvider):
 
         self._cleanup_pty_session_tracking(sandbox_id, pty_id)
 
-    async def get_preview_links(self, sandbox_id: str) -> list[PreviewLink]:
-        await self._get_container(sandbox_id)
-
-        result = await self.execute_command(
-            sandbox_id,
-            LISTENING_PORTS_COMMAND,
-            timeout=5,
-        )
-        listening_ports = self._parse_listening_ports(result.stdout)
-
-        port_map = self._port_mappings.get(sandbox_id, {})
-        mapped_ports = {p for p in listening_ports if p in port_map}
-
-        return self._build_preview_links(
-            listening_ports=mapped_ports,
-            url_builder=(
-                (
-                    lambda port: (
-                        f"{self.config.preview_base_url.rstrip('/')}/sandbox/{sandbox_id}/{port}"
-                    )
-                )
-                if self._has_path_routing
-                else (lambda port: f"{self.config.preview_base_url}:{port_map[port]}")
-            ),
-            excluded_ports=EXCLUDED_PREVIEW_PORTS,
-        )
-
     async def _destroy_container(self, container: Any) -> None:
         try:
             await container.stop(t=5)
@@ -607,37 +591,6 @@ class LocalDockerProvider(SandboxProvider):
         container = self._containers[sandbox_id]
         await self._ensure_running(container)
         return container
-
-    async def get_ide_url(self, sandbox_id: str) -> str | None:
-        if self._has_path_routing:
-            base_url = self.config.preview_base_url.rstrip("/")
-            return f"{base_url}/sandbox/{sandbox_id}/{self.config.openvscode_port}/?folder={SANDBOX_HOME_DIR}"
-
-        await self.connect_sandbox(sandbox_id)
-        port_map = self._port_mappings.get(sandbox_id, {})
-        host_port = port_map.get(self.config.openvscode_port)
-        if not host_port:
-            return None
-        return f"{self.config.preview_base_url}:{host_port}/?folder={SANDBOX_HOME_DIR}"
-
-    async def get_vnc_url(self, sandbox_id: str) -> str | None:
-        if self._has_path_routing:
-            base_url = (
-                self.config.preview_base_url.rstrip("/")
-                .replace("http://", "ws://", 1)
-                .replace("https://", "wss://", 1)
-            )
-            return f"{base_url}/sandbox/{sandbox_id}/{VNC_WEBSOCKET_PORT}"
-
-        await self.connect_sandbox(sandbox_id)
-        port_map = self._port_mappings.get(sandbox_id, {})
-        host_port = port_map.get(VNC_WEBSOCKET_PORT)
-        if not host_port:
-            return None
-        base_url = self.config.preview_base_url.replace("http://", "ws://", 1).replace(
-            "https://", "wss://", 1
-        )
-        return f"{base_url}:{host_port}"
 
     async def cleanup(self) -> None:
         await super().cleanup()

@@ -9,6 +9,7 @@ export interface ToolEventPayload {
   input?: Record<string, unknown> | null;
   result?: unknown;
   error?: string;
+  permission_mode?: string | null;
 }
 
 export interface ToolAggregate {

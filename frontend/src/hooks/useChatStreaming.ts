@@ -5,6 +5,7 @@ import { logger } from '@/utils/logger';
 import { QueryClient } from '@tanstack/react-query';
 import { useStreamStore } from '@/store/streamStore';
 import type { Chat, ContextUsage, Message, PermissionRequest } from '@/types/chat.types';
+import type { PermissionMode } from '@/store/chatSettingsStore';
 import type { StreamState } from '@/types/stream.types';
 import { cleanupExpiredPdfBlobs, storePdfBlobUrl } from '@/hooks/usePdfBlobCache';
 import { chatStorage } from '@/utils/storage';
@@ -27,9 +28,10 @@ interface UseChatStreamingParams {
   refetchFilesMetadata: () => Promise<unknown>;
   onContextUsageUpdate?: (data: ContextUsage, chatId?: string) => void;
   selectedModelId: string | null | undefined;
-  permissionMode: 'plan' | 'ask' | 'auto';
+  permissionMode: PermissionMode;
   thinkingMode: string | null | undefined;
   worktree: boolean;
+  planMode: boolean;
   onPermissionRequest?: (request: PermissionRequest) => void;
 }
 
@@ -89,6 +91,7 @@ export function useChatStreaming({
   permissionMode,
   thinkingMode,
   worktree,
+  planMode,
   onPermissionRequest,
 }: UseChatStreamingParams): UseChatStreamingResult {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -237,6 +240,7 @@ export function useChatStreaming({
     permissionMode,
     thinkingMode,
     worktree,
+    planMode,
     setStreamState,
     setCurrentMessageId,
     setError,

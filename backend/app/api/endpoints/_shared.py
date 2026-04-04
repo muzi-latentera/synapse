@@ -92,6 +92,8 @@ async def save_settings_list(
     items: list[Any],
     installed_component: str | None = None,
 ) -> None:
+    # When a resource is deleted directly (not via marketplace uninstall),
+    # also remove it from installed_plugins so the marketplace UI stays in sync.
     setattr(user_settings, field_name, items)
     flag_modified(user_settings, field_name)
     if installed_component and user_service.remove_installed_component(

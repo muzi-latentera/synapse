@@ -5,29 +5,20 @@ import base64
 import io
 import json
 import logging
-import secrets
-import shlex
+import os
 import zipfile
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
 from app.constants import (
-    ANTHROPIC_BRIDGE_HOST,
-    ANTHROPIC_BRIDGE_PORT,
-    BRIDGE_PROVIDER_TYPES,
+    CLAUDE_DIR,
+    CODEX_DIR,
     SANDBOX_CLAUDE_DIR,
     SANDBOX_CLAUDE_JSON_PATH,
     SANDBOX_GIT_ASKPASS_PATH,
     SANDBOX_HOME_DIR,
-    SANDBOX_IDE_CONFIG_DIR,
-    SANDBOX_IDE_SETTINGS_PATH,
-    SANDBOX_IDE_TOKEN_PATH,
 )
-from app.models.types import (
-    CustomEnvVarDict,
-    CustomProviderDict,
-)
-from app.models.schemas.settings import ProviderType
+from app.models.types import CustomEnvVarDict
 from app.services.agent import AgentService
 from app.services.command import CommandService
 from app.services.exceptions import SandboxException
@@ -45,20 +36,6 @@ from app.services.skill import SkillService
 
 logger = logging.getLogger(__name__)
 
-OPENVSCODE_PORT = 8765
-MIN_SIGNATURE_LENGTH = 100
-
-OPENVSCODE_DEFAULT_SETTINGS: dict[str, object] = {
-    "workbench.colorTheme": "Default Dark Modern",
-    "window.autoDetectColorScheme": True,
-    "workbench.preferredDarkColorTheme": "Default Dark Modern",
-    "workbench.preferredLightColorTheme": "Default Light Modern",
-    "editor.fontSize": 12,
-    "editor.minimap.enabled": True,
-    "editor.wordWrap": "on",
-    "telemetry.telemetryLevel": "off",
-}
-
 
 class SandboxService:
     def __init__(
@@ -68,7 +45,77 @@ class SandboxService:
     ) -> None:
         self.provider = provider
         self.session_factory = session_factory
-        self._ide_tokens: dict[str, str] = {}
+
+    @staticmethod
+    def _get_claude_auth_paths() -> tuple[
+        list[tuple[Path, str]], list[tuple[Path, str]]
+    ]:
+        home_path = Path(os.environ.get("HOME", ""))
+        auth_files: list[tuple[Path, str]] = []
+        auth_dirs = [(CLAUDE_DIR, SANDBOX_CLAUDE_DIR)]
+
+        if home_path != Path("."):
+            auth_files.append((home_path / ".claude.json", SANDBOX_CLAUDE_JSON_PATH))
+
+        return auth_files, auth_dirs
+
+    @staticmethod
+    def _get_codex_auth_paths() -> tuple[
+        list[tuple[Path, str]], list[tuple[Path, str]]
+    ]:
+        return [
+            (CODEX_DIR / "config.toml", f"{SANDBOX_HOME_DIR}/.codex/config.toml"),
+        ], [
+            (CODEX_DIR, f"{SANDBOX_HOME_DIR}/.codex"),
+        ]
+
+    @staticmethod
+    async def _write_file_to_sandbox(
+        provider: SandboxProvider, sandbox_id: str, path: str, content: str
+    ) -> None:
+        try:
+            await provider.write_file(sandbox_id, path, content)
+        except OSError:
+            logger.debug("Failed to sync %s to sandbox %s", path, sandbox_id)
+
+    @staticmethod
+    async def sync_cli_auth(provider: SandboxProvider, sandbox_id: str) -> None:
+        # Copy the host's Claude/Codex auth credentials into the sandbox so the
+        # CLI inside the container can make authenticated API calls without the
+        # user re-authenticating.
+        claude_files, claude_dirs = SandboxService._get_claude_auth_paths()
+        codex_files, codex_dirs = SandboxService._get_codex_auth_paths()
+        auth_files = [*claude_files, *codex_files]
+        auth_dirs = [*claude_dirs, *codex_dirs]
+
+        writes: list[tuple[str, str]] = []
+
+        for host_file, sandbox_path in auth_files:
+            try:
+                content = host_file.read_text()
+            except OSError:
+                continue
+            writes.append((sandbox_path, content))
+
+        for host_dir, sandbox_dir in auth_dirs:
+            try:
+                json_files = list(host_dir.glob("*.json"))
+            except OSError:
+                continue
+            for json_file in json_files:
+                try:
+                    content = json_file.read_text()
+                    writes.append((f"{sandbox_dir}/{json_file.name}", content))
+                except OSError:
+                    pass
+
+        await asyncio.gather(
+            *[
+                SandboxService._write_file_to_sandbox(provider, sandbox_id, p, c)
+                for p, c in writes
+            ],
+            return_exceptions=True,
+        )
 
     async def cleanup(self) -> None:
         await self.provider.cleanup()
@@ -76,7 +123,6 @@ class SandboxService:
     async def delete_sandbox(self, sandbox_id: str) -> None:
         if not sandbox_id:
             return
-        self._ide_tokens.pop(sandbox_id, None)
         try:
             await self.provider.delete_sandbox(sandbox_id)
         except Exception as e:
@@ -94,84 +140,14 @@ class SandboxService:
         command: str,
         background: bool = False,
     ) -> CommandResult:
+        # Inject the sandbox's user-defined secrets as env vars so commands
+        # (git, npm, etc.) can use tokens/keys without explicit configuration.
         sandbox_secrets = await self.provider.get_secrets(sandbox_id)
         envs = {s.key: s.value for s in sandbox_secrets}
 
         return await self.provider.execute_command(
             sandbox_id, command, background=background, envs=envs
         )
-
-    async def get_preview_links(self, sandbox_id: str) -> list[dict[str, str | int]]:
-        links = await self.provider.get_preview_links(sandbox_id)
-        return [{"preview_url": link.preview_url, "port": link.port} for link in links]
-
-    async def get_ide_url(self, sandbox_id: str) -> str | None:
-        base_url = await self.provider.get_ide_url(sandbox_id)
-        if not base_url:
-            return None
-
-        token = await self._get_ide_token(sandbox_id)
-        if token:
-            separator = "&" if "?" in base_url else "?"
-            return f"{base_url}{separator}tkn={token}"
-        return base_url
-
-    async def _get_ide_token(self, sandbox_id: str) -> str | None:
-        if sandbox_id in self._ide_tokens:
-            return self._ide_tokens[sandbox_id]
-
-        try:
-            content = await self.provider.read_file(sandbox_id, SANDBOX_IDE_TOKEN_PATH)
-            if not content.is_binary and content.content:
-                token = content.content.strip()
-                self._ide_tokens[sandbox_id] = token
-                return token
-        except Exception as e:
-            logger.warning("Failed to read IDE token for sandbox %s: %s", sandbox_id, e)
-        return None
-
-    async def start_browser(
-        self, sandbox_id: str, url: str = "about:blank"
-    ) -> dict[str, str]:
-        escaped_url = shlex.quote(url)
-        browser_cmd = (
-            f"DISPLAY=:99 chromium --no-sandbox --disable-gpu "
-            f"--disable-dev-shm-usage --window-size=1920,1080 --window-position=0,0 "
-            f"--remote-debugging-port=9222 {escaped_url}"
-        )
-
-        try:
-            await self.execute_command(sandbox_id, browser_cmd, background=True)
-            logger.info("Browser started for sandbox %s with URL: %s", sandbox_id, url)
-            return {"status": "starting", "url": url}
-        except Exception as exc:
-            logger.error("Failed to start browser for sandbox %s: %s", sandbox_id, exc)
-            await self._cleanup_browser_resources(sandbox_id)
-            raise
-
-    async def _cleanup_browser_resources(self, sandbox_id: str) -> None:
-        try:
-            await self.execute_command(
-                sandbox_id, "pkill -9 -f chromium", background=True
-            )
-        except Exception as exc:
-            logger.warning(
-                "Failed to cleanup browser resources for sandbox %s: %s",
-                sandbox_id,
-                exc,
-            )
-
-    async def stop_browser(self, sandbox_id: str) -> dict[str, str]:
-        await self.execute_command(sandbox_id, "pkill -f chromium", background=True)
-        logger.info("Browser stopped for sandbox %s", sandbox_id)
-        return {"status": "stopped"}
-
-    async def get_browser_status(self, sandbox_id: str) -> dict[str, bool]:
-        result = await self.execute_command(
-            sandbox_id, "pidof chromium >/dev/null 2>&1 && echo 'yes' || echo 'no'"
-        )
-        running = result.stdout.strip() == "yes"
-        return {"running": running}
 
     async def create_pty_session(
         self,
@@ -253,6 +229,8 @@ class SandboxService:
         key: str,
         value: str,
     ) -> None:
+        # Secrets are stored as `export KEY=VALUE` lines in .bashrc — there's no
+        # atomic update, so we delete the old line first then append the new one.
         try:
             sandbox_secrets = await self.provider.get_secrets(sandbox_id)
             secret_exists = any(secret.key == key for secret in sandbox_secrets)
@@ -442,6 +420,8 @@ class SandboxService:
                 )
 
     async def _setup_github_token(self, sandbox_id: str, github_token: str) -> None:
+        # GIT_ASKPASS is a script git calls for credentials — it just echoes the
+        # token, avoiding interactive prompts for HTTPS git operations.
         script_content = '#!/bin/sh\\necho "$GITHUB_TOKEN"'
         async with asyncio.TaskGroup() as tg:
             tg.create_task(
@@ -458,61 +438,6 @@ class SandboxService:
             f"chmod +x {SANDBOX_GIT_ASKPASS_PATH}"
         )
         await self.execute_command(sandbox_id, setup_cmd)
-
-    async def _setup_anthropic_bridge(
-        self,
-        sandbox_id: str,
-        openrouter_api_key: str | None = None,
-        copilot_token: str | None = None,
-    ) -> None:
-        if openrouter_api_key:
-            await self.provider.add_secret(
-                sandbox_id, "OPENROUTER_API_KEY", openrouter_api_key
-            )
-        if copilot_token:
-            await self.provider.add_secret(
-                sandbox_id, "GITHUB_COPILOT_TOKEN", copilot_token
-            )
-
-        start_cmd = f"anthropic-bridge --port {ANTHROPIC_BRIDGE_PORT} --host {ANTHROPIC_BRIDGE_HOST}"
-        start_result = await self.execute_command(
-            sandbox_id, start_cmd, background=True
-        )
-        logger.info("Anthropic Bridge started: %s", start_result.stdout)
-
-    async def _start_openvscode_server(self, sandbox_id: str) -> None:
-        connection_token = secrets.token_urlsafe(32)
-        self._ide_tokens[sandbox_id] = connection_token
-
-        await self.provider.write_file(
-            sandbox_id, SANDBOX_IDE_TOKEN_PATH, connection_token
-        )
-
-        settings_content = json.dumps(OPENVSCODE_DEFAULT_SETTINGS, indent=2)
-        escaped_settings = settings_content.replace("'", "'\"'\"'")
-
-        setup_and_start_cmd = (
-            f"mkdir -p {SANDBOX_IDE_CONFIG_DIR} && "
-            f"echo '{escaped_settings}' > {SANDBOX_IDE_SETTINGS_PATH} && "
-            f"openvscode-server --host 0.0.0.0 --port {OPENVSCODE_PORT} "
-            f"--connection-token-file {SANDBOX_IDE_TOKEN_PATH} --disable-telemetry"
-        )
-        await self.execute_command(sandbox_id, setup_and_start_cmd, background=True)
-
-    async def update_ide_theme(self, sandbox_id: str, theme: str) -> None:
-        vscode_theme = (
-            "Default Dark Modern" if theme == "dark" else "Default Light Modern"
-        )
-        settings = {
-            **OPENVSCODE_DEFAULT_SETTINGS,
-            "workbench.colorTheme": vscode_theme,
-            "window.autoDetectColorScheme": False,
-        }
-        settings_content = json.dumps(settings, indent=2)
-        await self.provider.write_file(
-            sandbox_id, SANDBOX_IDE_SETTINGS_PATH, settings_content
-        )
-        logger.info("IDE theme updated to: %s", vscode_theme)
 
     async def _setup_claude_config(
         self,
@@ -553,13 +478,6 @@ class SandboxService:
                 sandbox_id, settings_path, json.dumps(settings, indent=2)
             )
 
-    async def _setup_openai_auth(self, sandbox_id: str, openai_auth_json: str) -> None:
-        openai_dir = f"{SANDBOX_HOME_DIR}/.codex"
-        await self.execute_command(sandbox_id, f"mkdir -p {openai_dir}")
-        await self.provider.write_file(
-            sandbox_id, f"{openai_dir}/auth.json", openai_auth_json
-        )
-
     async def initialize_sandbox(
         self,
         sandbox_id: str,
@@ -567,11 +485,16 @@ class SandboxService:
         custom_env_vars: list[CustomEnvVarDict] | None = None,
         auto_compact_disabled: bool = False,
         attribution_disabled: bool = False,
-        custom_providers: list[CustomProviderDict] | None = None,
     ) -> None:
-        tasks: list[Coroutine[None, None, None]] = [
-            self._start_openvscode_server(sandbox_id),
-        ]
+        # Ensure login shells (e.g. tmux in the web terminal) source .bashrc
+        # so custom env vars and secrets written there are available.
+        await self.provider.execute_command(
+            sandbox_id,
+            "test -f ~/.bash_profile || echo '[ -f ~/.bashrc ] && source ~/.bashrc' > ~/.bash_profile",
+            timeout=5,
+        )
+
+        tasks: list[Coroutine[None, None, None]] = []
 
         tasks.append(
             self._setup_claude_config(
@@ -583,111 +506,11 @@ class SandboxService:
             tasks.append(self._add_env_vars_parallel(sandbox_id, custom_env_vars))
 
         tasks.append(self._deploy_resources(sandbox_id))
+        tasks.append(SandboxService.sync_cli_auth(self.provider, sandbox_id))
 
         if github_token:
             tasks.append(self._setup_github_token(sandbox_id, github_token))
 
-        openai_auth = self._get_openai_auth_from_provider(custom_providers)
-        if openai_auth:
-            tasks.append(self._setup_openai_auth(sandbox_id, openai_auth))
-
-        if self._has_bridge_provider(custom_providers):
-            openrouter_api_key = self._get_openrouter_api_key(custom_providers)
-            copilot_token = self._get_copilot_token(custom_providers)
-            tasks.append(
-                self._setup_anthropic_bridge(
-                    sandbox_id,
-                    openrouter_api_key=openrouter_api_key,
-                    copilot_token=copilot_token,
-                )
-            )
-
         async with asyncio.TaskGroup() as tg:
             for task in tasks:
                 tg.create_task(task)
-
-    @staticmethod
-    def _get_openrouter_api_key(
-        custom_providers: list[CustomProviderDict] | None,
-    ) -> str | None:
-        if not custom_providers:
-            return None
-        for provider in custom_providers:
-            if (
-                provider.get("provider_type") == ProviderType.OPENROUTER.value
-                and provider.get("enabled", True)
-                and provider.get("auth_token")
-            ):
-                return provider["auth_token"]
-        return None
-
-    @staticmethod
-    def _has_bridge_provider(
-        custom_providers: list[CustomProviderDict] | None,
-    ) -> bool:
-        if not custom_providers:
-            return False
-        return any(
-            provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
-            and provider.get("enabled", True)
-            for provider in custom_providers
-        )
-
-    @staticmethod
-    def _get_openai_auth_from_provider(
-        custom_providers: list[CustomProviderDict] | None,
-    ) -> str | None:
-        if not custom_providers:
-            return None
-        for provider in custom_providers:
-            if (
-                provider.get("provider_type") == ProviderType.OPENAI.value
-                and provider.get("enabled", True)
-                and provider.get("auth_token")
-            ):
-                return provider["auth_token"]
-        return None
-
-    @staticmethod
-    def _get_copilot_token(
-        custom_providers: list[CustomProviderDict] | None,
-    ) -> str | None:
-        if not custom_providers:
-            return None
-        for provider in custom_providers:
-            if (
-                provider.get("provider_type") == ProviderType.COPILOT.value
-                and provider.get("enabled", True)
-                and provider.get("auth_token")
-            ):
-                return provider["auth_token"]
-        return None
-
-    async def clean_session_thinking_blocks(
-        self, sandbox_id: str, session_id: str
-    ) -> bool:
-        session_file = f"{SANDBOX_CLAUDE_DIR}/projects/-home-user/{session_id}.jsonl"
-        temp_file = f"{session_file}.tmp"
-
-        jq_filter = (
-            'if .message.content and (.message.content | type) == "array" then '
-            f'.message.content |= [.[] | select((.type | IN("thinking", "redacted_thinking") | not) or ((.signature // "") | length) >= {MIN_SIGNATURE_LENGTH})] '
-            "else . end"
-        )
-
-        try:
-            cmd = (
-                f"[ -f {shlex.quote(session_file)} ] && "
-                f"jq -c '{jq_filter}' {shlex.quote(session_file)} > {shlex.quote(temp_file)} && "
-                f"mv {shlex.quote(temp_file)} {shlex.quote(session_file)} && echo 'OK'"
-            )
-            result = await self.execute_command(sandbox_id, cmd)
-
-            if "OK" in result.stdout:
-                logger.info("Cleaned thinking blocks from session %s", session_id)
-                return True
-
-            return False
-        except Exception as e:
-            logger.error("Error cleaning session %s: %s", session_id, e)
-            return False

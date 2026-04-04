@@ -49,17 +49,11 @@ export const CommandsSettingsTab: React.FC<CommandsSettingsTabProps> = ({
               {command.description}
             </p>
           )}
-          {(command.allowed_tools || command.model) && (
+          {command.allowed_tools && (
             <div className="flex items-center gap-2 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              {command.allowed_tools && (
-                <span>
-                  Tools: {command.allowed_tools.length === 0 ? 'All' : command.allowed_tools.length}
-                </span>
-              )}
-              {command.allowed_tools && command.model && (
-                <span className="text-border dark:text-border-dark">/</span>
-              )}
-              {command.model && <span className="capitalize">{command.model}</span>}
+              <span>
+                Tools: {command.allowed_tools.length === 0 ? 'All' : command.allowed_tools.length}
+              </span>
             </div>
           )}
         </>

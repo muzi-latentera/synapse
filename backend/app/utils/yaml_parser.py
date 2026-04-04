@@ -9,18 +9,9 @@ YAML_FIELD_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*:\s*")
 KNOWN_YAML_FIELDS = {
     "name",
     "description",
-    "model",
     "allowed_tools",
     "argument_hint",
     "color",
-}
-KNOWN_MODEL_VALUES = {
-    "opus",
-    "sonnet",
-    "haiku",
-    "claude-sonnet-4-5-20250929",
-    "claude-opus-4-5-20251101",
-    "claude-haiku-4-5-20251001",
 }
 
 
@@ -53,9 +44,6 @@ class YAMLParser:
 
         if not value:
             return True
-
-        if field_name == "model":
-            return value in KNOWN_MODEL_VALUES
 
         if value.startswith("[") or value.startswith("{"):
             return True

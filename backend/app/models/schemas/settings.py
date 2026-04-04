@@ -1,58 +1,15 @@
 from datetime import datetime
-from enum import Enum
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Literal
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-
-class ProviderType(str, Enum):
-    ANTHROPIC = "anthropic"
-    OPENROUTER = "openrouter"
-    OPENAI = "openai"
-    COPILOT = "copilot"
-    CUSTOM = "custom"
-
-
-class CustomProviderModel(BaseModel):
-    model_id: str
-    name: str
-    enabled: bool = True
-    context_window: int | None = None
-
-
-class CustomProvider(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    name: str
-    provider_type: ProviderType = ProviderType.CUSTOM
-    base_url: str | None = None
-    auth_token: str | None = None
-    enabled: bool = True
-    models: list[CustomProviderModel] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def normalize_model_ids(self) -> "CustomProvider":
-        if self.provider_type == ProviderType.OPENROUTER:
-            for model in self.models:
-                if not model.model_id.startswith("openrouter/"):
-                    model.model_id = f"openrouter/{model.model_id}"
-        elif self.provider_type == ProviderType.OPENAI:
-            for model in self.models:
-                if not model.model_id.startswith("openai/"):
-                    model.model_id = f"openai/{model.model_id}"
-        elif self.provider_type == ProviderType.COPILOT:
-            for model in self.models:
-                if not model.model_id.startswith("copilot/"):
-                    model.model_id = f"copilot/{model.model_id}"
-        return self
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CustomAgent(BaseModel):
     name: str
     description: str
     content: str
-    model: Literal["sonnet", "opus", "haiku", "inherit"] = "inherit"
     allowed_tools: list[str] | None = None
 
 
@@ -85,14 +42,6 @@ class CustomSlashCommand(BaseModel):
     content: str
     argument_hint: str | None = None
     allowed_tools: list[str] | None = None
-    model: (
-        Literal[
-            "claude-sonnet-4-5-20250929",
-            "claude-opus-4-5-20251101",
-            "claude-haiku-4-5-20251001",
-        ]
-        | None
-    ) = None
 
 
 class Persona(BaseModel):
@@ -112,7 +61,6 @@ class UserSettingsBase(BaseModel):
     sandbox_provider: Literal["docker", "host"] = "docker"
     timezone: str = Field(default="UTC", max_length=64)
     custom_instructions: str | None = Field(default=None, max_length=1500)
-    custom_providers: list[CustomProvider] | None = None
     custom_mcps: list[CustomMcp] | None = None
     custom_env_vars: list[CustomEnvVar] | None = None
     personas: list[Persona] | None = None
@@ -122,7 +70,6 @@ class UserSettingsBase(BaseModel):
     attribution_disabled: bool = False
 
     @field_validator(
-        "custom_providers",
         "custom_mcps",
         "custom_env_vars",
         "personas",

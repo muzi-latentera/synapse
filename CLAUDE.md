@@ -68,6 +68,9 @@
 - When a function receives an optional targeting parameter (e.g., `cwd`, `workspace_id`) and the value is provided but invalid, raise an error — do not silently fall back to a default target, as this causes the operation to succeed against the wrong resource
 - When adding new operations in a domain where existing operations already accept a context/targeting parameter (e.g., `cwd` for worktree paths), propagate that parameter through all new operations in the same chain — backend endpoint, frontend service, React Query hook, and UI component
 - When multiple endpoints share the same parameter validation (e.g., token presence check), extract it into a FastAPI dependency that raises on failure and returns the validated value — do not duplicate the check inline in each endpoint
+- Do not extract a shared React hook when callers must add `useCallback`/`useMemo` wrappers that the inline version did not need — the per-call-site ceremony can exceed the duplication it removes
+- When closing, cleaning up, or tearing down multiple independent resources in a loop, use `asyncio.gather(*[...], return_exceptions=True)` instead of sequential awaits — serializing I/O across independent resources wastes time, especially during shutdown or idle cleanup
+- When catching a `ServiceException` subclass at the API boundary to produce an `HTTPException`, use `exc.status_code` from the exception — do not hardcode a status code constant (e.g., `HTTP_500`) that shadows the exception's own classification
 
 ## Naming Conventions
 

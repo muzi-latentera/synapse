@@ -6,47 +6,44 @@ import logging
 import time
 from collections.abc import AsyncIterator
 from functools import partial
-from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from claude_agent_sdk import ClaudeSDKClient, CLIConnectionError, CLIJSONDecodeError
 from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
 from app.constants import (
-    BRIDGE_PROVIDER_TYPES,
     REDIS_KEY_CHAT_CONTEXT_USAGE,
     REDIS_KEY_CHAT_STREAM_LIVE,
-    SANDBOX_HOME_DIR,
 )
-from app.services.sandbox_providers import SandboxProviderType
 from app.core.config import get_settings
 from app.db.session import SessionLocal
-from app.models.db_models.chat import Chat, Message
+from app.models.db_models.chat import Chat
 from app.models.db_models.enums import MessageRole, MessageStreamStatus
 from app.models.db_models.user import User, UserSettings
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
-from app.services.claude_agent import (
-    SDK_PERMISSION_MODE_MAP,
-    ClaudeAgentService,
-    SessionParams,
+from app.services.acp.session import AcpSessionConfig
+from app.services.agent_service import (
+    AiAgentService,
     StreamResult,
 )
-from app.services.claude_session_registry import ChatSession, session_registry
+from app.services.sandbox import SandboxService
+from app.services.sandbox_providers import SandboxProviderType
+from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.session_registry import ChatSession, session_registry
 from app.services.db import SessionFactoryType
-from app.services.provider import ProviderService
-from app.services.exceptions import ClaudeAgentException
+from app.services.exceptions import AiServiceException
+from app.services.model_registry import get_agent_kind_for_model, get_context_window
 from app.services.message import MessageService
 from app.services.queue import QueueService
 from app.services.streaming.types import (
+    PROMPT_SUGGESTIONS_RE,
     ChatStreamRequest,
     StreamEnvelope,
     StreamEvent,
     StreamSnapshotAccumulator,
 )
-from app.services.transports import SandboxTransport
 from app.services.user import UserService
 from app.utils.cache import CacheError, CacheStore, cache_connection
 
@@ -54,12 +51,13 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 TRANSPORT_FATAL_TYPES = (
-    CLIConnectionError,
-    CLIJSONDecodeError,
     ConnectionError,
     OSError,
 )
 
+# Events that contribute to the accumulated message snapshot (text, tools, etc.).
+# These are buffered and flushed in batches rather than persisted one-by-one,
+# unlike control events (stream_started, complete, error) which go to DB immediately.
 SNAPSHOT_EVENT_KINDS = frozenset(
     {
         "assistant_text",
@@ -69,70 +67,14 @@ SNAPSHOT_EVENT_KINDS = frozenset(
         "tool_failed",
         "prompt_suggestions",
         "system",
-        "permission_request",
     }
 )
 
 
-class SessionUpdateCallback:
-    def __init__(
-        self,
-        chat_id: str,
-        assistant_message_id: str | None,
-        session_factory: SessionFactoryType,
-        session_container: dict[str, Any],
-        worktree: bool = False,
-    ) -> None:
-        self.chat_id = chat_id
-        self.assistant_message_id = assistant_message_id
-        self.session_factory = session_factory
-        self.session_container = session_container
-        self._worktree = worktree
-        self._pending_task: asyncio.Task[None] | None = None
-
-    def __call__(self, new_session_id: str, cwd: str | None = None) -> None:
-        self.session_container["session_id"] = new_session_id
-        task = asyncio.create_task(self._update_session_init(new_session_id, cwd))
-        self._pending_task = task
-        task.add_done_callback(self._on_task_done)
-
-    def _on_task_done(self, task: asyncio.Task[None]) -> None:
-        if self._pending_task is task:
-            self._pending_task = None
-        if task.cancelled():
-            return
-        exc = task.exception()
-        if exc:
-            logger.error("Session init update task failed: %s", exc)
-
-    async def _update_session_init(self, session_id: str, cwd: str | None) -> None:
-        try:
-            async with self.session_factory() as db:
-                chat_uuid = UUID(self.chat_id)
-                chat_query = select(Chat).filter(Chat.id == chat_uuid)
-                chat_result = await db.execute(chat_query)
-                chat_record = chat_result.scalar_one_or_none()
-                if chat_record:
-                    chat_record.session_id = session_id
-                    if self._worktree and cwd:
-                        chat_record.worktree_cwd = cwd
-                    db.add(chat_record)
-
-                if self.assistant_message_id:
-                    message_uuid = UUID(self.assistant_message_id)
-                    message_query = select(Message).filter(Message.id == message_uuid)
-                    message_result = await db.execute(message_query)
-                    message = message_result.scalar_one_or_none()
-                    if message:
-                        message.session_id = session_id
-                        db.add(message)
-
-                await db.commit()
-        except (SQLAlchemyError, ValueError) as exc:
-            logger.error("Failed to update session init: %s", exc)
-
-
 class ChatStreamRuntime:
+    # Class-level registry of in-process background stream tasks, keyed by task
+    # so we can track which chats are actively streaming, await them on shutdown,
+    # and prevent duplicate streams for the same chat.
     _background_task_chat_ids: dict[asyncio.Task[str], str] = {}
 
     def __init__(
@@ -148,7 +90,6 @@ class ChatStreamRuntime:
         self.session_container: dict[str, Any] = {"session_id": request.session_id}
         self.assistant_message_id = request.assistant_message_id
         self.model_id = request.model_id
-        self.uses_bridge = request.uses_bridge
         self.context_window = request.context_window
         self.prompt = request.prompt
         self._is_new_chat = request.session_id is None
@@ -162,31 +103,17 @@ class ChatStreamRuntime:
         self.message_service = MessageService(session_factory=session_factory)
         self._event_buffer: list[tuple[str, dict[str, Any], dict[str, Any] | None]] = []
 
-        self.transport: SandboxTransport | None = None
-        self.client: ClaudeSDKClient | None = None
         self._session: ChatSession | None = None
         self.cache: CacheStore | None = None
         self._cancel_event: asyncio.Event | None = None
         self._cancelled: bool = False
-        self._send_now_pending: bool = False
-
-    @property
-    def attachment_base_dir(self) -> str:
-        # Files are written to the sandbox home dir
-        # (/home/user/ → {host_base}/{sandbox_id}/), so in host mode
-        # point Claude at the real host path, not the workspace path.
-        if self.chat.sandbox_provider == SandboxProviderType.HOST:
-            sid = self.chat.sandbox_id
-            if sid:
-                host_base = (
-                    Path(settings.get_host_sandbox_base_dir()).expanduser().resolve()
-                )
-                return str(host_base / sid)
-        return SANDBOX_HOME_DIR
+        self._bg_tasks: set[asyncio.Task[None]] = set()
+        self._last_emitted_tokens: int = 0
+        self._last_emitted_context_window: int = 0
 
     async def run(
         self,
-        ai_service: ClaudeAgentService,
+        ai_service: AiAgentService,
         stream_result: StreamResult,
         stream: AsyncIterator[StreamEvent],
     ) -> str:
@@ -205,6 +132,7 @@ class ChatStreamRuntime:
                     active_stream_id=self.stream_id,
                 )
             await self._consume_stream(ai_service, stream_result, stream)
+            await self._emit_prompt_suggestions()
 
             if self._cancelled:
                 return await self._complete_stream(
@@ -212,7 +140,7 @@ class ChatStreamRuntime:
                 )
 
             if self.last_seq <= start_seq:
-                raise ClaudeAgentException("Stream completed without any events")
+                raise AiServiceException("Stream completed without any events")
 
             return await self._complete_stream(
                 stream_result, MessageStreamStatus.COMPLETED
@@ -230,41 +158,63 @@ class ChatStreamRuntime:
 
     async def _consume_stream(
         self,
-        ai_service: ClaudeAgentService,
+        ai_service: AiAgentService,
         stream_result: StreamResult,
         stream: AsyncIterator[StreamEvent],
     ) -> None:
         stream_iter = aiter(stream)
-        last_usage: dict[str, Any] | None = None
         try:
             while True:
                 event = await self._next_or_cancel(stream_iter)
                 if event is None:
-                    self._send_now_pending = False
                     break
 
-                if self._send_now_pending and self._is_assistant_turn_start(event):
-                    self._send_now_pending = False
-                    if await self._write_send_now(ai_service):
-                        continue
+                event_dict: dict[str, Any] = dict(event)
+                kind = str(event_dict.get("type") or "system")
+                payload: dict[str, Any] = {
+                    k: v for k, v in event_dict.items() if k != "type"
+                }
 
-                kind = str(event.get("type") or "system")
-                payload = {k: v for k, v in event.items() if k != "type"}
-                await self.emit_event(kind, payload)
-                await self._flush_snapshot(force=False)
+                session_data: dict[str, Any] = payload.get("data") or {}
+                if kind == "system" and session_data.get("session_id"):
+                    task = asyncio.create_task(
+                        self._handle_session_update(session_data)
+                    )
+                    self._bg_tasks.add(task)
+                    task.add_done_callback(self._bg_tasks.discard)
+                    task.add_done_callback(self._on_session_update_done)
 
-                if not self._send_now_pending and self._is_send_now_eligible(event):
-                    self._send_now_pending = True
-
-                current_usage = stream_result.usage
-                if current_usage is not None and current_usage is not last_usage:
-                    last_usage = current_usage
+                if kind == "usage":
+                    usage_data = payload.get("data")
+                    stream_result.usage = (
+                        usage_data if isinstance(usage_data, dict) else None
+                    )
                     await self._emit_context_usage(stream_result)
+                else:
+                    await self.emit_event(kind, payload)
+                    await self._flush_snapshot(force=False)
         except asyncio.CancelledError:
             if not (self._cancel_event and self._cancel_event.is_set()):
                 raise
             self._cancelled = True
-            self._send_now_pending = False
+
+    async def _emit_prompt_suggestions(self) -> None:
+        raw = "".join(self.snapshot.text_parts)
+        match = PROMPT_SUGGESTIONS_RE.search(raw)
+        if not match:
+            return
+        try:
+            parsed = json.loads(match.group(1))
+            if isinstance(parsed, list):
+                suggestions = [
+                    s.strip() for s in parsed if isinstance(s, str) and s.strip()
+                ]
+                if suggestions:
+                    await self.emit_event(
+                        "prompt_suggestions", {"suggestions": suggestions}
+                    )
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse prompt suggestions JSON")
 
     @staticmethod
     def _cancel_task_if_running(
@@ -380,6 +330,10 @@ class ChatStreamRuntime:
                 )
 
     async def _flush_snapshot(self, *, force: bool) -> None:
+        # Debounced persistence: batch buffered events and snapshot to DB at most
+        # every 200ms or 24 events, whichever comes first. This avoids a DB write
+        # per token while keeping the persisted state reasonably fresh for SSE
+        # reconnection catch-up.
         if not self.assistant_message_id:
             return
         if not force:
@@ -436,6 +390,9 @@ class ChatStreamRuntime:
         if status == MessageStreamStatus.COMPLETED:
             title_task = asyncio.create_task(self._generate_title())
             title_task.add_done_callback(ChatStreamRuntime._on_title_task_done)
+            # If there's a queued follow-up message, start it immediately in this
+            # same background task chain — the "complete" event is deferred until
+            # the entire queue is drained so the client stays in streaming mode.
             queue_processed = await self._process_next_queued()
             if not queue_processed:
                 await self._emit_context_usage(stream_result)
@@ -457,152 +414,44 @@ class ChatStreamRuntime:
 
         return final_content
 
-    @staticmethod
-    def _is_send_now_eligible(event: StreamEvent) -> bool:
-        if event.get("type") != "tool_completed":
-            return False
-        tool = event.get("tool", {})
-        if tool.get("parent_id"):
-            return False
-        return True
-
-    @staticmethod
-    def _is_assistant_turn_start(event: StreamEvent) -> bool:
-        event_type = event.get("type")
-        if event_type in ("assistant_text", "assistant_thinking"):
-            return True
-        if event_type == "tool_started":
-            tool = event.get("tool", {})
-            return not tool.get("parent_id")
-        return False
-
-    async def _write_send_now(self, ai_service: ClaudeAgentService) -> bool:
-        if not self.cache or not self.transport:
-            return False
-
-        queue_service = QueueService(self.cache)
-        queued_msg = await queue_service.pop_send_now_message(self.chat_id)
-        if not queued_msg:
-            return False
-
+    async def _handle_session_update(self, payload: dict[str, Any]) -> None:
+        new_session_id = payload.get("session_id")
+        if not new_session_id:
+            return
+        prev_session_id = self.session_container.get("session_id")
+        new_worktree_cwd = payload.get("worktree_cwd", self.chat.worktree_cwd)
+        if (
+            new_session_id == prev_session_id
+            and new_worktree_cwd == self.chat.worktree_cwd
+        ):
+            return
+        self.session_container["session_id"] = new_session_id
+        agent_kind = get_agent_kind_for_model(self.model_id)
+        self.chat.session_id = new_session_id
+        self.chat.session_agent_kind = agent_kind.value
+        self.chat.worktree_cwd = new_worktree_cwd
         try:
-            await self._flush_event_buffer()
+            async with self.session_factory() as db:
+                chat_uuid = UUID(self.chat_id)
+                values: dict[str, Any] = {
+                    "session_id": new_session_id,
+                    "session_agent_kind": agent_kind.value,
+                    "worktree_cwd": new_worktree_cwd,
+                }
+                await db.execute(
+                    update(Chat).where(Chat.id == chat_uuid).values(**values)
+                )
+                await db.commit()
+        except (SQLAlchemyError, ValueError) as exc:
+            logger.error("Failed to persist session update: %s", exc)
 
-            user_message = await self.message_service.create_message(
-                UUID(self.chat_id),
-                queued_msg["content"],
-                MessageRole.USER,
-                attachments=queued_msg.get("attachments"),
-            )
-            assistant_message = await self.message_service.create_message(
-                UUID(self.chat_id),
-                "",
-                MessageRole.ASSISTANT,
-                model_id=queued_msg["model_id"],
-                stream_status=MessageStreamStatus.IN_PROGRESS,
-            )
-
-            if self.client:
-                queued_model = queued_msg.get("model_id")
-                if queued_model:
-                    resolved_model = queued_model.split(":", 1)[-1]
-                    if resolved_model != self.model_id:
-                        await self.client.set_model(resolved_model)
-                        self.model_id = resolved_model
-                        if self._session:
-                            self._session.current_model = resolved_model
-                    user_settings = await UserService(
-                        session_factory=self.session_factory
-                    ).get_user_settings(self.chat.user_id, db=None)
-                    provider, _ = ProviderService().get_provider_for_model(
-                        user_settings, queued_model
-                    )
-                    self.uses_bridge = (
-                        provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
-                        if provider
-                        else False
-                    )
-                queued_permission = queued_msg.get("permission_mode")
-                if queued_permission:
-                    sdk_permission = SDK_PERMISSION_MODE_MAP.get(
-                        queued_permission, "acceptEdits"
-                    )
-                    await self.client.set_permission_mode(sdk_permission)
-
-            user_content = ai_service.build_user_message_content(
-                queued_msg["content"],
-                self.custom_instructions,
-                queued_msg.get("attachments"),
-                self.attachment_base_dir,
-                uses_bridge=self.uses_bridge,
-            )
-            injection = {
-                "type": "user",
-                "message": {"role": "user", "content": user_content},
-                "parent_tool_use_id": None,
-                "session_id": self.session_container.get("session_id"),
-            }
-            await self.transport.write(json.dumps(injection) + "\n")
-
-            await self.message_service.update_message_snapshot(
-                UUID(self.assistant_message_id),
-                content_text=self.snapshot.content_text,
-                content_render=self.snapshot.to_render(),
-                last_seq=self.last_seq,
-                active_stream_id=None,
-                stream_status=MessageStreamStatus.COMPLETED,
-            )
-
-            await self.emit_event(
-                "queue_processing",
-                {
-                    "queued_message_id": queued_msg["id"],
-                    "user_message_id": str(user_message.id),
-                    "assistant_message_id": str(assistant_message.id),
-                    "content": queued_msg["content"],
-                    "model_id": queued_msg["model_id"],
-                    "attachments": MessageService.serialize_attachments(
-                        queued_msg, user_message
-                    ),
-                    "send_now": True,
-                },
-                apply_snapshot=False,
-            )
-
-            self.assistant_message_id = str(assistant_message.id)
-            self.stream_id = uuid4()
-            self.snapshot = StreamSnapshotAccumulator()
-            self.pending_since_flush = 0
-            self.last_flush_at = time.monotonic()
-            self._event_buffer = []
-            self.last_seq = 0
-
-            start_seq = await self.emit_event(
-                "stream_started",
-                {"status": "started"},
-                apply_snapshot=False,
-            )
-            await self.message_service.update_message_snapshot(
-                UUID(self.assistant_message_id),
-                content_text="",
-                content_render=self.snapshot.to_render(),
-                last_seq=start_seq,
-                active_stream_id=self.stream_id,
-            )
-        except Exception as exc:
-            logger.error("Failed to process send-now message: %s", exc)
-            try:
-                await queue_service.requeue_message(self.chat_id, queued_msg)
-            except Exception as requeue_exc:
-                logger.error("Failed to re-queue message: %s", requeue_exc)
-            return False
-
-        logger.info(
-            "Send-now message %s written for chat %s",
-            queued_msg["id"],
-            self.chat_id,
-        )
-        return True
+    @staticmethod
+    def _on_session_update_done(task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            logger.error("Session update task failed: %s", exc)
 
     async def _process_next_queued(self) -> bool:
         next_msg: dict[str, Any] | None = None
@@ -661,6 +510,7 @@ class ChatStreamRuntime:
                     queued_msg=next_msg,
                     user_settings=user_settings,
                     assistant_message_id=str(assistant_message.id),
+                    session_id_override=self.session_container.get("session_id"),
                 )
             )
         except Exception as exc:
@@ -688,15 +538,15 @@ class ChatStreamRuntime:
         if not usage or not self.cache:
             return
 
-        token_usage = (
-            usage.get("input_tokens", 0)
-            + usage.get("cache_creation_input_tokens", 0)
-            + usage.get("cache_read_input_tokens", 0)
-        )
-        if token_usage <= 0:
+        token_usage: int = usage.get("input_tokens", 0) or 0
+        context_window: int = usage.get("context_window") or self.context_window or 0
+        if token_usage <= 0 or (
+            token_usage == self._last_emitted_tokens
+            and context_window == self._last_emitted_context_window
+        ):
             return
-
-        context_window = self.context_window or settings.CONTEXT_WINDOW_TOKENS
+        self._last_emitted_tokens = token_usage
+        self._last_emitted_context_window = context_window
         percentage = (
             min((token_usage / context_window) * 100, 100.0)
             if context_window > 0
@@ -710,12 +560,12 @@ class ChatStreamRuntime:
 
         try:
             async with self.session_factory() as db:
-                result = await db.execute(select(Chat).filter(Chat.id == self.chat.id))
-                chat = result.scalar_one_or_none()
-                if chat:
-                    chat.context_token_usage = token_usage
-                    db.add(chat)
-                    await db.commit()
+                await db.execute(
+                    update(Chat)
+                    .where(Chat.id == self.chat.id)
+                    .values(context_token_usage=token_usage)
+                )
+                await db.commit()
 
             await self.cache.setex(
                 REDIS_KEY_CHAT_CONTEXT_USAGE.format(chat_id=self.chat_id),
@@ -738,9 +588,11 @@ class ChatStreamRuntime:
         if not self.prompt or not self._is_new_chat:
             return
 
-        ai_service = ClaudeAgentService(session_factory=self.session_factory)
+        ai_service = AiAgentService(session_factory=self.session_factory)
         user = User(id=self.chat.user_id)
-        title = await ai_service.generate_title(self.prompt, user)
+        title = await ai_service.generate_title(
+            self.prompt, self.model_id, user, chat=self.chat
+        )
         if not title:
             return
         title = title[:255]
@@ -800,6 +652,10 @@ class ChatStreamRuntime:
 
     @staticmethod
     def _is_transport_fatal(exc: BaseException) -> bool:
+        # Walk the exception chain to decide if the session's transport is broken
+        # (ConnectionError, OSError) vs. a recoverable application-level error.
+        # Transport-fatal errors trigger session teardown so the next request
+        # creates a fresh connection instead of reusing a dead one.
         current: BaseException | None = exc
         while current is not None:
             if isinstance(current, asyncio.CancelledError):
@@ -869,6 +725,7 @@ class ChatStreamRuntime:
         queued_msg: dict[str, Any],
         user_settings: UserSettings,
         assistant_message_id: str,
+        session_id_override: str | None = None,
     ) -> ChatStreamRequest:
         selected_persona_name = queued_msg.get(
             "selected_persona_name", DEFAULT_PERSONA_NAME
@@ -877,18 +734,8 @@ class ChatStreamRuntime:
             user_settings,
             selected_persona_name=selected_persona_name,
         )
-        provider_service = ProviderService()
-        context_window = provider_service.get_model_context_window(
-            user_settings, queued_msg["model_id"]
-        )
-        provider, _ = provider_service.get_provider_for_model(
-            user_settings, queued_msg["model_id"]
-        )
-        uses_bridge = (
-            provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
-            if provider
-            else False
-        )
+        context_window = get_context_window(queued_msg["model_id"])
+        resolved_session_id = session_id_override or chat.session_id
         return ChatStreamRequest(
             prompt=queued_msg["content"],
             system_prompt=system_prompt,
@@ -901,16 +748,18 @@ class ChatStreamRuntime:
                 "sandbox_id": chat.sandbox_id or "",
                 "workspace_path": chat.workspace_path or "",
                 "sandbox_provider": chat.sandbox_provider,
-                "session_id": chat.session_id,
+                "session_id": resolved_session_id,
+                "session_agent_kind": chat.session_agent_kind,
+                "worktree_cwd": chat.worktree_cwd,
             },
-            permission_mode=queued_msg.get("permission_mode", "auto"),
+            permission_mode=queued_msg.get("permission_mode", "acceptEdits"),
             model_id=queued_msg["model_id"],
             context_window=context_window,
-            session_id=chat.session_id,
+            session_id=resolved_session_id,
             assistant_message_id=assistant_message_id,
             thinking_mode=queued_msg.get("thinking_mode"),
             worktree=queued_msg.get("worktree", False),
-            uses_bridge=uses_bridge,
+            plan_mode=queued_msg.get("plan_mode", False),
             attachments=queued_msg.get("attachments"),
             selected_persona_name=selected_persona_name,
         )
@@ -954,7 +803,7 @@ class ChatStreamRuntime:
                 )
                 chat = result.scalar_one_or_none()
                 if not chat:
-                    raise ClaudeAgentException(
+                    raise AiServiceException(
                         f"Chat {chat_id} not found for idle send-now"
                     )
 
@@ -1106,33 +955,34 @@ class ChatStreamRuntime:
         async with cache_connection() as cache:
             runtime.cache = cache
 
-            ai_service = ClaudeAgentService(session_factory=runtime.session_factory)
+            ai_service = AiAgentService(session_factory=runtime.session_factory)
             user = User(id=runtime.chat.user_id)
 
-            params: SessionParams = await ai_service.build_session_params(
+            config: AcpSessionConfig = await ai_service.build_session_config(
                 user=user,
                 chat=runtime.chat,
-                system_prompt=request.system_prompt,
                 model_id=request.model_id,
                 permission_mode=request.permission_mode,
                 session_id=request.session_id,
                 thinking_mode=request.thinking_mode,
+                system_prompt=request.system_prompt,
                 worktree=request.worktree,
                 selected_persona_name=request.selected_persona_name,
             )
 
-            session = await session_registry.get_or_create(
-                chat_id=runtime.chat_id,
-                options=params.options,
-                transport_factory=params.transport_factory,
-            )
+            if (
+                config.sandbox_provider == SandboxProviderType.DOCKER.value
+                and config.sandbox_id
+            ):
+                provider = SandboxProviderFactory.create(SandboxProviderType.DOCKER)
+                await SandboxService.sync_cli_auth(provider, config.sandbox_id)
 
-            session_callback = SessionUpdateCallback(
+            session, _ = await session_registry.get_or_create(
                 chat_id=runtime.chat_id,
-                assistant_message_id=request.assistant_message_id,
-                session_factory=runtime.session_factory,
-                session_container=runtime.session_container,
-                worktree=request.worktree,
+                config=config,
+            )
+            await runtime._handle_session_update(
+                {"session_id": session.acp_session.acp_session_id}
             )
 
             session.cancel_event.clear()
@@ -1140,36 +990,39 @@ class ChatStreamRuntime:
                 session.cancel_event.set()
             runtime._cancel_event = session.cancel_event
             session.active_generation_task = asyncio.current_task()
-            runtime.transport = session.transport
-            runtime.client = session.client
             runtime._session = session
             stream: AsyncIterator[StreamEvent] | None = None
             try:
+                session_updates: list[Any] = []
+                if config.model and config.model != session.current_model:
+                    session_updates.append(session.acp_session.set_model(config.model))
                 if (
-                    params.options.model
-                    and params.options.model != session.current_model
+                    config.permission_mode
+                    and config.permission_mode != session.current_mode
                 ):
-                    await session.client.set_model(params.options.model)
-                    session.current_model = params.options.model
-                if params.options.permission_mode:
-                    await session.client.set_permission_mode(
-                        params.options.permission_mode
+                    session_updates.append(
+                        session.acp_session.set_mode(config.permission_mode)
                     )
+                if session_updates:
+                    await asyncio.gather(*session_updates)
+                if config.model:
+                    session.current_model = config.model
+                if config.permission_mode:
+                    session.current_mode = config.permission_mode
+
                 stream_result = StreamResult()
                 stream = ai_service.stream_response(
-                    client=session.client,
+                    session=session.acp_session,
                     prompt=request.prompt,
                     custom_instructions=request.custom_instructions,
-                    session_id=request.session_id,
                     result=stream_result,
-                    session_callback=session_callback,
+                    agent_kind=config.agent_kind,
+                    plan_mode=request.plan_mode,
                     attachments=request.attachments,
-                    attachment_base_dir=runtime.attachment_base_dir,
-                    uses_bridge=request.uses_bridge,
                 )
                 return await runtime.run(ai_service, stream_result, stream)
             except (
-                ClaudeAgentException,
+                AiServiceException,
                 asyncio.CancelledError,
             ) as exc:
                 if cls._is_transport_fatal(exc):
@@ -1183,13 +1036,6 @@ class ChatStreamRuntime:
             finally:
                 if stream is not None and hasattr(stream, "aclose"):
                     await stream.aclose()
-                if runtime._cancelled:
-                    try:
-                        async with asyncio.timeout(5.0):
-                            async for _ in session.client.receive_response():
-                                pass
-                    except Exception:
-                        pass
                 session.active_generation_task = None
                 session.last_used_at = time.monotonic()
 
@@ -1214,8 +1060,15 @@ class ChatStreamRuntime:
             )
             raise
         except Exception as exc:
+            error_data = getattr(exc, "data", None)
+            error_code = getattr(exc, "code", None)
             logger.error(
-                "Chat bootstrap failed for %s: %s", chat_id, exc, exc_info=True
+                "Chat bootstrap failed for %s: %s (code=%s, data=%s)",
+                chat_id,
+                exc,
+                error_code,
+                error_data,
+                exc_info=True,
             )
             await cls.emit_bootstrap_error(
                 chat_id=chat_id,

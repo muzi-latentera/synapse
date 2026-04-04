@@ -6,41 +6,22 @@ ENV PATH="/home/user/.local/bin:/home/user/.nvm/versions/node/v20.18.0/bin:$PATH
 ENV NVM_DIR="/home/user/.nvm"
 ENV NODE_VERSION=20.18.0
 ENV TERM=xterm-256color
-ENV DISPLAY=:99
-ENV OPENVSCODE_PORT=8765
 ENV CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
 RUN apt-get update && apt-get install -y \
     curl \
-    wget \
     git \
-    rsync \
     unzip \
     zip \
     build-essential \
     software-properties-common \
     openssh-client \
     jq \
-    htop \
     tmux \
-    vim \
-    nano \
     ca-certificates \
     gnupg \
-    iproute2 \
-    xvfb \
-    x11vnc \
-    websockify \
-    x11-xserver-utils \
-    fonts-liberation \
-    libnss3 \
-    libxss1 \
-    libasound2 \
-    xdotool \
-    && add-apt-repository -y ppa:xtradeb/apps \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get update \
-    && apt-get install -y chromium --no-install-recommends \
     && apt-get install -y python3.11 python3.11-venv python3.11-dev \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
@@ -62,23 +43,9 @@ RUN useradd -m -s /bin/bash -u 1000 user && \
     usermod -aG docker user && \
     chown -R user:user /home/user
 
-RUN OPENVSCODE_VERSION="1.105.1" && \
-    ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
-        ARCH_SUFFIX="arm64"; \
-    else \
-        ARCH_SUFFIX="x64"; \
-    fi && \
-    curl -fsSL "https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v${OPENVSCODE_VERSION}/openvscode-server-v${OPENVSCODE_VERSION}-linux-${ARCH_SUFFIX}.tar.gz" | \
-    tar -xz -C /tmp && \
-    mv /tmp/openvscode-server-v${OPENVSCODE_VERSION}-linux-${ARCH_SUFFIX} /opt/openvscode-server && \
-    ln -s /opt/openvscode-server/bin/openvscode-server /usr/local/bin/openvscode-server
-
-COPY --chmod=755 backend/permission_server.py /usr/local/bin/permission_server.py
-COPY --chmod=755 scripts/start-vnc.sh /usr/local/bin/start-vnc.sh
 COPY --chmod=755 sandbox/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
-EXPOSE 3000 3001 5000 5900 6080 8000 8080 8765 5173 4200 8888 4321 3030 5500 1234 4000
+EXPOSE 3000 3001 5000 8000 8080 5173 4200 8888 4321 3030 5500 1234 4000
 
 USER user
 WORKDIR /home/user
@@ -90,16 +57,11 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | b
     nvm alias default $NODE_VERSION
 
 RUN . "$NVM_DIR/nvm.sh" && \
-    npm install -g @anthropic-ai/claude-code@2.1.87 @openai/codex @gongrzhe/server-gmail-autoauth-mcp @playwright/mcp@latest
+    npm install -g @anthropic-ai/claude-code@2.1.87 @agentclientprotocol/claude-agent-acp@0.24.2 @zed-industries/codex-acp@0.11.1 @openai/codex
 
 RUN python3 -m pip install --user --upgrade pip && \
     python3 -m pip install --user \
-    uv \
-    httpx \
-    requests \
-    pydantic \
-    mcp \
-    anthropic-bridge==0.1.41
+    uv
 
 RUN echo '#!/bin/bash\nexec echo $GITHUB_TOKEN' > /home/user/.git-askpass.sh && \
     chmod +x /home/user/.git-askpass.sh

@@ -23,7 +23,7 @@ export function CommandsSection() {
       uploadTitle="Upload Slash Command"
       acceptedExtension=".md"
       uploadIcon={FileText}
-      uploadHint="The .md file must include YAML frontmatter with name and description fields. Optional fields: argument-hint, allowed-tools, model."
+      uploadHint="The .md file must include YAML frontmatter with name and description fields. Optional fields: argument-hint, allowed-tools."
       renderTab={({ items, onAdd, onEdit, onDelete }) => (
         <CommandsSettingsTab
           commands={items}

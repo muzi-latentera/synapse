@@ -49,12 +49,6 @@ class PtySize:
 
 
 @dataclass
-class PreviewLink:
-    preview_url: str
-    port: int
-
-
-@dataclass
 class SecretEntry:
     key: str
     value: str
@@ -67,7 +61,6 @@ class DockerConfig:
     host: str | None = None
     preview_base_url: str = "http://localhost"
     user_home: str = "/home/user"
-    openvscode_port: int = 8765
     traefik_network: str = ""
     traefik_entrypoint: str = "https"
     runtime: str = ""

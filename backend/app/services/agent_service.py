@@ -1,0 +1,507 @@
+import asyncio
+import logging
+import os
+from collections.abc import AsyncIterator
+from typing import Any, cast
+from uuid import UUID
+
+from app.constants import (
+    SANDBOX_GIT_ASKPASS_PATH,
+    SANDBOX_HOME_DIR,
+    SANDBOX_WORKSPACE_DIR,
+)
+from app.core.config import get_settings
+from app.db.session import SessionLocal
+from app.models.db_models.chat import Chat
+from app.models.db_models.user import User, UserSettings
+from app.models.types import PermissionMode
+from app.prompts.enhance_prompt import ENHANCE_PROMPT
+from app.prompts.generate_commit_message import (
+    GENERATE_COMMIT_MESSAGE_SYSTEM_PROMPT,
+)
+from app.prompts.generate_pr_description import (
+    GENERATE_PR_DESCRIPTION_SYSTEM_PROMPT,
+    GENERATE_PR_DESCRIPTION_TITLE_PREFIX,
+)
+from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
+from app.prompts.generate_title import GENERATE_TITLE_SYSTEM_PROMPT
+from app.services.acp.adapters import AgentKind, get_agent_adapter
+from app.services.acp.client import AcpClientHandler
+from app.services.acp.session import AcpSession, AcpSessionConfig
+from app.services.exceptions import AiServiceException, ChatException, ErrorCode
+from app.services.model_registry import get_agent_kind_for_model
+from app.services.sandbox import SandboxService
+from app.services.sandbox_providers import SandboxProviderType
+from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.streaming.types import StreamEvent
+from app.services.user import UserService
+
+settings = get_settings()
+logger = logging.getLogger(__name__)
+
+MCP_TYPE_CONFIGS: dict[str, dict[str, Any]] = {
+    "npx": {
+        "command": "npx",
+        "required_field": "package",
+        "args_prefix": ("-y",),
+    },
+    "bunx": {
+        "command": "bunx",
+        "required_field": "package",
+        "args_prefix": (),
+    },
+    "uvx": {
+        "command": "uvx",
+        "required_field": "package",
+        "args_prefix": (),
+    },
+    "http": {
+        "type": "http",
+        "required_field": "url",
+        "is_http": True,
+    },
+}
+
+
+class StreamResult:
+    __slots__ = ("total_cost_usd", "usage")
+
+    def __init__(self) -> None:
+        self.total_cost_usd: float = 0.0
+        self.usage: dict[str, Any] | None = None
+
+
+class AiAgentService:
+    def __init__(self, session_factory: Any | None = None) -> None:
+        self.session_factory = session_factory or SessionLocal
+
+    async def _get_user_settings(self, user_id: UUID) -> UserSettings:
+        return await UserService(
+            session_factory=self.session_factory
+        ).get_user_settings(user_id)
+
+    async def build_session_config(
+        self,
+        *,
+        user: User,
+        chat: Chat,
+        model_id: str,
+        permission_mode: PermissionMode,
+        session_id: str | None,
+        thinking_mode: str | None = None,
+        system_prompt: str | None = None,
+        worktree: bool = False,
+        selected_persona_name: str = DEFAULT_PERSONA_NAME,
+    ) -> AcpSessionConfig:
+        user_settings = await self._get_user_settings(user.id)
+
+        sandbox_provider = chat.sandbox_provider or SandboxProviderType.DOCKER.value
+        sandbox_id: str = chat.sandbox_id or ""
+        workspace_path = chat.workspace_path
+        cwd = SANDBOX_HOME_DIR
+        if workspace_path:
+            cwd = SANDBOX_WORKSPACE_DIR
+
+        agent_kind = get_agent_kind_for_model(model_id)
+        adapter = get_agent_adapter(agent_kind)
+        stored_agent_kind = getattr(chat, "session_agent_kind", None)
+        if stored_agent_kind and stored_agent_kind != agent_kind.value:
+            raise ChatException(
+                f"Cannot switch from {stored_agent_kind} to {agent_kind.value} in the same chat",
+                error_code=ErrorCode.VALIDATION_ERROR,
+            )
+        if not adapter.supports_worktree:
+            worktree = False
+        elif worktree and session_id and chat.worktree_cwd:
+            cwd = chat.worktree_cwd
+
+        is_custom_persona = selected_persona_name != DEFAULT_PERSONA_NAME
+
+        return await self._build_acp_config(
+            user_settings=user_settings,
+            agent_kind=agent_kind,
+            permission_mode=permission_mode,
+            model_id=model_id,
+            session_id=session_id,
+            thinking_mode=thinking_mode,
+            cwd=cwd,
+            sandbox_provider=sandbox_provider,
+            sandbox_id=sandbox_id,
+            workspace_path=workspace_path,
+            system_prompt=system_prompt,
+            system_prompt_is_full_replace=is_custom_persona,
+            worktree=worktree,
+        )
+
+    async def stream_response(
+        self,
+        session: AcpSession,
+        prompt: str,
+        custom_instructions: str | None,
+        result: StreamResult,
+        agent_kind: AgentKind = AgentKind.CLAUDE,
+        plan_mode: bool = False,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> AsyncIterator[StreamEvent]:
+        user_content = self.prepare_user_prompt(
+            prompt,
+            custom_instructions,
+            plan_mode=plan_mode,
+        )
+        adapter = get_agent_adapter(agent_kind)
+
+        handler = session.handler
+        prompt_task = asyncio.create_task(
+            session.send_prompt(
+                user_content, attachments=attachments, agent_kind=agent_kind
+            )
+        )
+
+        try:
+            async for event in self._consume_events(handler.event_queue, prompt_task):
+                yield event
+
+                ui_mode = self._get_plan_mode_transition(event)
+                if ui_mode:
+                    permission_config = adapter.build_permission_config(ui_mode)
+                    await session.set_mode(permission_config.session_mode)
+
+            result.total_cost_usd = handler.total_cost_usd
+            result.usage = handler.usage
+
+        except BaseException:
+            await self._cancel_prompt_task(prompt_task)
+            raise
+
+    @staticmethod
+    async def _consume_events(
+        event_queue: asyncio.Queue[StreamEvent | object],
+        prompt_task: asyncio.Task[None],
+    ) -> AsyncIterator[StreamEvent]:
+        # Yield events from the queue while the prompt task is running. Uses
+        # asyncio.wait so we notice if the prompt task finishes (or fails) while
+        # we're blocked waiting for the next event. Once the prompt task completes,
+        # drain any remaining queued events until the sentinel.
+        get_event: asyncio.Task[StreamEvent | object] | None = None
+        try:
+            while True:
+                get_event = asyncio.create_task(event_queue.get())
+                done, _ = await asyncio.wait(
+                    {get_event, prompt_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if get_event in done:
+                    item = get_event.result()
+                    get_event = None
+                    if AcpClientHandler.is_sentinel(item):
+                        break
+                    yield cast(StreamEvent, item)
+                else:
+                    get_event.cancel()
+                    get_event = None
+                    prompt_task.result()
+                    while True:
+                        item = await event_queue.get()
+                        if AcpClientHandler.is_sentinel(item):
+                            break
+                        yield cast(StreamEvent, item)
+                    break
+        finally:
+            if get_event and not get_event.done():
+                get_event.cancel()
+
+    @staticmethod
+    async def _cancel_prompt_task(task: asyncio.Task[None] | None) -> None:
+        if task and not task.done():
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, OSError):
+                pass
+
+    @staticmethod
+    def _get_plan_mode_transition(event: StreamEvent) -> str | None:
+        event_type = event.get("type", "")
+        if event_type not in ("tool_completed", "tool_failed"):
+            return None
+
+        tool = event.get("tool", {})
+        tool_name = tool.get("name", "")
+        if tool_name == "EnterPlanMode":
+            return "plan" if event_type == "tool_completed" else None
+        if tool_name == "ExitPlanMode":
+            permission_mode = tool.get("permission_mode")
+            return permission_mode if isinstance(permission_mode, str) else None
+        return None
+
+    async def enhance_prompt(self, prompt: str, model_id: str, user: User) -> str:
+        return (
+            await self._generate_text(
+                ENHANCE_PROMPT,
+                "Enhance this prompt: " + prompt,
+                model_id,
+                user,
+            )
+            or prompt
+        )
+
+    async def generate_title(
+        self, prompt: str, model_id: str, user: User, chat: Chat | None = None
+    ) -> str | None:
+        try:
+            title = await self._generate_text(
+                GENERATE_TITLE_SYSTEM_PROMPT,
+                "Generate a title for this message:\n<message>\n"
+                + prompt
+                + "\n</message>",
+                model_id,
+                user,
+                chat=chat,
+            )
+            if title:
+                title = title.strip().strip('"').strip("'")
+            return title or None
+        except AiServiceException:
+            logger.debug("Title generation failed for user %s", user.id)
+            return None
+
+    async def generate_pr_description(
+        self, title: str, diff: str, model_id: str, user: User
+    ) -> str:
+        result = await self._generate_text(
+            GENERATE_PR_DESCRIPTION_SYSTEM_PROMPT,
+            GENERATE_PR_DESCRIPTION_TITLE_PREFIX + title + "\n\n" + diff,
+            model_id,
+            user,
+        )
+        if not result:
+            raise AiServiceException("AI returned an empty description")
+        return result
+
+    async def generate_commit_message(
+        self, diff: str, model_id: str, user: User
+    ) -> str:
+        result = await self._generate_text(
+            GENERATE_COMMIT_MESSAGE_SYSTEM_PROMPT,
+            diff,
+            model_id,
+            user,
+        )
+        if not result:
+            raise AiServiceException("AI returned an empty commit message")
+        return result
+
+    async def _generate_text(
+        self,
+        system_prompt: str,
+        user_message: str,
+        model_id: str,
+        user: User,
+        chat: Chat | None = None,
+    ) -> str:
+        user_settings = await self._get_user_settings(user.id)
+
+        agent_kind = get_agent_kind_for_model(model_id)
+        env = self._build_custom_env(user_settings)
+
+        if chat and chat.sandbox_id:
+            sandbox_id = chat.sandbox_id
+            sandbox_provider = chat.sandbox_provider or SandboxProviderType.DOCKER.value
+            workspace_path = chat.workspace_path
+            cwd = SANDBOX_WORKSPACE_DIR if workspace_path else SANDBOX_HOME_DIR
+        else:
+            sandbox_id = ""
+            sandbox_provider = SandboxProviderType.HOST.value
+            workspace_path = None
+            cwd = os.environ.get("HOME", "/tmp")
+
+        if sandbox_provider == SandboxProviderType.DOCKER.value and sandbox_id:
+            provider = SandboxProviderFactory.create(SandboxProviderType.DOCKER)
+            await SandboxService.sync_cli_auth(provider, sandbox_id)
+
+        config = AcpSessionConfig(
+            sandbox_id=sandbox_id,
+            sandbox_provider=sandbox_provider,
+            cwd=cwd,
+            agent_kind=agent_kind,
+            env=env,
+            model=model_id,
+            workspace_path=workspace_path,
+            system_prompt=system_prompt,
+        )
+
+        try:
+            session = await AcpSession.create(config)
+        except AiServiceException:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            raise AiServiceException(f"Failed to create ACP session: {e}") from e
+
+        prompt_task: asyncio.Task[None] | None = None
+        try:
+            handler = session.handler
+            prompt_task = asyncio.create_task(session.send_prompt(user_message))
+
+            result_parts: list[str] = []
+            async for event in self._consume_events(handler.event_queue, prompt_task):
+                if event.get("type") == "assistant_text":
+                    text = event.get("text", "")
+                    if text:
+                        result_parts.append(text)
+
+            return "".join(result_parts)
+        except asyncio.CancelledError:
+            raise
+        except AiServiceException:
+            raise
+        except Exception as e:
+            raise AiServiceException(f"ACP call failed: {e}") from e
+        finally:
+            await self._cancel_prompt_task(prompt_task)
+            await session.close()
+
+    @staticmethod
+    def _build_custom_env(user_settings: UserSettings) -> dict[str, str]:
+        env: dict[str, str] = {}
+        if user_settings.custom_env_vars:
+            for env_var in user_settings.custom_env_vars:
+                env[env_var["key"]] = env_var["value"]
+        return env
+
+    async def _get_mcp_servers(
+        self,
+        user_settings: UserSettings,
+    ) -> list[dict[str, Any]]:
+        servers: list[dict[str, Any]] = []
+        for mcp in user_settings.custom_mcps or []:
+            if not mcp.get("enabled", True):
+                continue
+            mcp_name = mcp.get("name")
+            command_type = mcp.get("command_type")
+            if not mcp_name or not command_type:
+                continue
+            try:
+                cfg = self._build_mcp_config(mcp, command_type)
+                cfg["name"] = mcp_name
+                servers.append(cfg)
+            except AiServiceException:
+                logger.error("Failed to configure MCP '%s'", mcp_name, exc_info=True)
+
+        return servers
+
+    @staticmethod
+    def _build_mcp_config(mcp: dict[str, Any], command_type: str) -> dict[str, Any]:
+        type_config = MCP_TYPE_CONFIGS.get(command_type)
+        if not type_config:
+            raise AiServiceException(f"Unknown MCP command type: {command_type}")
+
+        mcp_name = mcp.get("name", "unknown")
+        required_field = type_config["required_field"]
+        value = mcp.get(required_field)
+
+        if not value:
+            raise AiServiceException(
+                f"{command_type.upper()} MCP '{mcp_name}' requires '{required_field}' field"
+            )
+
+        if type_config.get("is_http"):
+            config: dict[str, Any] = {
+                "type": type_config["type"],
+                "url": value,
+            }
+            if mcp.get("env_vars"):
+                config["headers"] = mcp["env_vars"]
+        else:
+            args = list(type_config["args_prefix"]) + [value]
+            if mcp.get("args"):
+                args.extend(mcp["args"])
+            config = {
+                "command": type_config["command"],
+                "args": args,
+            }
+            if mcp.get("env_vars"):
+                config["env"] = mcp["env_vars"]
+
+        return config
+
+    async def _build_acp_config(
+        self,
+        *,
+        user_settings: UserSettings,
+        agent_kind: AgentKind,
+        permission_mode: PermissionMode,
+        model_id: str,
+        session_id: str | None,
+        thinking_mode: str | None = None,
+        cwd: str = SANDBOX_HOME_DIR,
+        sandbox_provider: str = SandboxProviderType.DOCKER.value,
+        sandbox_id: str = "",
+        workspace_path: str | None = None,
+        system_prompt: str | None = None,
+        system_prompt_is_full_replace: bool = False,
+        worktree: bool = False,
+    ) -> AcpSessionConfig:
+        env: dict[str, str] = {}
+
+        if user_settings.github_personal_access_token:
+            env["GITHUB_TOKEN"] = user_settings.github_personal_access_token
+            env["GIT_ASKPASS"] = SANDBOX_GIT_ASKPASS_PATH
+        if settings.GIT_AUTHOR_NAME and settings.GIT_AUTHOR_EMAIL:
+            env["GIT_AUTHOR_NAME"] = settings.GIT_AUTHOR_NAME
+            env["GIT_AUTHOR_EMAIL"] = settings.GIT_AUTHOR_EMAIL
+            env["GIT_COMMITTER_NAME"] = settings.GIT_AUTHOR_NAME
+            env["GIT_COMMITTER_EMAIL"] = settings.GIT_AUTHOR_EMAIL
+
+        env.update(self._build_custom_env(user_settings))
+
+        adapter = get_agent_adapter(agent_kind)
+        adapter.apply_env_overrides(env, thinking_mode)
+        reasoning_effort = adapter.map_reasoning_effort(thinking_mode)
+        permission_config = adapter.build_permission_config(permission_mode)
+
+        mcp_servers = await self._get_mcp_servers(user_settings)
+
+        return AcpSessionConfig(
+            sandbox_id=sandbox_id,
+            sandbox_provider=sandbox_provider,
+            cwd=cwd,
+            agent_kind=agent_kind,
+            env=env,
+            mcp_servers=mcp_servers,
+            model=model_id,
+            permission_mode=permission_config.session_mode,
+            launch_approval_policy=permission_config.launch_approval_policy,
+            resume_session_id=session_id,
+            workspace_path=workspace_path,
+            system_prompt=system_prompt,
+            system_prompt_is_full_replace=system_prompt_is_full_replace,
+            worktree=worktree,
+            reasoning_effort=reasoning_effort,
+        )
+
+    @staticmethod
+    def prepare_user_prompt(
+        prompt: str,
+        custom_instructions: str | None,
+        *,
+        plan_mode: bool = False,
+    ) -> str:
+        # Slash commands (e.g. /plan) are passed through verbatim — the agent
+        # runtime interprets them directly, so wrapping in XML tags would break them.
+        if prompt.startswith("/"):
+            return prompt
+
+        parts = []
+        if custom_instructions and custom_instructions.strip():
+            parts.append(
+                f"<user_instructions>\n{custom_instructions.strip()}\n</user_instructions>\n\n"
+            )
+        parts.append(f"<user_prompt>{prompt}</user_prompt>")
+        content = "".join(parts)
+
+        if plan_mode:
+            return "/plan " + content
+
+        return content

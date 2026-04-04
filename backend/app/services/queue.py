@@ -38,9 +38,10 @@ class QueueService:
         chat_id: str,
         content: str,
         model_id: str,
-        permission_mode: str = "auto",
+        permission_mode: str = "acceptEdits",
         thinking_mode: str | None = None,
         worktree: bool = False,
+        plan_mode: bool = False,
         selected_persona_name: str = DEFAULT_PERSONA_NAME,
         attachments: list[dict[str, Any]] | None = None,
     ) -> QueueAddResponse:
@@ -56,6 +57,7 @@ class QueueService:
             "permission_mode": permission_mode,
             "thinking_mode": thinking_mode,
             "worktree": worktree,
+            "plan_mode": plan_mode,
             "selected_persona_name": selected_persona_name,
             "queued_at": queued_at.isoformat(),
             "attachments": attachments,
@@ -72,9 +74,10 @@ class QueueService:
             id=UUID(item["id"]),
             content=item["content"],
             model_id=item["model_id"],
-            permission_mode=item.get("permission_mode", "auto"),
+            permission_mode=item.get("permission_mode", "acceptEdits"),
             thinking_mode=item.get("thinking_mode"),
             worktree=item.get("worktree", False),
+            plan_mode=item.get("plan_mode", False),
             selected_persona_name=item.get(
                 "selected_persona_name", DEFAULT_PERSONA_NAME
             ),
@@ -129,6 +132,8 @@ class QueueService:
         return next_msg
 
     async def mark_send_now(self, chat_id: str, message_id: str) -> bool:
+        # Flag a queued message for immediate processing — the runtime checks this
+        # key to skip the normal queue order and process this message next.
         key = self._queue_key(chat_id)
         queue = await self._read_queue(key)
         if not any(item["id"] == message_id for item in queue):
@@ -163,6 +168,8 @@ class QueueService:
         return target
 
     async def requeue_message(self, chat_id: str, message_data: dict[str, Any]) -> None:
+        # Re-insert at the front so it's retried next — used when processing fails
+        # and the message shouldn't be lost.
         key = self._queue_key(chat_id)
         queue = await self._read_queue(key)
         queue.insert(0, message_data)

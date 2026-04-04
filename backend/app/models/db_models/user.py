@@ -9,13 +9,12 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.models.types import (
     CustomEnvVarDict,
     CustomMcpDict,
-    CustomProviderDict,
     InstalledPluginDict,
     PersonaDict,
 )
 
 from app.db.base_class import Base, PG_GEN_UUID
-from app.db.types import GUID, EncryptedJSON, EncryptedString
+from app.db.types import GUID, EncryptedString
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -86,9 +85,6 @@ class UserSettings(Base):
         String(64), default="UTC", server_default="UTC", nullable=False
     )
     custom_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
-    custom_providers: Mapped[list[CustomProviderDict] | None] = mapped_column(
-        EncryptedJSON, nullable=True
-    )
     custom_mcps: Mapped[list[CustomMcpDict] | None] = mapped_column(JSON, nullable=True)
     custom_env_vars: Mapped[list[CustomEnvVarDict] | None] = mapped_column(
         JSON, nullable=True

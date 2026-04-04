@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -29,26 +29,9 @@ from app.utils.cache import CacheStore, cache_connection
 settings = get_settings()
 
 
-class DuplicateProviderNameError(ValueError):
-    pass
-
-
 class UserService(BaseDbService[UserSettings]):
     def __init__(self, session_factory: SessionFactoryType | None = None) -> None:
         super().__init__(session_factory)
-
-    @staticmethod
-    def _validate_provider_names(providers: list[dict[str, Any]] | None) -> None:
-        if not providers:
-            return
-        seen_names: set[str] = set()
-        for provider in providers:
-            name = provider.get("name", "").lower().strip()
-            if name in seen_names:
-                raise DuplicateProviderNameError(
-                    f"A provider with the name '{provider.get('name')}' already exists"
-                )
-            seen_names.add(name)
 
     async def invalidate_settings_cache(self, cache: CacheStore, user_id: UUID) -> None:
         cache_key = REDIS_KEY_USER_SETTINGS.format(user_id=user_id)
@@ -147,16 +130,10 @@ class UserService(BaseDbService[UserSettings]):
             raise UserException("User settings not found")
 
         json_fields = {
-            "custom_providers",
             "custom_mcps",
             "custom_env_vars",
             "personas",
         }
-
-        if "custom_providers" in settings_update:
-            self._validate_provider_names(
-                cast(list[dict[str, Any]] | None, settings_update["custom_providers"])
-            )
 
         for field, value in settings_update.items():
             setattr(user_settings, field, value)

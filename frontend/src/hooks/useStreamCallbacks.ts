@@ -87,6 +87,12 @@ function buildContentFlushUpdate(
   });
 }
 
+function extractPayloadData(payload: Record<string, unknown>): Record<string, unknown> | undefined {
+  return payload.data && typeof payload.data === 'object'
+    ? (payload.data as Record<string, unknown>)
+    : undefined;
+}
+
 // Side-effect-only envelope kinds (system, permission_request) are handled
 // upstream in onEnvelope — this function only converts content-bearing kinds
 // into the AssistantStreamEvent shape consumed by the buffer.
@@ -121,18 +127,6 @@ function envelopeToRenderEvent(envelope: StreamEnvelope): AssistantStreamEvent |
       const suggestions = raw.filter((item): item is string => typeof item === 'string');
       if (suggestions.length === 0) return null;
       return { type: 'prompt_suggestions', suggestions };
-    }
-    case 'system':
-      return { type: 'system', data: payload };
-    case 'permission_request': {
-      const request_id = typeof payload.request_id === 'string' ? payload.request_id : '';
-      const tool_name = typeof payload.tool_name === 'string' ? payload.tool_name : '';
-      const tool_input =
-        payload.tool_input && typeof payload.tool_input === 'object'
-          ? (payload.tool_input as Record<string, unknown>)
-          : {};
-      if (!request_id || !tool_name) return null;
-      return { type: 'permission_request', request_id, tool_name, tool_input };
     }
     default:
       return null;
@@ -404,12 +398,15 @@ export function useStreamCallbacks({
           payload.tool_input && typeof payload.tool_input === 'object'
             ? (payload.tool_input as Record<string, unknown>)
             : undefined;
+        const data = extractPayloadData(payload) ?? {};
+        const options = Array.isArray(data.options) ? data.options : [];
 
         if (request_id && tool_name && tool_input) {
           onPermissionRequest({
             request_id,
             tool_name,
             tool_input,
+            options,
           });
         }
         return;
@@ -417,10 +414,7 @@ export function useStreamCallbacks({
 
       if (envelope.kind === 'system') {
         const payload = envelope.payload as Record<string, unknown>;
-        const nestedData =
-          payload.data && typeof payload.data === 'object'
-            ? (payload.data as Record<string, unknown>)
-            : undefined;
+        const nestedData = extractPayloadData(payload);
 
         const eventChatId =
           typeof payload.chat_id === 'string'
@@ -469,8 +463,12 @@ export function useStreamCallbacks({
         const tool = (envelope.payload as { tool?: ToolEventPayload })?.tool;
         if (tool?.name === 'EnterPlanMode' && chatId) {
           useChatSettingsStore.getState().setPermissionMode(chatId, 'plan');
+          useChatSettingsStore.getState().setPlanMode(chatId, true);
         } else if (tool?.name === 'ExitPlanMode' && chatId) {
-          useChatSettingsStore.getState().setPermissionMode(chatId, 'auto');
+          if (tool.permission_mode) {
+            useChatSettingsStore.getState().setPermissionMode(chatId, tool.permission_mode);
+          }
+          useChatSettingsStore.getState().setPlanMode(chatId, false);
         }
       }
 

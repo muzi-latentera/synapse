@@ -28,20 +28,8 @@ import { CreateSubThreadDialog } from '@/components/chat/sub-threads/CreateSubTh
 const Editor = lazy(() =>
   import('@/components/editor/editor-core/Editor').then((m) => ({ default: m.Editor })),
 );
-const IDEView = lazy(() =>
-  import('@/components/views/IDEView').then((m) => ({ default: m.IDEView })),
-);
 const SecretsView = lazy(() =>
   import('@/components/views/SecretsView').then((m) => ({ default: m.SecretsView })),
-);
-const WebPreviewView = lazy(() =>
-  import('@/components/views/WebPreviewView').then((m) => ({ default: m.WebPreviewView })),
-);
-const MobilePreviewView = lazy(() =>
-  import('@/components/views/MobilePreviewView').then((m) => ({ default: m.MobilePreviewView })),
-);
-const BrowserView = lazy(() =>
-  import('@/components/views/BrowserView').then((m) => ({ default: m.BrowserView })),
 );
 const DiffView = lazy(() =>
   import('@/components/views/DiffView').then((m) => ({ default: m.DiffView })),
@@ -228,34 +216,10 @@ export function ChatPage() {
               />
             </Suspense>
           );
-        case 'ide':
-          return (
-            <Suspense fallback={viewLoadingFallback}>
-              <IDEView sandboxId={currentChat?.sandbox_id} isActive={true} />
-            </Suspense>
-          );
         case 'secrets':
           return (
             <Suspense fallback={viewLoadingFallback}>
               <SecretsView sandboxId={currentChat?.sandbox_id} />
-            </Suspense>
-          );
-        case 'webPreview':
-          return (
-            <Suspense fallback={viewLoadingFallback}>
-              <WebPreviewView sandboxId={currentChat?.sandbox_id} isActive={true} />
-            </Suspense>
-          );
-        case 'mobilePreview':
-          return (
-            <Suspense fallback={viewLoadingFallback}>
-              <MobilePreviewView sandboxId={currentChat?.sandbox_id} />
-            </Suspense>
-          );
-        case 'browser':
-          return (
-            <Suspense fallback={viewLoadingFallback}>
-              <BrowserView sandboxId={currentChat?.sandbox_id} isActive={true} />
             </Suspense>
           );
         case 'diff':

@@ -3,7 +3,7 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, Literal, NoReturn
+from typing import Any, NoReturn
 from uuid import UUID
 
 from fastapi import (
@@ -29,7 +29,7 @@ from app.core.security import get_current_user
 from app.models.db_models.chat import Chat
 from app.models.db_models.enums import MessageStreamStatus
 from app.models.db_models.user import User
-from app.models.types import MessageAttachmentDict
+from app.models.types import MessageAttachmentDict, PermissionMode
 from app.models.schemas.chat import (
     Chat as ChatSchema,
     ChatCompletionResponse,
@@ -51,14 +51,14 @@ from app.models.schemas.pagination import (
 )
 from app.models.schemas.queue import QueueAddResponse, QueuedMessage, QueueMessageUpdate
 from app.services.chat import ChatService
-from app.services.claude_agent import ClaudeAgentService
+from app.core.deps import get_ai_agent_service
+from app.services.agent_service import AiAgentService
 from app.services.exceptions import (
+    AiServiceException,
     ChatException,
-    ClaudeAgentException,
 )
-from app.services.permission_manager import PermissionManager
 from app.services.queue import QueueService
-from app.services.claude_session_registry import session_registry
+from app.services.session_registry import session_registry
 from app.services.storage import StorageService
 from app.services.streaming.runtime import ChatStreamRuntime
 from app.utils.cache import CacheError, cache_connection
@@ -150,9 +150,10 @@ async def send_message(
     prompt: str = Form(...),
     chat_id: str = Form(...),
     model_id: str = Form(...),
-    permission_mode: Literal["plan", "ask", "auto"] = Form("auto"),
+    permission_mode: PermissionMode = Form("acceptEdits"),
     thinking_mode: str | None = Form(None),
     worktree: bool = Form(False),
+    plan_mode: bool = Form(False),
     selected_persona_name: str = Form(DEFAULT_PERSONA_NAME),
     attached_files: list[UploadFile] | None = File(None),
     chat_service: ChatService = Depends(get_chat_service),
@@ -169,6 +170,7 @@ async def send_message(
                 permission_mode=permission_mode,
                 thinking_mode=thinking_mode,
                 worktree=worktree,
+                plan_mode=plan_mode,
                 selected_persona_name=selected_persona_name,
             ),
             current_user,
@@ -189,19 +191,15 @@ async def send_message(
 async def enhance_prompt(
     prompt: str = Form(...),
     model_id: str = Form(...),
-    chat_service: ChatService = Depends(get_chat_service),
+    ai_service: AiAgentService = Depends(get_ai_agent_service),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    ai_service = ClaudeAgentService(session_factory=chat_service.session_factory)
     try:
         enhanced_prompt = await ai_service.enhance_prompt(
             prompt, model_id, current_user
         )
-    except ClaudeAgentException as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    except AiServiceException as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
     return {"enhanced_prompt": enhanced_prompt}
 
 
@@ -265,9 +263,7 @@ async def get_chat_context_usage(
                 data = json.loads(cached)
                 return ContextUsage(
                     tokens_used=data.get("tokens_used", 0),
-                    context_window=data.get(
-                        "context_window", settings.CONTEXT_WINDOW_TOKENS
-                    ),
+                    context_window=data.get("context_window", 0),
                     percentage=data.get("percentage", 0.0),
                 )
     except (CacheError, json.JSONDecodeError) as e:
@@ -275,8 +271,7 @@ async def get_chat_context_usage(
 
     tokens_used = chat.context_token_usage or 0
     context_window = (
-        await chat_service.get_model_context_window(chat_id, current_user.id)
-        or settings.CONTEXT_WINDOW_TOKENS
+        await chat_service.get_model_context_window(chat_id, current_user.id) or 0
     )
     percentage = 0.0
     if context_window > 0:
@@ -431,7 +426,7 @@ async def cancel_stream(
 async def respond_to_permission(
     chat_id: UUID,
     request_id: str,
-    approved: bool = Form(...),
+    option_id: str = Form(""),
     alternative_instruction: str | None = Form(None),
     user_answers: str | None = Form(None, max_length=50000),
     current_user: User = Depends(get_current_user),
@@ -455,10 +450,14 @@ async def respond_to_permission(
                 detail="user_answers must be a JSON object",
             )
 
-    success = await PermissionManager.respond(
-        request_id, approved, alternative_instruction, parsed_answers
+    acp_resolved = session_registry.resolve_permission(
+        str(chat_id),
+        request_id,
+        option_id=option_id,
+        user_answers=parsed_answers,
+        alternative_instruction=alternative_instruction,
     )
-    if not success:
+    if not acp_resolved:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Permission request not found or expired",
@@ -476,9 +475,10 @@ async def queue_message(
     chat_id: UUID,
     content: str = Form(...),
     model_id: str = Form(...),
-    permission_mode: Literal["plan", "ask", "auto"] = Form("auto"),
+    permission_mode: PermissionMode = Form("acceptEdits"),
     thinking_mode: str | None = Form(None),
     worktree: bool = Form(False),
+    plan_mode: bool = Form(False),
     selected_persona_name: str = Form(DEFAULT_PERSONA_NAME),
     attached_files: list[UploadFile] | None = File(None),
     current_user: User = Depends(get_current_user),
@@ -513,6 +513,7 @@ async def queue_message(
             permission_mode=permission_mode,
             thinking_mode=thinking_mode,
             worktree=worktree,
+            plan_mode=plan_mode,
             selected_persona_name=selected_persona_name,
             attachments=queue_attachments,
         )
@@ -599,6 +600,9 @@ async def send_now_queued_message(
             detail="Queued message not found",
         )
 
+    # If no stream is running, start the send-now message immediately.
+    # When a stream IS active, the runtime picks up the send-now flag
+    # automatically when it finishes the current generation.
     if not ChatStreamRuntime.is_chat_streaming(str(chat_id)):
         try:
             await ChatStreamRuntime.process_send_now_idle(

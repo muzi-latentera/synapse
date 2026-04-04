@@ -1,0 +1,112 @@
+import React, { useMemo } from 'react';
+import { Search } from 'lucide-react';
+import type { ToolAggregate } from '@/types/tools.types';
+import { ToolCard } from '../common/ToolCard';
+import { SourceChip } from '../common/SourceChip';
+import { SearchLoadingDots } from '../common/SearchLoadingDots';
+
+interface WebSearchProps {
+  tool: ToolAggregate;
+}
+
+interface SearchSource {
+  title: string;
+  url: string;
+}
+
+interface ZaiSearchResult {
+  refer: string;
+  title: string;
+  link: string;
+  media: string;
+  content: string;
+  icon: string;
+  publish_date: string;
+}
+
+const parseZaiSearchResults = (result: unknown): SearchSource[] => {
+  try {
+    if (!Array.isArray(result)) {
+      return [];
+    }
+
+    const firstItem = result[0];
+    if (!firstItem || firstItem.type !== 'text' || typeof firstItem.text !== 'string') {
+      return [];
+    }
+
+    const zaiResults = JSON.parse(firstItem.text) as ZaiSearchResult[];
+    return zaiResults.map((item) => ({
+      title: item.title,
+      url: item.link,
+    }));
+  } catch {
+    return [];
+  }
+};
+
+const parseClaudeSearchResults = (result: string): SearchSource[] => {
+  try {
+    const linksMatch = result.match(/Links:\s*(\[[\s\S]*?\])(?=\s*\n|$)/);
+    if (linksMatch?.[1]) {
+      return JSON.parse(linksMatch[1]) as SearchSource[];
+    }
+  } catch {
+    return [];
+  }
+  return [];
+};
+
+export const WebSearch: React.FC<WebSearchProps> = ({ tool }) => {
+  const query = ((tool.input?.query || tool.input?.search_query) as string | undefined) ?? '';
+  const toolStatus = tool.status;
+  const errorMessage = tool.error;
+
+  const sources: SearchSource[] = useMemo(() => {
+    if (typeof tool.result === 'string') {
+      const claudeResults = parseClaudeSearchResults(tool.result);
+      if (claudeResults.length > 0) {
+        return claudeResults;
+      }
+    }
+
+    const zaiResults = parseZaiSearchResults(tool.result);
+    if (zaiResults.length > 0) {
+      return zaiResults;
+    }
+
+    return [];
+  }, [tool.result]);
+
+  const canShowSources = sources.length > 0;
+
+  return (
+    <ToolCard
+      icon={<Search className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />}
+      status={toolStatus}
+      title={(status) => {
+        switch (status) {
+          case 'completed':
+            return `Searched: ${query}`;
+          case 'failed':
+            return `Search failed: ${query}`;
+          default:
+            return `Searching: ${query}`;
+        }
+      }}
+      loadingContent={<SearchLoadingDots />}
+      error={errorMessage}
+      expandable={canShowSources}
+    >
+      {canShowSources && (
+        <div>
+          <div className="flex flex-wrap gap-1">
+            {sources.map((source, index) => (
+              <SourceChip key={`${index}-${source.url}`} source={source} index={index} />
+            ))}
+          </div>
+        </div>
+      )}
+    </ToolCard>
+  );
+};

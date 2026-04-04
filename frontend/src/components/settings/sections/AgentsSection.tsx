@@ -23,7 +23,7 @@ export function AgentsSection() {
       uploadTitle="Upload Agent"
       acceptedExtension=".md"
       uploadIcon={FileText}
-      uploadHint="The .md file must include YAML frontmatter with name and description fields. Optional fields: model, allowed_tools."
+      uploadHint="The .md file must include YAML frontmatter with name and description fields. Optional fields: allowed_tools."
       renderTab={({ items, onAdd, onEdit, onDelete }) => (
         <AgentsSettingsTab
           agents={items}

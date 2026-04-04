@@ -40,6 +40,7 @@ class Chat(Base):
         GUID(), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
     session_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    session_agent_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
     worktree_cwd: Mapped[str | None] = mapped_column(String(512), nullable=True)
     context_token_usage: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
@@ -113,6 +114,7 @@ class Chat(Base):
             title=str(data["title"]),
             workspace_id=UUID(str(data["workspace_id"])),
             session_id=data.get("session_id"),
+            session_agent_kind=data.get("session_agent_kind"),
         )
         # Stash sandbox fields for streaming runtime (workspace not loaded from DB)
         chat._sandbox_id = data.get("sandbox_id")
@@ -120,6 +122,7 @@ class Chat(Base):
         chat._sandbox_provider = str(
             data.get("sandbox_provider", SandboxProviderType.DOCKER.value)
         )
+        chat.worktree_cwd = data.get("worktree_cwd")
         return chat
 
 

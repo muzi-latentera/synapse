@@ -1,7 +1,6 @@
 import { apiClient } from '@/lib/api';
 import { buildQueryString, ensureResponse, serviceCall } from '@/services/base/BaseService';
 import { NotFoundError, ValidationError } from '@/services/base/ServiceError';
-import type { PreviewLinksResponse } from '@/types/chat.types';
 import type {
   DiffMode,
   FileContent,
@@ -13,35 +12,10 @@ import type {
   GitDiffData,
   GitPushPullResult,
   GitRemoteUrlData,
-  PortInfo,
   Secret,
   UpdateFileResult,
 } from '@/types/sandbox.types';
-import { logger } from '@/utils/logger';
 import { validateRequired } from '@/utils/validation';
-
-async function getPreviewLinks(sandboxId: string): Promise<PortInfo[]> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  try {
-    return await serviceCall(async () => {
-      const response = await apiClient.get<PreviewLinksResponse>(
-        `/sandbox/${sandboxId}/preview-links`,
-      );
-      if (!response || !response.links) {
-        return [];
-      }
-
-      return response.links.map((link) => ({
-        port: link.port,
-        previewUrl: link.preview_url,
-      }));
-    });
-  } catch (error) {
-    logger.error('Preview links fetch failed', 'sandboxService', error);
-    return [];
-  }
-}
 
 async function getSandboxFilesMetadata(sandboxId: string): Promise<FileMetadata[]> {
   validateRequired(sandboxId, 'Sandbox ID');
@@ -144,82 +118,6 @@ async function downloadZip(sandboxId: string): Promise<Blob> {
   return serviceCall(async () => {
     const response = await apiClient.getBlob(`/sandbox/${sandboxId}/download-zip`);
     return ensureResponse(response, 'Download failed: No response received');
-  });
-}
-
-async function updateIDETheme(sandboxId: string, theme: 'dark' | 'light'): Promise<void> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  await serviceCall(async () => {
-    await apiClient.put(`/sandbox/${sandboxId}/ide-theme`, { theme });
-  });
-}
-
-async function getIDEUrl(sandboxId: string): Promise<string | null> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  try {
-    return await serviceCall(async () => {
-      const response = await apiClient.get<{ url: string | null }>(`/sandbox/${sandboxId}/ide-url`);
-      return response?.url ?? null;
-    });
-  } catch (error) {
-    logger.error('IDE URL fetch failed', 'sandboxService', error);
-    return null;
-  }
-}
-
-interface BrowserStatus {
-  running: boolean;
-  current_url?: string;
-}
-
-interface VNCUrlResponse {
-  url: string | null;
-}
-
-async function getVNCUrl(sandboxId: string): Promise<string | null> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  try {
-    return await serviceCall(async () => {
-      const response = await apiClient.get<VNCUrlResponse>(`/sandbox/${sandboxId}/vnc-url`);
-      return response?.url ?? null;
-    });
-  } catch (error) {
-    logger.error('VNC URL fetch failed', 'sandboxService', error);
-    return null;
-  }
-}
-
-async function startBrowser(
-  sandboxId: string,
-  url: string = 'about:blank',
-): Promise<BrowserStatus> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  return serviceCall(async () => {
-    const response = await apiClient.post<BrowserStatus>(`/sandbox/${sandboxId}/browser/start`, {
-      url,
-    });
-    return response ?? { running: true, current_url: url };
-  });
-}
-
-async function stopBrowser(sandboxId: string): Promise<void> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  await serviceCall(async () => {
-    await apiClient.post(`/sandbox/${sandboxId}/browser/stop`);
-  });
-}
-
-async function getBrowserStatus(sandboxId: string): Promise<BrowserStatus> {
-  validateRequired(sandboxId, 'Sandbox ID');
-
-  return serviceCall(async () => {
-    const response = await apiClient.get<BrowserStatus>(`/sandbox/${sandboxId}/browser/status`);
-    return response ?? { running: false };
   });
 }
 
@@ -339,7 +237,6 @@ async function getGitRemoteUrl(sandboxId: string, cwd?: string): Promise<GitRemo
 }
 
 export const sandboxService = {
-  getPreviewLinks,
   getSandboxFilesMetadata,
   getFileContent,
   updateFile,
@@ -348,12 +245,6 @@ export const sandboxService = {
   updateSecret,
   deleteSecret,
   downloadZip,
-  updateIDETheme,
-  getIDEUrl,
-  getVNCUrl,
-  startBrowser,
-  stopBrowser,
-  getBrowserStatus,
   getGitDiff,
   getGitBranches,
   checkoutGitBranch,

@@ -49,19 +49,14 @@ const MessageInlinePermission = memo(function MessageInlinePermission() {
   }
 
   return (
-    <div className="px-4 sm:px-6">
-      <div className="flex items-start gap-3 sm:gap-4">
-        <div className="h-8 w-8 flex-shrink-0" />
-        <div className="mb-3 mt-1 min-w-0 flex-1">
-          <ToolPermissionInline
-            request={state.pendingPermissionRequest}
-            onApprove={actions.onPermissionApprove}
-            onReject={actions.onPermissionReject}
-            isLoading={state.isPermissionLoading}
-            error={state.permissionError}
-          />
-        </div>
-      </div>
+    <div className="mb-3 mt-1 px-4 sm:px-6">
+      <ToolPermissionInline
+        request={state.pendingPermissionRequest}
+        onApprove={actions.onPermissionApprove}
+        onReject={actions.onPermissionReject}
+        isLoading={state.isPermissionLoading}
+        error={state.permissionError}
+      />
     </div>
   );
 });

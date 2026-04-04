@@ -24,5 +24,4 @@ class CommandService(BaseMarkdownResourceService[CustomSlashCommandDict]):
             "content": content,
             "argument_hint": metadata.get("argument_hint"),
             "allowed_tools": metadata.get("allowed_tools"),
-            "model": None,
         }
