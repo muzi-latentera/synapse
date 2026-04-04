@@ -19,7 +19,6 @@ from app.api.endpoints import (
     chat,
     commands,
     github,
-    integrations,
     marketplace,
     mcps,
     sandbox,
@@ -171,11 +170,6 @@ def create_application() -> FastAPI:
         marketplace.router,
         prefix=f"{settings.API_V1_STR}/marketplace",
         tags=["Marketplace"],
-    )
-    application.include_router(
-        integrations.router,
-        prefix=f"{settings.API_V1_STR}/integrations",
-        tags=["Integrations"],
     )
     application.include_router(
         github.router,
