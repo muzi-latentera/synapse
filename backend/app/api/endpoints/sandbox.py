@@ -6,10 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.constants import SANDBOX_HOME_DIR, SANDBOX_WORKSPACE_DIR
 from app.core.deps import get_sandbox_service, validate_sandbox_ownership
-from app.models.schemas.chat import PortPreviewLink, PreviewLinksResponse
 from app.models.schemas.sandbox import (
     AddSecretRequest,
-    BrowserStatusResponse,
     FileContentResponse,
     FileMetadata,
     GitBranchesResponse,
@@ -21,14 +19,10 @@ from app.models.schemas.sandbox import (
     GitCreateBranchResponse,
     GitDiffResponse,
     GitRemoteUrlResponse,
-    IDEUrlResponse,
     SandboxFilesMetadataResponse,
-    StartBrowserRequest,
     UpdateFileRequest,
     UpdateFileResponse,
-    UpdateIDEThemeRequest,
     UpdateSecretRequest,
-    VNCUrlResponse,
 )
 from app.models.schemas.secrets import (
     MessageResponse,
@@ -41,7 +35,9 @@ from app.services.sandbox import SandboxService
 
 router = APIRouter()
 
+# Try workspace dir first (Docker mounts), fall back to home dir (host sandboxes)
 GIT_CD_PREFIX = f"cd {SANDBOX_WORKSPACE_DIR} 2>/dev/null || cd {SANDBOX_HOME_DIR}; "
+# Guard against shell injection in branch names and cwd paths passed to exec
 BRANCH_NAME_RE = re.compile(r"^[\w./-]+$")
 CWD_PATH_RE = re.compile(r"^/[a-zA-Z0-9/_.\- ]+$")
 
@@ -57,73 +53,6 @@ def _git_cd_prefix(cwd: str | None = None) -> str:
     return f"cd '{cwd}' && "
 
 
-@router.get("/{sandbox_id}/preview-links", response_model=PreviewLinksResponse)
-async def get_preview_links(
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> PreviewLinksResponse:
-    links = await sandbox_service.get_preview_links(sandbox_id)
-    return PreviewLinksResponse(links=[PortPreviewLink(**link) for link in links])
-
-
-@router.get("/{sandbox_id}/ide-url", response_model=IDEUrlResponse)
-async def get_ide_url(
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> IDEUrlResponse:
-    url = await sandbox_service.get_ide_url(sandbox_id)
-    return IDEUrlResponse(url=url)
-
-
-@router.get("/{sandbox_id}/vnc-url", response_model=VNCUrlResponse)
-async def get_vnc_url(
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> VNCUrlResponse:
-    url = await sandbox_service.provider.get_vnc_url(sandbox_id)
-    return VNCUrlResponse(url=url)
-
-
-@router.post("/{sandbox_id}/browser/start", response_model=BrowserStatusResponse)
-async def start_browser(
-    request: StartBrowserRequest,
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> BrowserStatusResponse:
-    try:
-        await sandbox_service.start_browser(sandbox_id, request.url)
-        return BrowserStatusResponse(running=True, current_url=request.url)
-    except SandboxException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-
-
-@router.post("/{sandbox_id}/browser/stop", response_model=MessageResponse)
-async def stop_browser(
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> MessageResponse:
-    try:
-        await sandbox_service.stop_browser(sandbox_id)
-        return MessageResponse(message="Browser stopped")
-    except SandboxException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-
-
-@router.get("/{sandbox_id}/browser/status", response_model=BrowserStatusResponse)
-async def get_browser_status(
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> BrowserStatusResponse:
-    result = await sandbox_service.get_browser_status(sandbox_id)
-    return BrowserStatusResponse(running=result.get("running", False))
-
-
 @router.get(
     "/{sandbox_id}/files/metadata",
     response_model=SandboxFilesMetadataResponse,
@@ -137,6 +66,9 @@ async def get_files_metadata(
 
 
 def _normalize_file_path(file_path: str) -> str:
+    # FastAPI captures the path param with a leading slash; strip it to make
+    # it relative to the sandbox home dir — but keep absolute paths that
+    # already point inside SANDBOX_HOME_DIR (e.g. /home/user/workspace/...).
     if file_path.startswith("/") and not file_path.startswith(SANDBOX_HOME_DIR):
         return file_path.lstrip("/")
     return file_path
@@ -249,22 +181,6 @@ async def delete_secret(
         )
 
 
-@router.put("/{sandbox_id}/ide-theme", response_model=MessageResponse)
-async def update_ide_theme(
-    request: UpdateIDEThemeRequest,
-    sandbox_id: str = Depends(validate_sandbox_ownership),
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
-) -> MessageResponse:
-    try:
-        await sandbox_service.update_ide_theme(sandbox_id, request.theme)
-        return MessageResponse(message=f"IDE theme updated to {request.theme}")
-    except SandboxException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-
-
 @router.get("/{sandbox_id}/download-zip")
 async def download_sandbox_files(
     sandbox_id: str = Depends(validate_sandbox_ownership),
@@ -294,9 +210,6 @@ async def get_git_diff(
     full_context: bool = Query(False),
     cwd: str | None = Query(None),
 ) -> GitDiffResponse:
-    # Workspace is mounted at /home/user/workspace in Docker containers;
-    # cd there first, falling back to /home/user for non-Docker sandboxes.
-    # When cwd is provided (e.g. a worktree path), cd there instead.
     cd_prefix = _git_cd_prefix(cwd)
     try:
         check = await sandbox_service.execute_command(
@@ -331,6 +244,8 @@ async def get_git_diff(
         elif mode == "unstaged":
             cmd = f"git diff{ctx} 2>/dev/null;{untracked_diff}"
         else:
+            # "all" mode: try `git diff HEAD` first (combined staged+unstaged in one pass);
+            # falls back to separate staged + unstaged when HEAD doesn't exist (initial commit).
             cmd = (
                 f"{{ git diff{ctx} HEAD 2>/dev/null"
                 f" || {{ git diff{ctx} --cached 2>/dev/null; git diff{ctx} 2>/dev/null; }}; }};"
@@ -397,6 +312,9 @@ async def get_git_branches(
             if name:
                 local_branches.add(name)
 
+        # Merge remote-only branches into the list so the UI shows branches
+        # the user can check out even if they don't exist locally yet.
+        # Skip symref lines like "origin/HEAD -> origin/main".
         all_branches = set(local_branches)
         for line in remote_result.stdout.splitlines():
             name = line.strip()
@@ -462,7 +380,8 @@ async def checkout_git_branch(
         )
         current = head_result.stdout.strip()
         if current == "HEAD":
-            # Detached HEAD — revert to previous state
+            # Detached HEAD (e.g. checking out a tag or SHA) — revert to the
+            # previous branch so the UI always has a named branch to display
             await sandbox_service.execute_command(
                 sandbox_id,
                 f"{cd_prefix}git checkout - 2>/dev/null",
@@ -535,6 +454,7 @@ async def git_commit(
     sandbox_id: str = Depends(validate_sandbox_ownership),
     sandbox_service: SandboxService = Depends(get_sandbox_service),
 ) -> GitCommandResponse:
+    # Shell-escape single quotes so the commit message can contain apostrophes
     msg = request.message.replace("'", "'\\''")
     return await _run_git_command(
         sandbox_id,

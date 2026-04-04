@@ -15,9 +15,6 @@ cd /app && python migrate.py || exit 1
 
 ensure_docker_network
 
-echo "Starting VNC server..."
-start-vnc.sh &
-
 echo "Starting API server..."
 if [ -S /var/run/docker.sock ]; then
     echo "Docker socket detected, running as current user for Docker access..."

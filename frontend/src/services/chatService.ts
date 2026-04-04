@@ -35,6 +35,9 @@ async function createCompletion(
       if (request.worktree) {
         formData.append('worktree', 'true');
       }
+      if (request.plan_mode) {
+        formData.append('plan_mode', 'true');
+      }
       formData.append('selected_persona_name', request.selected_persona_name);
       formData.append('permission_mode', request.permission_mode);
 

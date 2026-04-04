@@ -2,13 +2,10 @@ import { useState, useCallback } from 'react';
 import { permissionService } from '@/services/permissionService';
 import { usePermissionStore } from '@/store/permissionStore';
 import { useChatSettingsStore } from '@/store/chatSettingsStore';
-import { addResolvedRequestId } from '@/utils/permissionStorage';
-
-type ApiError = Error & { status?: number };
-
-function isExpiredRequestError(error: unknown): boolean {
-  return (error as ApiError)?.status === 404;
-}
+import {
+  executePermissionResponse,
+  clearPermissionRequestForChat,
+} from '@/utils/permissionResponse';
 
 export function useExitPlanMode(chatId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
@@ -19,57 +16,53 @@ export function useExitPlanMode(chatId: string | undefined) {
   const pendingRequest = chatId ? (pendingRequests.get(chatId) ?? null) : null;
   const isExitPlanModeRequest = pendingRequest?.tool_name === 'ExitPlanMode';
 
-  const handleApprove = useCallback(async () => {
-    if (!chatId || !pendingRequest || !isExitPlanModeRequest) {
-      return;
-    }
+  const handleApprove = useCallback(
+    async (optionId: string) => {
+      if (!chatId || !pendingRequest || !isExitPlanModeRequest) return;
 
-    setIsLoading(true);
-    setError(null);
-    try {
-      await permissionService.respondToPermission(chatId, pendingRequest.request_id, true);
-      addResolvedRequestId(pendingRequest.request_id);
-      usePermissionStore.getState().clearPermissionRequest(chatId);
-      useChatSettingsStore.getState().setPermissionMode(chatId, 'auto');
-    } catch (err) {
-      if (isExpiredRequestError(err)) {
-        addResolvedRequestId(pendingRequest.request_id);
-        usePermissionStore.getState().clearPermissionRequest(chatId);
-      } else {
-        setError('Failed to approve plan');
+      const result = await executePermissionResponse(
+        pendingRequest.request_id,
+        () => permissionService.respondToPermission(chatId, pendingRequest.request_id, optionId),
+        {
+          setIsLoading,
+          setError,
+          errorMessage: 'Failed to approve plan',
+          clearRequest: () => clearPermissionRequestForChat(chatId),
+        },
+      );
+      if (result === 'success' || result === 'expired') {
+        const nextPermissionMode =
+          pendingRequest.options.find((option) => option.option_id === optionId)?.permission_mode ??
+          null;
+        if (result === 'success' && nextPermissionMode) {
+          useChatSettingsStore.getState().setPermissionMode(chatId, nextPermissionMode);
+        }
+        useChatSettingsStore.getState().setPlanMode(chatId, false);
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [chatId, pendingRequest, isExitPlanModeRequest]);
+    },
+    [chatId, pendingRequest, isExitPlanModeRequest],
+  );
 
   const handleReject = useCallback(
-    async (alternativeInstruction?: string) => {
-      if (!chatId || !pendingRequest || !isExitPlanModeRequest) {
-        return;
-      }
+    async (optionId: string, alternativeInstruction?: string) => {
+      if (!chatId || !pendingRequest || !isExitPlanModeRequest) return;
 
-      setIsLoading(true);
-      setError(null);
-      try {
-        await permissionService.respondToPermission(
-          chatId,
-          pendingRequest.request_id,
-          false,
-          alternativeInstruction,
-        );
-        addResolvedRequestId(pendingRequest.request_id);
-        usePermissionStore.getState().clearPermissionRequest(chatId);
-      } catch (err) {
-        if (isExpiredRequestError(err)) {
-          addResolvedRequestId(pendingRequest.request_id);
-          usePermissionStore.getState().clearPermissionRequest(chatId);
-        } else {
-          setError('Failed to reject plan');
-        }
-      } finally {
-        setIsLoading(false);
-      }
+      await executePermissionResponse(
+        pendingRequest.request_id,
+        () =>
+          permissionService.respondToPermission(
+            chatId,
+            pendingRequest.request_id,
+            optionId,
+            alternativeInstruction,
+          ),
+        {
+          setIsLoading,
+          setError,
+          errorMessage: 'Failed to reject plan',
+          clearRequest: () => clearPermissionRequestForChat(chatId),
+        },
+      );
     },
     [chatId, pendingRequest, isExitPlanModeRequest],
   );

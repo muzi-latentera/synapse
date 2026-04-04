@@ -1,6 +1,6 @@
 # Agentrove
 
-Self-hosted Claude Code workspace with multi-provider routing, sandboxed execution, and a full web IDE.
+Self-hosted AI coding workspace with Claude and Codex agents, isolated sandboxes, and a full web IDE.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
@@ -21,84 +21,106 @@ Join the [Discord server](https://discord.gg/HvkJU8dcBA).
 
 ## Why Agentrove
 
-- Claude Code as the execution harness, exposed through a self-hosted web UI
-- One workflow across Anthropic, OpenAI, GitHub Copilot, OpenRouter, and custom Anthropic-compatible endpoints
-- Anthropic Bridge routing for non-Anthropic providers while preserving Claude Code behavior
-- Isolated sandbox backends (Docker, host)
-- Extension surface: MCP servers, skills, agents, slash commands, prompts, and marketplace plugins
-- Provider switching with shared working context
+- Run Claude Code and Codex from one self-hosted interface
+- Keep each project in its own Docker or host sandbox
+- Work in chat, editor, terminal, diff, secrets, and PR review views side by side
+- Reuse the same workspace context across chats and sub-threads
+- Manage MCP servers, agents, skills, commands, personas, env vars, and marketplace plugins from the app
 
 ## Core Architecture
 
 ```text
 React/Vite Frontend
   -> FastAPI Backend
-  -> PostgreSQL + Redis (web/docker mode)
+  -> PostgreSQL + Redis (web mode)
   -> SQLite + in-memory cache/pubsub (desktop mode)
-  -> Sandbox runtime (Docker/Host)
-  -> Claude Code CLI + claude-agent-sdk
+  -> Workspace sandbox (Docker or Host)
+  -> Claude Code ACP / Codex ACP
+  -> Claude Code CLI / Codex CLI
 ```
 
-### Claude Code harness
+The app can launch either:
 
-Agentrove runs chats through `claude-agent-sdk`, which drives the Claude Code CLI in the selected sandbox. This keeps Claude Code-native behavior for tools, session flow, permission modes, and MCP orchestration.
-
-### Anthropic Bridge for non-Anthropic providers
-
-For OpenAI, OpenRouter, and Copilot providers, Agentrove starts `anthropic-bridge` inside the sandbox and routes Claude Code requests through:
-
-- `ANTHROPIC_BASE_URL=http://127.0.0.1:3456`
-- provider-specific auth secrets such as `OPENROUTER_API_KEY` and `GITHUB_COPILOT_TOKEN`
-- provider-scoped model IDs like `openai/gpt-5.2-codex`, `openrouter/moonshotai/kimi-k2.5`, `copilot/gpt-5.2-codex`
-
-```text
-Agentrove UI
-  -> Claude Agent SDK + Claude Code CLI
-  -> Anthropic-compatible request shape
-  -> Anthropic Bridge (OpenAI/OpenRouter/Copilot)
-  -> Target provider model
-```
-
-For Anthropic providers, Agentrove uses your Claude auth token directly. For custom providers, Agentrove calls your configured Anthropic-compatible `base_url`.
+- **Claude** via `claude-agent-acp` + Claude Code
+- **Codex** via `codex-acp` + Codex CLI
 
 ## Key Features
 
-- Claude Code-native chat execution through `claude-agent-sdk`
-- Anthropic Bridge provider routing with provider-scoped models (`openai/*`, `openrouter/*`, `copilot/*`)
+- Claude and Codex model selection in the same UI
+- Agent-specific permission modes and reasoning/thinking modes
 - Workspace-based project organization with per-workspace sandboxes
-- Multi-sandbox runtime (Docker/Host)
-- MCP + custom skills/agents/commands + plugin marketplace
-- Streaming architecture with resumable SSE events and explicit cancellation
-- Built-in recurring task scheduler (in-process async, no worker service)
+- Docker and host sandbox providers
+- Built-in editor, terminal, diff, secrets, and PR review panels
+- Git helpers for branches, commits, push/pull, and PR creation
+- Streaming chat sessions with resumable SSE events and explicit cancellation
+- Sub-threads for branching work from an existing chat
+- Extension management for MCP servers, custom agents, skills, slash commands, personas, env vars, and marketplace plugins
+- Web app and macOS desktop app
 
 ## Workspaces
 
-Workspaces are the top-level organizational unit. Each workspace owns a dedicated sandbox and groups all related chats under one project context.
+Workspaces are the top-level project unit. Each workspace owns a sandbox and groups related chats under one project context.
 
 ### Source types
 
-- **Empty** — creates a new empty directory in the sandbox
-- **Git clone** — clones a repository (HTTPS or SSH) into a fresh sandbox
-- **Local folder** — mounts an existing directory from the host filesystem (host sandbox only)
+- **Empty**: create a new empty directory
+- **Git clone**: clone a repository into a fresh sandbox
+- **Local folder**: mount an existing host directory when using the host sandbox
 
 ### Sandbox isolation
 
-Each workspace gets its own sandbox instance (Docker container or host process). Chats within a workspace share the same filesystem, installed tools, and `.claude` configuration. Switching between workspaces switches the entire execution environment.
+Each workspace gets its own sandbox instance. Chats in the same workspace share the same filesystem, installed tools, auth files, and `.claude` / `.codex` resources.
 
 ### Per-workspace sandbox provider
 
-When creating a workspace you can override the default sandbox provider (Docker or Host). The provider is locked at creation time — all chats in that workspace use the same provider.
+You can choose a sandbox provider per workspace:
 
-### Workspace lifecycle
+- **Docker**: isolated local container
+- **Host**: runs directly on the host machine
 
-- Creating a workspace provisions the sandbox and initializes it with your settings (GitHub token, env vars, skills, agents, slash commands)
-- Deleting a workspace soft-deletes all its chats and destroys the sandbox container
+## Models And Agents
+
+The app currently exposes two agent families:
+
+- **Claude**: `default`, `opus`, `haiku`
+- **Codex**: `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex`, `gpt-5.2-codex`, `gpt-5.2`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`
+
+Agent-specific controls:
+
+- **Claude permission modes**: `default`, `acceptEdits`, `plan`, `bypassPermissions`
+- **Codex permission modes**: `default`, `read-only`, `full-access`
+- **Claude thinking modes**: `low`, `medium`, `high`, `max`
+- **Codex reasoning modes**: `low`, `medium`, `high`, `xhigh`
+
+## Settings Surface
+
+Current settings are organized around:
+
+- General account settings
+- Marketplace plugins
+- MCP servers
+- Custom agents
+- Skills
+- Slash commands
+- Personas
+- Environment variables
+- Custom instructions
+
+General settings also include:
+
+- GitHub personal access token
+- Default sandbox provider
+- Timezone
+- Notification preferences
+- Auto-compact toggle
+- Attribution toggle
 
 ## Quick Start (Web)
 
 ### Requirements
 
-- Docker + Docker Compose
+- Docker
+- Docker Compose
 
 ### Start
 
@@ -108,14 +130,13 @@ cd agentrove
 cp .env.example .env
 ```
 
-Set a `SECRET_KEY` in your `.env` file (used for JWT signing):
+Set a `SECRET_KEY` in `.env`:
 
 ```bash
-# Generate a random key and paste it as the SECRET_KEY value in .env
 openssl rand -hex 32
 ```
 
-Then start all services:
+Start the stack:
 
 ```bash
 docker compose -p agentrove-web -f docker-compose.yml up -d
@@ -132,7 +153,7 @@ docker compose -p agentrove-web -f docker-compose.yml logs -f
 
 ## Desktop (macOS)
 
-Desktop mode uses Tauri with a bundled Python backend sidecar on `localhost:8081`, with local SQLite storage.
+Desktop mode uses Tauri with a bundled Python backend sidecar on `localhost:8081` and local SQLite storage.
 
 ### Download prebuilt app
 
@@ -140,17 +161,12 @@ Desktop mode uses Tauri with a bundled Python backend sidecar on `localhost:8081
 
 ### How it works
 
-When running in desktop mode:
-
-- Tauri hosts the frontend in a native macOS window
-- the sidecar backend process serves the API on `8081`
-- desktop uses local SQLite plus in-memory cache/pubsub (no Postgres/Redis dependency required for desktop mode)
-
 ```text
 Tauri Desktop App
-  -> React frontend (.env.desktop)
+  -> React frontend
   -> bundled backend sidecar (localhost:8081)
   -> local SQLite database
+  -> local workspace sandbox access
 ```
 
 ### Build and run from source
@@ -168,7 +184,7 @@ npm install
 npm run desktop:dev
 ```
 
-Build (unsigned dev):
+Build:
 
 ```bash
 cd frontend
@@ -179,38 +195,18 @@ App bundle output:
 
 - `frontend/src-tauri/target/release/bundle/macos/Agentrove.app`
 
-Desktop troubleshooting:
+## Included Tooling
 
-- Backend unavailable: wait for sidecar startup to finish
-- Database errors: verify local app data directory permissions
-- Port conflict: free port `8081` if already in use
+The backend and sandbox images install the tooling Agentrove needs to run coding agents locally, including:
 
-## Provider Setup
+- Claude Code
+- Codex CLI
+- `claude-agent-acp`
+- `codex-acp`
+- GitHub CLI
+- Playwright MCP
 
-Configure providers in `Settings -> Providers`.
-
-- `anthropic`: paste token from `claude setup-token`
-- `openai`: authenticate with OpenAI device flow in UI
-- `copilot`: authenticate with GitHub device flow in UI
-- `openrouter`: add OpenRouter API key and model IDs
-- `custom`: set Anthropic-compatible `base_url`, token, and model IDs
-
-### Model examples
-
-- OpenAI/Codex: `gpt-5.2-codex`, `gpt-5.2`, `gpt-5.3-codex`
-- OpenRouter catalog examples: `moonshotai/kimi-k2.5`, `minimax/minimax-m2.1`, `google/gemini-3-pro-preview`
-- Custom gateways: models like `GLM-5`, `M2.5`, or private org-specific endpoints (depends on your backend compatibility)
-
-## Shared Working Context
-
-Switching providers within a workspace does not require a new workflow:
-
-- Same sandbox filesystem/workdir
-- Same `.claude` resources (skills, agents, commands)
-- Same MCP configuration in Agentrove
-- Same workspace and chat history
-
-This is the main value of using Claude Code as the harness while changing inference providers behind Anthropic Bridge.
+Agentrove also syncs local Claude and Codex auth/config files into sandboxes when available.
 
 ## Services and Ports (Web)
 
@@ -218,9 +214,6 @@ This is the main value of using Claude Code as the harness while changing infere
 - Backend API: `8080`
 - PostgreSQL: `5432`
 - Redis: `6379`
-- VNC: `5900`
-- VNC Web: `6080`
-- OpenVSCode server: `8765`
 
 ## API and Admin
 
@@ -231,19 +224,19 @@ This is the main value of using Claude Code as the harness while changing infere
 
 - Liveness endpoint: `GET /health`
 - Readiness endpoint: `GET /api/v1/readyz`
-  - web mode checks database + Redis
-  - desktop mode checks database (SQLite) only
+  - web mode checks database and Redis
+  - desktop mode checks database only
 
 ## Deployment
 
 - VPS/Coolify guide: [docs/coolify-installation-guide.md](docs/coolify-installation-guide.md)
-- Production setup uses frontend at `/` and API under `/api/*`
+- Production setup serves frontend at `/` and API under `/api/*`
 
 ## Tech Stack
 
-- Frontend: React 19, TypeScript, Vite, TailwindCSS, Zustand, React Query
+- Frontend: React 19, TypeScript, Vite, TailwindCSS, Zustand, React Query, Monaco, xterm.js
 - Backend: FastAPI, SQLAlchemy, Redis, PostgreSQL/SQLite
-- Runtime: Claude Code CLI, claude-agent-sdk, anthropic-bridge, uvicorn
+- Runtime: Claude Code, Codex CLI, ACP, Docker, Tauri
 
 ## License
 
@@ -251,12 +244,4 @@ Apache 2.0. See [LICENSE](LICENSE).
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you would like to change, then submit a pull request.
-
-## References
-
-- Anthropic Claude Code SDK: [docs.anthropic.com/s/claude-code-sdk](https://docs.anthropic.com/s/claude-code-sdk)
-- Anthropic Bridge package: [pypi.org/project/anthropic-bridge](https://pypi.org/project/anthropic-bridge/)
-- OpenAI Codex CLI sign-in: [help.openai.com/en/articles/11381614](https://help.openai.com/en/articles/11381614)
-- OpenRouter API keys: [openrouter.ai/docs/api-keys](https://openrouter.ai/docs/api-keys)
-- GitHub Copilot plans: [github.com/features/copilot/plans](https://github.com/features/copilot/plans)
+Contributions are welcome. Open an issue first to discuss the change, then submit a pull request.

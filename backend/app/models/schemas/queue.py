@@ -1,18 +1,20 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.types import PermissionMode
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 
 
 class QueuedMessageBase(BaseModel):
     content: str = Field(..., min_length=1, max_length=100000)
     model_id: str = Field(..., min_length=1, max_length=255)
-    permission_mode: Literal["plan", "ask", "auto"] = "auto"
+    permission_mode: PermissionMode = "acceptEdits"
     thinking_mode: str | None = None
     worktree: bool = False
+    plan_mode: bool = False
     selected_persona_name: str = DEFAULT_PERSONA_NAME
 
 

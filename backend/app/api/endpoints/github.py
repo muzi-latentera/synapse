@@ -1,8 +1,8 @@
 from typing import NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.core.deps import get_claude_agent_service, get_github_service
+from app.core.deps import get_ai_agent_service, get_github_service
 from app.core.security import get_current_user
 from app.models.db_models.user import User
 from app.models.schemas.github import (
@@ -17,10 +17,9 @@ from app.models.schemas.github import (
     GitHubPRListResponse,
     GitHubReposResponse,
 )
-from app.services.claude_agent import ClaudeAgentService
-from app.services.exceptions import ClaudeAgentException, GitHubException
+from app.services.agent_service import AiAgentService
+from app.services.exceptions import AiServiceException, GitHubException
 from app.services.github import GitHubService
-from app.utils.validators import APIKeyValidationError
 
 router = APIRouter()
 
@@ -92,22 +91,14 @@ async def create_pull_request(
 async def generate_pr_description(
     request: GeneratePRDescriptionRequest,
     current_user: User = Depends(get_current_user),
-    ai_service: ClaudeAgentService = Depends(get_claude_agent_service),
+    ai_service: AiAgentService = Depends(get_ai_agent_service),
 ) -> GeneratePRDescriptionResponse:
     try:
         description = await ai_service.generate_pr_description(
             request.title, request.diff, request.model_id, current_user
         )
-    except APIKeyValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except ClaudeAgentException as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
+    except AiServiceException as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
     return GeneratePRDescriptionResponse(description=description)
 
 
@@ -118,22 +109,14 @@ async def generate_pr_description(
 async def generate_commit_message(
     request: GenerateCommitMessageRequest,
     current_user: User = Depends(get_current_user),
-    ai_service: ClaudeAgentService = Depends(get_claude_agent_service),
+    ai_service: AiAgentService = Depends(get_ai_agent_service),
 ) -> GenerateCommitMessageResponse:
     try:
         message = await ai_service.generate_commit_message(
             request.diff, request.model_id, current_user
         )
-    except APIKeyValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-    except ClaudeAgentException as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        ) from e
+    except AiServiceException as e:
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
     return GenerateCommitMessageResponse(message=message)
 
 

@@ -16,7 +16,6 @@ export interface CustomAgent {
   name: string;
   description: string;
   content: string;
-  model?: 'sonnet' | 'opus' | 'haiku' | 'inherit' | null;
   allowed_tools?: string[] | null;
   [key: string]: unknown;
 }
@@ -52,11 +51,6 @@ export interface CustomCommand {
   content: string;
   argument_hint?: string | null;
   allowed_tools?: string[] | null;
-  model?:
-    | 'claude-sonnet-4-5-20250929'
-    | 'claude-opus-4-5-20251101'
-    | 'claude-haiku-4-5-20251001'
-    | null;
 }
 
 export interface Persona {
@@ -66,25 +60,6 @@ export interface Persona {
 
 export type SandboxProviderType = 'docker' | 'host';
 
-export type ProviderType = 'anthropic' | 'openrouter' | 'openai' | 'copilot' | 'custom';
-
-export interface CustomProviderModel {
-  model_id: string;
-  name: string;
-  enabled: boolean;
-  context_window: number | null;
-}
-
-export interface CustomProvider {
-  id: string;
-  name: string;
-  provider_type: ProviderType;
-  base_url: string | null;
-  auth_token: string | null;
-  enabled: boolean;
-  models: CustomProviderModel[];
-}
-
 export interface UserSettings {
   id: string;
   user_id: string;
@@ -92,7 +67,6 @@ export interface UserSettings {
   sandbox_provider: SandboxProviderType | null;
   timezone: string;
   custom_instructions: string | null;
-  custom_providers: CustomProvider[] | null;
   custom_agents: CustomAgent[] | null;
   custom_mcps: CustomMcp[] | null;
   custom_env_vars: CustomEnvVar[] | null;

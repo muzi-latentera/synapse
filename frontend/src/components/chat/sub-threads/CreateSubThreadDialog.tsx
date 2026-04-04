@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/primitives/Button';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import { ModelSelector } from '@/components/chat/model-selector/ModelSelector';
 import {
-  THINKING_MODES,
+  CLAUDE_THINKING_MODES,
+  CODEX_THINKING_MODES,
   type ThinkingModeOption,
 } from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
 import {
-  PERMISSION_MODES,
-  type PermissionModeOption,
+  MODES_BY_AGENT,
+  coercePermissionModeForAgent,
 } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
+import type { PermissionMode } from '@/store/chatSettingsStore';
 import { useModelsQuery } from '@/hooks/queries/useModelQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { useCreateSubThreadMutation } from '@/hooks/queries/useChatQueries';
@@ -42,8 +44,16 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
   const [selectedModelId, setSelectedModelId] = useState('');
   const [personaName, setPersonaName] = useState(DEFAULT_PERSONA);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
-  const [thinkingMode, setThinkingMode] = useState<ThinkingModeOption>(THINKING_MODES[2]);
-  const [permissionMode, setPermissionMode] = useState<PermissionModeOption>(PERMISSION_MODES[2]);
+  const [thinkingMode, setThinkingMode] = useState<ThinkingModeOption>(CLAUDE_THINKING_MODES[1]);
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>('acceptEdits');
+
+  const selectedModel = models.find((m) => m.model_id === selectedModelId);
+  const agentKind = selectedModel?.agent_kind ?? 'claude';
+  const permissionModes = MODES_BY_AGENT[agentKind];
+  const thinkingModes = agentKind === 'codex' ? CODEX_THINKING_MODES : CLAUDE_THINKING_MODES;
+  const effectivePermissionMode = coercePermissionModeForAgent(permissionMode, agentKind);
+  const selectedPermissionOption =
+    permissionModes.find((m) => m.value === effectivePermissionMode) ?? permissionModes[0];
 
   useEffect(() => {
     if (!selectedModelId && models.length > 0) {
@@ -76,7 +86,7 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
       useModelStore.getState().selectModel(newChat.id, selectedModelId);
       const store = useChatSettingsStore.getState();
       store.setPersona(newChat.id, personaName);
-      store.setPermissionMode(newChat.id, permissionMode.value);
+      store.setPermissionMode(newChat.id, effectivePermissionMode);
       store.setThinkingMode(newChat.id, thinkingMode.value);
 
       onClose();
@@ -145,7 +155,7 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
           <div className="flex items-center gap-2">
             <Dropdown
               value={thinkingMode}
-              items={THINKING_MODES}
+              items={thinkingModes}
               getItemKey={(m) => m.value ?? 'off'}
               getItemLabel={(m) => m.label}
               onSelect={setThinkingMode}
@@ -153,11 +163,11 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
               dropdownPosition="bottom"
             />
             <Dropdown
-              value={permissionMode}
-              items={PERMISSION_MODES}
+              value={selectedPermissionOption}
+              items={permissionModes}
               getItemKey={(m) => m.value}
               getItemLabel={(m) => m.label}
-              onSelect={setPermissionMode}
+              onSelect={(m) => setPermissionMode(m.value)}
               leftIcon={Shield}
               dropdownPosition="bottom"
             />

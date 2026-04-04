@@ -9,36 +9,11 @@ import type {
   GitCreateBranchResult,
   GitDiffData,
   GitPushPullResult,
-  PortInfo,
   Secret,
   UpdateFileResult,
 } from '@/types/sandbox.types';
 import { createMutation } from './createMutation';
 import { queryKeys } from './queryKeys';
-
-export const usePreviewLinksQuery = (
-  sandboxId: string,
-  options?: Partial<UseQueryOptions<PortInfo[]>>,
-) => {
-  return useQuery({
-    queryKey: queryKeys.sandbox.previewLinks(sandboxId),
-    queryFn: () => sandboxService.getPreviewLinks(sandboxId),
-    enabled: !!sandboxId,
-    ...options,
-  });
-};
-
-export const useIDEUrlQuery = (
-  sandboxId: string,
-  options?: Partial<UseQueryOptions<string | null>>,
-) => {
-  return useQuery({
-    queryKey: queryKeys.sandbox.ideUrl(sandboxId),
-    queryFn: () => sandboxService.getIDEUrl(sandboxId),
-    enabled: !!sandboxId,
-    ...options,
-  });
-};
 
 export const useFileContentQuery = (
   sandboxId: string,
@@ -166,64 +141,6 @@ export const useGitDiffQuery = (
     ...options,
   });
 };
-
-interface BrowserStatus {
-  running: boolean;
-  current_url?: string;
-}
-
-export const useVNCUrlQuery = (
-  sandboxId: string,
-  options?: Partial<UseQueryOptions<string | null>>,
-) => {
-  return useQuery({
-    queryKey: queryKeys.sandbox.vncUrl(sandboxId),
-    queryFn: () => sandboxService.getVNCUrl(sandboxId),
-    enabled: !!sandboxId,
-    ...options,
-  });
-};
-
-export const useBrowserStatusQuery = (
-  sandboxId: string,
-  options?: Partial<UseQueryOptions<BrowserStatus>>,
-) => {
-  return useQuery({
-    queryKey: queryKeys.sandbox.browserStatus(sandboxId),
-    queryFn: () => sandboxService.getBrowserStatus(sandboxId),
-    enabled: !!sandboxId,
-    refetchInterval: 5000,
-    ...options,
-  });
-};
-
-interface StartBrowserParams {
-  sandboxId: string;
-  url?: string;
-}
-
-export const useStartBrowserMutation = createMutation<BrowserStatus, Error, StartBrowserParams>(
-  ({ sandboxId, url }) => sandboxService.startBrowser(sandboxId, url),
-  async (queryClient, _data, variables) => {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.sandbox.vncUrl(variables.sandboxId),
-      }),
-    ]);
-  },
-);
-
-export const useStopBrowserMutation = createMutation<void, Error, { sandboxId: string }>(
-  ({ sandboxId }) => sandboxService.stopBrowser(sandboxId),
-  async (queryClient, _data, variables) => {
-    await queryClient.invalidateQueries({
-      queryKey: queryKeys.sandbox.browserStatus(variables.sandboxId),
-    });
-  },
-);
 
 export const useGitRemoteUrlQuery = (sandboxId: string, enabled: boolean, cwd?: string) => {
   return useQuery({

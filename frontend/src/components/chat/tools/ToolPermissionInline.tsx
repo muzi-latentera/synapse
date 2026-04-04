@@ -2,7 +2,8 @@ import { ShieldAlert } from 'lucide-react';
 import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import type { PermissionRequest } from '@/types/chat.types';
 import { useApprovalState } from '@/hooks/useApprovalState';
-import { ApprovalTextarea, ApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
+import { ApprovalTextarea, PermissionApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
+import { filterOptions } from '@/utils/permissionStorage';
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return 'null';
@@ -13,8 +14,8 @@ function formatValue(value: unknown): string {
 
 interface ToolPermissionInlineProps {
   request: PermissionRequest | null;
-  onApprove: () => void;
-  onReject: (alternativeInstruction?: string) => void;
+  onApprove: (optionId: string) => void;
+  onReject: (optionId: string, alternativeInstruction?: string) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -32,6 +33,8 @@ export function ToolPermissionInline({
     return null;
 
   const hasParams = request.tool_input && Object.keys(request.tool_input).length > 0;
+  const allowOptions = filterOptions(request.options, 'allow');
+  const rejectOptions = filterOptions(request.options, 'reject');
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-surface-tertiary dark:border-border-dark dark:bg-surface-dark-tertiary">
@@ -81,8 +84,10 @@ export function ToolPermissionInline({
         />
       </div>
 
-      <ApprovalButtons
+      <PermissionApprovalButtons
         state={approvalState}
+        allowOptions={allowOptions}
+        rejectOptions={rejectOptions}
         onApprove={onApprove}
         isLoading={isLoading}
         error={error}

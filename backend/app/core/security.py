@@ -9,7 +9,7 @@ from uuid import UUID
 from cryptography.fernet import Fernet
 from fastapi import Depends, HTTPException, Query, status
 from fastapi_users.password import PasswordHelper
-from jose import JWTError, jwt
+from jose import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 def _get_fernet_key() -> bytes:
+    # Derive a 32-byte Fernet key from SECRET_KEY via SHA-256 so we don't
+    # require users to set a separate Fernet-formatted key.
     key_bytes = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
     return base64.urlsafe_b64encode(key_bytes)
 
@@ -50,17 +52,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return str(password_helper.hash(password))
-
-
-def create_chat_scoped_token(chat_id: str) -> str:
-    token_data = {
-        "chat_id": chat_id,
-        "purpose": "permission_server",
-    }
-
-    return cast(
-        str, jwt.encode(token_data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    )
 
 
 async def get_user_from_token(token: str, db: AsyncSession) -> User | None:
@@ -90,6 +81,9 @@ async def get_user_from_token(token: str, db: AsyncSession) -> User | None:
 
 
 async def get_current_user(
+    # Accepts auth via either the standard Bearer header (resolved by
+    # fastapi-users into `user`) or a `?token=` query param for SSE/WebSocket
+    # endpoints where the browser can't set custom headers.
     token_query: str | None = Query(None, alias="token"),
     user: User | None = Depends(optional_current_active_user),
     db: AsyncSession = Depends(get_db),
@@ -110,21 +104,6 @@ async def get_current_user(
         raise credentials_exception
 
     return user
-
-
-def validate_chat_scoped_token(token: str, expected_chat_id: str) -> bool:
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-    except JWTError as e:
-        logger.warning("Chat-scoped token decode failed: %s", e)
-        return False
-
-    if payload.get("purpose") != "permission_server":
-        return False
-
-    return bool(payload.get("chat_id") == expected_chat_id)
 
 
 def generate_refresh_token() -> str:

@@ -9,9 +9,6 @@ class AgentResponse(BaseModel):
     content: str = Field(..., description="Markdown content (the prompt)")
     enabled: bool = Field(default=True, description="Whether the agent is enabled")
     allowed_tools: list[str] | None = Field(None, description="List of allowed tools")
-    model: Literal["sonnet", "opus", "haiku", "inherit"] | None = Field(
-        default="inherit", description="Model override"
-    )
 
 
 class AgentUpdateRequest(BaseModel):

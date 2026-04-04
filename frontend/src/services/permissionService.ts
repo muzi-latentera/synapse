@@ -5,7 +5,7 @@ import { validateId } from '@/utils/validation';
 async function respondToPermission(
   chatId: string,
   requestId: string,
-  approved: boolean,
+  optionId: string,
   alternativeInstruction?: string,
 ): Promise<void> {
   validateId(chatId, 'Chat ID');
@@ -13,7 +13,7 @@ async function respondToPermission(
 
   return serviceCall(async () => {
     const formData = new FormData();
-    formData.append('approved', approved.toString());
+    formData.append('option_id', optionId);
     if (alternativeInstruction) {
       formData.append('alternative_instruction', alternativeInstruction);
     }
@@ -25,6 +25,7 @@ async function respondToPermission(
 async function respondWithAnswers(
   chatId: string,
   requestId: string,
+  optionId: string,
   answers: Record<string, string | string[]>,
 ): Promise<void> {
   validateId(chatId, 'Chat ID');
@@ -32,7 +33,7 @@ async function respondWithAnswers(
 
   return serviceCall(async () => {
     const formData = new FormData();
-    formData.append('approved', 'true');
+    formData.append('option_id', optionId);
     formData.append('user_answers', JSON.stringify(answers));
 
     await apiClient.postForm(`/chat/chats/${chatId}/permissions/${requestId}/respond`, formData);

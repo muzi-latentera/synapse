@@ -6,7 +6,7 @@ from app.core.security import get_current_user
 from app.models.db_models.user import User
 from app.models.schemas.settings import UserSettingsBase, UserSettingsResponse
 from app.services.exceptions import UserException
-from app.services.user import DuplicateProviderNameError, UserService
+from app.services.user import UserService
 from app.utils.cache import cache_connection
 
 router = APIRouter()
@@ -40,11 +40,6 @@ async def update_user_settings(
     try:
         await user_service.update_user_settings(
             user_id=current_user.id, settings_update=update_data, db=db
-        )
-    except DuplicateProviderNameError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
         )
     except UserException as e:
         raise HTTPException(

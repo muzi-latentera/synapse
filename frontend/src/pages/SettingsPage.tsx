@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } fro
 import {
   AlertCircle,
   Settings2,
-  Layers,
   Store,
   Plug,
   Bot,
@@ -11,7 +10,6 @@ import {
   UserCircle,
   Key,
   ScrollText,
-  CalendarClock,
   ChevronLeft,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -30,15 +28,12 @@ import { GeneralSettingsTab } from '@/components/settings/tabs/GeneralSettingsTa
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { getGeneralSecretFields } from '@/utils/settings';
 
-import { ProvidersSection } from '@/components/settings/sections/ProvidersSection';
 import { McpSection } from '@/components/settings/sections/McpSection';
 import { AgentsSection } from '@/components/settings/sections/AgentsSection';
 import { SkillsSection } from '@/components/settings/sections/SkillsSection';
 import { CommandsSection } from '@/components/settings/sections/CommandsSection';
 import { PersonasSection } from '@/components/settings/sections/PersonasSection';
 import { EnvVarsSection } from '@/components/settings/sections/EnvVarsSection';
-import { TasksSection } from '@/components/settings/sections/TasksSection';
-
 const MarketplaceSettingsTab = lazy(() =>
   import('@/components/settings/tabs/MarketplaceSettingsTab').then((m) => ({
     default: m.MarketplaceSettingsTab,
@@ -52,7 +47,6 @@ const InstructionsSettingsTab = lazy(() =>
 
 type TabKey =
   | 'general'
-  | 'providers'
   | 'marketplace'
   | 'mcp'
   | 'agents'
@@ -60,8 +54,7 @@ type TabKey =
   | 'commands'
   | 'personas'
   | 'env_vars'
-  | 'instructions'
-  | 'tasks';
+  | 'instructions';
 
 const getErrorMessage = (error: unknown): string | undefined =>
   error instanceof Error ? error.message : undefined;
@@ -73,7 +66,6 @@ const createFallbackSettings = (): UserSettings => ({
   sandbox_provider: null,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   custom_instructions: null,
-  custom_providers: null,
   custom_agents: null,
   custom_mcps: null,
   custom_env_vars: null,
@@ -89,7 +81,6 @@ const createFallbackSettings = (): UserSettings => ({
 
 const TAB_FIELDS: Record<TabKey, (keyof UserSettings)[]> = {
   general: ['github_personal_access_token', 'timezone'],
-  providers: ['custom_providers'],
   marketplace: [],
   mcp: ['custom_mcps'],
   agents: ['custom_agents'],
@@ -98,7 +89,6 @@ const TAB_FIELDS: Record<TabKey, (keyof UserSettings)[]> = {
   personas: ['personas'],
   env_vars: ['custom_env_vars'],
   instructions: ['custom_instructions'],
-  tasks: [],
 };
 
 interface SettingsNavItem {
@@ -117,7 +107,6 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
     label: 'Account',
     items: [
       { id: 'general', label: 'General', icon: Settings2 },
-      { id: 'providers', label: 'Providers', icon: Layers },
       { id: 'marketplace', label: 'Marketplace', icon: Store },
     ],
   },
@@ -136,7 +125,6 @@ const SETTINGS_NAV: SettingsNavGroup[] = [
       { id: 'personas', label: 'Personas', icon: UserCircle },
       { id: 'env_vars', label: 'Env Variables', icon: Key },
       { id: 'instructions', label: 'Instructions', icon: ScrollText },
-      { id: 'tasks', label: 'Tasks', icon: CalendarClock },
     ],
   },
 ];
@@ -191,7 +179,6 @@ const SettingsPage: React.FC = () => {
         'sandbox_provider',
         'timezone',
         'custom_instructions',
-        'custom_providers',
         'custom_agents',
         'custom_mcps',
         'custom_env_vars',
@@ -568,14 +555,6 @@ const SettingsPage: React.FC = () => {
                     </div>
                   )}
 
-                  {activeTab === 'providers' && (
-                    <div role="tabpanel" id="providers-panel" aria-labelledby="providers-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <ProvidersSection />
-                      </Suspense>
-                    </div>
-                  )}
-
                   {activeTab === 'marketplace' && (
                     <div role="tabpanel" id="marketplace-panel" aria-labelledby="marketplace-tab">
                       <Suspense fallback={tabLoadingFallback}>
@@ -641,14 +620,6 @@ const SettingsPage: React.FC = () => {
                             handleInputChange('custom_instructions', value)
                           }
                         />
-                      </Suspense>
-                    </div>
-                  )}
-
-                  {activeTab === 'tasks' && (
-                    <div role="tabpanel" id="tasks-panel" aria-labelledby="tasks-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <TasksSection isActive={activeTab === 'tasks'} />
                       </Suspense>
                     </div>
                   )}

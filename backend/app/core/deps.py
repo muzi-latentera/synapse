@@ -12,27 +12,21 @@ from app.models.db_models.workspace import Workspace
 from app.models.db_models.user import User
 from app.services.agent import AgentService
 from app.services.chat import ChatService
-from app.services.claude_agent import ClaudeAgentService
+from app.services.agent_service import AiAgentService
 from app.services.command import CommandService
 from app.services.exceptions import UserException
 from app.services.github import GitHubService
 from app.services.marketplace import MarketplaceService
 from app.services.plugin_installer import PluginInstallerService
-from app.services.provider import ProviderService
 from app.services.refresh_token import RefreshTokenService
 from app.services.sandbox import SandboxService
 from app.services.workspace import WorkspaceService
 from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
-from app.services.scheduler import SchedulerService
 from app.services.skill import SkillService
 from app.services.user import UserService
 
 logger = logging.getLogger(__name__)
-
-
-def get_provider_service() -> ProviderService:
-    return ProviderService()
 
 
 def get_user_service() -> UserService:
@@ -87,8 +81,8 @@ def get_github_service(
     return GitHubService(token=github_token)
 
 
-def get_claude_agent_service() -> ClaudeAgentService:
-    return ClaudeAgentService(session_factory=SessionLocal)
+def get_ai_agent_service() -> AiAgentService:
+    return AiAgentService(session_factory=SessionLocal)
 
 
 def get_marketplace_service() -> MarketplaceService:
@@ -97,10 +91,6 @@ def get_marketplace_service() -> MarketplaceService:
 
 def get_plugin_installer_service() -> PluginInstallerService:
     return PluginInstallerService()
-
-
-def get_scheduler_service() -> SchedulerService:
-    return SchedulerService(session_factory=SessionLocal)
 
 
 async def validate_sandbox_ownership(
@@ -128,6 +118,9 @@ async def get_sandbox_service(
     db: AsyncSession = Depends(get_db),
     user_service: UserService = Depends(get_user_service),
 ) -> AsyncIterator[SandboxService]:
+    # Resolve the correct provider (Docker or Host) for this request: if a
+    # sandbox_id is in the URL, look up which provider the workspace uses;
+    # otherwise fall back to the user's configured default.
     provider_type = SandboxProviderType.DOCKER
 
     sandbox_id = request.path_params.get("sandbox_id")

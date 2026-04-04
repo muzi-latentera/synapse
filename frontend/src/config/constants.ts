@@ -24,7 +24,6 @@ export const BUILT_IN_AGENTS: CustomAgent[] = [
       'Fast agent specialized for exploring codebases. Use for finding files by patterns, searching code for keywords, or answering questions about the codebase. Supports thoroughness levels: quick, medium, or very thorough.',
     content: '',
     enabled: true,
-    model: 'haiku',
   },
   {
     name: 'Plan',
@@ -32,7 +31,6 @@ export const BUILT_IN_AGENTS: CustomAgent[] = [
       'Agent specialized for codebase planning and architecture analysis. Use for understanding code structure, planning implementations, or exploring dependencies. Supports thoroughness levels: quick, medium, or very thorough.',
     content: '',
     enabled: true,
-    model: 'sonnet',
   },
 ];
 

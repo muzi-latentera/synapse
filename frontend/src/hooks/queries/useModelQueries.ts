@@ -28,6 +28,7 @@ export const useModelSelection = (options?: {
   const { data: models = [], isLoading } = useModelsQuery({
     enabled: options?.enabled,
   });
+
   const selectedModelId = useModelStore((state) => state.modelByChat[chatId] ?? '');
 
   useEffect(() => {

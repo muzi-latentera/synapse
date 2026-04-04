@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { LocalQueuedMessage } from '@/types/queue.types';
 import { queueService } from '@/services/queueService';
 import { DEFAULT_PERSONA } from '@/store/chatSettingsStore';
+import type { PermissionMode } from '@/store/chatSettingsStore';
 
 export const EMPTY_QUEUE: LocalQueuedMessage[] = [];
 
@@ -13,9 +14,10 @@ interface MessageQueueState {
     chatId: string,
     content: string,
     modelId: string,
-    permissionMode?: string,
+    permissionMode?: PermissionMode,
     thinkingMode?: string | null,
     worktree?: boolean,
+    planMode?: boolean,
     selectedPersonaName?: string,
     files?: File[],
   ) => Promise<string>;
@@ -44,9 +46,10 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
     chatId: string,
     content: string,
     modelId: string,
-    permissionMode: string = 'auto',
+    permissionMode: PermissionMode = 'acceptEdits',
     thinkingMode: string | null = null,
     worktree: boolean = false,
+    planMode: boolean = false,
     selectedPersonaName: string = DEFAULT_PERSONA,
     files?: File[],
   ): Promise<string> => {
@@ -57,6 +60,11 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
       content,
       model_id: modelId,
       files,
+      permissionMode,
+      thinkingMode,
+      worktree,
+      planMode,
+      selectedPersonaName,
       queuedAt: Date.now(),
       synced: false,
       sendingNow: false,
@@ -76,6 +84,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
         permissionMode,
         thinkingMode,
         worktree,
+        planMode,
         selectedPersonaName,
         files,
       );
@@ -281,6 +290,11 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
           content: msg.content,
           model_id: msg.model_id,
           attachments: msg.attachments,
+          permissionMode: msg.permission_mode,
+          thinkingMode: msg.thinking_mode ?? null,
+          worktree: msg.worktree,
+          planMode: msg.plan_mode,
+          selectedPersonaName: msg.selected_persona_name,
           queuedAt: new Date(msg.queued_at).getTime(),
           synced: true,
           sendingNow: false,
@@ -325,10 +339,11 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
             chatId,
             msg.content,
             msg.model_id,
-            'auto',
-            null,
-            false,
-            DEFAULT_PERSONA,
+            msg.permissionMode ?? 'acceptEdits',
+            msg.thinkingMode ?? null,
+            msg.worktree ?? false,
+            msg.planMode ?? false,
+            msg.selectedPersonaName ?? DEFAULT_PERSONA,
             msg.files,
           );
 

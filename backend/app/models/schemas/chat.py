@@ -1,11 +1,12 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID
 
 from fastapi import UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.db_models.enums import AttachmentType, MessageRole, MessageStreamStatus
+from app.models.types import PermissionMode
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 
 
@@ -30,9 +31,10 @@ class ChatRequest(BaseModel):
     chat_id: UUID
     model_id: str = Field(..., min_length=1, max_length=255)
     attached_files: list[UploadFile] | None = None
-    permission_mode: Literal["plan", "ask", "auto"] = "auto"
+    permission_mode: PermissionMode = "acceptEdits"
     thinking_mode: str | None = Field(None, max_length=50)
     worktree: bool = False
+    plan_mode: bool = False
     selected_persona_name: str = Field(DEFAULT_PERSONA_NAME, max_length=100)
 
 
@@ -84,21 +86,13 @@ class Chat(ChatBase):
     worktree_cwd: str | None = None
     parent_chat_id: UUID | None = None
     sub_thread_count: int = 0
+    session_agent_kind: str | None = None
 
 
 class ContextUsage(BaseModel):
     tokens_used: int
     context_window: int
     percentage: float
-
-
-class PortPreviewLink(BaseModel):
-    preview_url: str
-    port: int
-
-
-class PreviewLinksResponse(BaseModel):
-    links: list[PortPreviewLink]
 
 
 class ChatCompletionResponse(BaseModel):

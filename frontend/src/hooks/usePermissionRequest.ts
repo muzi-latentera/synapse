@@ -1,24 +1,22 @@
 import { useState, useCallback, useRef } from 'react';
 import { permissionService } from '@/services/permissionService';
 import { usePermissionStore } from '@/store/permissionStore';
-import { addResolvedRequestId, isRequestResolved } from '@/utils/permissionStorage';
+import { isRequestResolved } from '@/utils/permissionStorage';
 import { notifyPermissionRequest } from '@/utils/notifications';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
+import {
+  executePermissionResponse,
+  clearPermissionRequestForChat,
+} from '@/utils/permissionResponse';
 import type { PermissionRequest } from '@/types/chat.types';
-
-type ApiError = Error & { status?: number };
 
 interface UsePermissionRequestReturn {
   pendingRequest: PermissionRequest | null;
   isLoading: boolean;
   error: string | null;
   handlePermissionRequest: (request: PermissionRequest) => void;
-  handleApprove: () => Promise<void>;
-  handleReject: (alternativeInstruction?: string) => Promise<void>;
-}
-
-function isExpiredRequestError(error: unknown): boolean {
-  return (error as ApiError)?.status === 404;
+  handleApprove: (optionId: string) => Promise<void>;
+  handleReject: (optionId: string, alternativeInstruction?: string) => Promise<void>;
 }
 
 // Manages the tool-permission approval flow for a single chat. Reads the
@@ -59,56 +57,44 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
     [chatId, settings?.notifications_enabled],
   );
 
-  const handleApprove = useCallback(async () => {
-    if (!chatId || !pendingRequest) {
-      return;
-    }
+  const handleApprove = useCallback(
+    async (optionId: string) => {
+      if (!chatId || !pendingRequest) return;
 
-    setIsLoading(true);
-    setError(null);
-    try {
-      await permissionService.respondToPermission(chatId, pendingRequest.request_id, true);
-      addResolvedRequestId(pendingRequest.request_id);
-      usePermissionStore.getState().clearPermissionRequest(chatId);
-    } catch (err) {
-      if (isExpiredRequestError(err)) {
-        addResolvedRequestId(pendingRequest.request_id);
-        usePermissionStore.getState().clearPermissionRequest(chatId);
-      } else {
-        setError(err instanceof Error ? err.message : 'Failed to approve permission');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [chatId, pendingRequest]);
+      await executePermissionResponse(
+        pendingRequest.request_id,
+        () => permissionService.respondToPermission(chatId, pendingRequest.request_id, optionId),
+        {
+          setIsLoading,
+          setError,
+          errorMessage: 'Failed to approve permission',
+          clearRequest: () => clearPermissionRequestForChat(chatId),
+        },
+      );
+    },
+    [chatId, pendingRequest],
+  );
 
   const handleReject = useCallback(
-    async (alternativeInstruction?: string) => {
-      if (!chatId || !pendingRequest) {
-        return;
-      }
+    async (optionId: string, alternativeInstruction?: string) => {
+      if (!chatId || !pendingRequest) return;
 
-      setIsLoading(true);
-      setError(null);
-      try {
-        await permissionService.respondToPermission(
-          chatId,
-          pendingRequest.request_id,
-          false,
-          alternativeInstruction,
-        );
-        addResolvedRequestId(pendingRequest.request_id);
-        usePermissionStore.getState().clearPermissionRequest(chatId);
-      } catch (err) {
-        if (isExpiredRequestError(err)) {
-          addResolvedRequestId(pendingRequest.request_id);
-          usePermissionStore.getState().clearPermissionRequest(chatId);
-        } else {
-          setError(err instanceof Error ? err.message : 'Failed to reject permission');
-        }
-      } finally {
-        setIsLoading(false);
-      }
+      await executePermissionResponse(
+        pendingRequest.request_id,
+        () =>
+          permissionService.respondToPermission(
+            chatId,
+            pendingRequest.request_id,
+            optionId,
+            alternativeInstruction,
+          ),
+        {
+          setIsLoading,
+          setError,
+          errorMessage: 'Failed to reject permission',
+          clearRequest: () => clearPermissionRequestForChat(chatId),
+        },
+      );
     },
     [chatId, pendingRequest],
   );

@@ -10,11 +10,11 @@ from uuid import UUID, uuid4
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.orm import aliased, selectinload
 
-from app.constants import BRIDGE_PROVIDER_TYPES, REDIS_KEY_CHAT_STREAM_LIVE
+from app.constants import REDIS_KEY_CHAT_STREAM_LIVE
 from app.core.config import get_settings
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.enums import MessageRole, MessageStreamStatus, StreamEventKind
-from app.models.db_models.user import User, UserSettings
+from app.models.db_models.user import User
 from app.models.db_models.workspace import Workspace
 from app.models.schemas.chat import Chat as ChatSchema
 from app.models.schemas.chat import ChatCreate, ChatRequest, ChatUpdate
@@ -24,14 +24,13 @@ from app.models.schemas.pagination import (
     PaginatedResponse,
     PaginationParams,
 )
-from app.models.schemas.settings import ProviderType
-from app.models.types import ChatCompletionResult, MessageAttachmentDict
+from app.models.types import ChatCompletionResult, MessageAttachmentDict, PermissionMode
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
-from app.services.claude_session_registry import session_registry
+from app.services.session_registry import session_registry
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import ChatException, ErrorCode
 from app.services.message import MessageService
-from app.services.provider import ProviderService
+from app.services.model_registry import get_context_window
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.storage import StorageService
@@ -39,7 +38,6 @@ from app.services.streaming.runtime import ChatStreamRuntime
 from app.services.streaming.types import ChatStreamRequest, StreamEnvelope
 from app.services.user import UserService
 from app.utils.cache import CachePubSub, cache_connection, cache_pubsub
-from app.utils.validators import APIKeyValidationError, validate_model_api_keys
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -71,7 +69,6 @@ class ChatService(BaseDbService[Chat]):
         super().__init__(session_factory)
         self.message_service = MessageService(session_factory=self._session_factory)
         self._user_service = user_service
-        self._provider_service = ProviderService()
 
     @staticmethod
     def sandbox_for_workspace(workspace: Workspace) -> SandboxService:
@@ -156,17 +153,6 @@ class ChatService(BaseDbService[Chat]):
             )
 
     async def create_chat(self, user: User, chat_data: ChatCreate) -> Chat:
-        # Validate API keys, verify workspace ownership, and create a new chat.
-        # If parent_chat_id is set, this is a sub-thread — force workspace_id
-        # to match the parent's workspace.
-        user_settings = await self._user_service.get_user_settings(user.id)
-        try:
-            validate_model_api_keys(user_settings, chat_data.model_id)
-        except APIKeyValidationError as e:
-            raise ChatException(
-                str(e), error_code=ErrorCode.API_KEY_MISSING, status_code=400
-            ) from e
-
         async with self.session_factory() as db:
             workspace_id = chat_data.workspace_id
 
@@ -347,10 +333,7 @@ class ChatService(BaseDbService[Chat]):
         last_msg = await self.message_service.get_latest_assistant_message(chat_id)
         if not last_msg or not last_msg.model_id:
             return None
-        user_settings = await self._user_service.get_user_settings(user_id)
-        return self._provider_service.get_model_context_window(
-            user_settings, last_msg.model_id
-        )
+        return get_context_window(last_msg.model_id)
 
     async def delete_chat(self, chat_id: UUID, user: User) -> None:
         # Soft-delete a chat and its messages, terminate the active session,
@@ -777,13 +760,6 @@ class ChatService(BaseDbService[Chat]):
         # files to the sandbox, then kicks off the background stream task.
         # Returns the IDs the frontend needs to connect to the SSE stream.
         user_settings = await self._user_service.get_user_settings(current_user.id)
-        try:
-            validate_model_api_keys(user_settings, request.model_id)
-        except APIKeyValidationError as e:
-            raise ChatException(
-                str(e), error_code=ErrorCode.API_KEY_MISSING, status_code=400
-            ) from e
-
         chat = await self.get_chat(request.chat_id, current_user)
 
         if chat.parent_chat_id:
@@ -816,14 +792,6 @@ class ChatService(BaseDbService[Chat]):
             )
 
         session_id = chat.session_id
-        if session_id and chat.workspace.sandbox_id:
-            if await self._needs_session_cleaning(
-                chat.id, request.model_id, user_settings
-            ):
-                await ws_sandbox.clean_session_thinking_blocks(
-                    chat.workspace.sandbox_id, session_id
-                )
-
         user_prompt = MessageService.extract_user_text_content(request.prompt)
 
         await self.message_service.create_message(
@@ -849,18 +817,7 @@ class ChatService(BaseDbService[Chat]):
             user_settings.custom_instructions if user_settings else None
         )
 
-        context_window = self._provider_service.get_model_context_window(
-            user_settings, request.model_id
-        )
-        provider, _ = self._provider_service.get_provider_for_model(
-            user_settings, request.model_id
-        )
-        uses_bridge = (
-            provider.get("provider_type") in BRIDGE_PROVIDER_TYPES
-            if provider
-            else False
-        )
-
+        context_window = get_context_window(request.model_id)
         try:
             await self._enqueue_chat_task(
                 prompt=user_prompt,
@@ -873,7 +830,7 @@ class ChatService(BaseDbService[Chat]):
                 assistant_message_id=str(assistant_message.id),
                 thinking_mode=request.thinking_mode,
                 worktree=request.worktree,
-                uses_bridge=uses_bridge,
+                plan_mode=request.plan_mode,
                 attachments=attachments,
                 context_window=context_window,
                 selected_persona_name=request.selected_persona_name,
@@ -899,13 +856,13 @@ class ChatService(BaseDbService[Chat]):
         system_prompt: str,
         custom_instructions: str | None,
         chat: Chat,
-        permission_mode: str,
+        permission_mode: PermissionMode,
         model_id: str,
         session_id: str | None,
         assistant_message_id: str,
         thinking_mode: str | None,
         worktree: bool = False,
-        uses_bridge: bool = False,
+        plan_mode: bool = False,
         attachments: list[MessageAttachmentDict] | None,
         context_window: int | None = None,
         selected_persona_name: str = DEFAULT_PERSONA_NAME,
@@ -927,6 +884,8 @@ class ChatService(BaseDbService[Chat]):
                 "workspace_path": workspace.workspace_path,
                 "sandbox_provider": workspace.sandbox_provider,
                 "session_id": chat.session_id,
+                "session_agent_kind": chat.session_agent_kind,
+                "worktree_cwd": chat.worktree_cwd,
             },
             permission_mode=permission_mode,
             model_id=model_id,
@@ -935,44 +894,8 @@ class ChatService(BaseDbService[Chat]):
             assistant_message_id=assistant_message_id,
             thinking_mode=thinking_mode,
             worktree=worktree,
-            uses_bridge=uses_bridge,
+            plan_mode=plan_mode,
             attachments=stream_attachments,
             selected_persona_name=selected_persona_name,
         )
         ChatStreamRuntime.start_background_chat(request=request)
-
-    async def _needs_session_cleaning(
-        self, chat_id: UUID, new_model_id: str, user_settings: UserSettings
-    ) -> bool:
-        # When switching from a non-Anthropic provider to Anthropic, the session
-        # file may contain thinking blocks that Anthropic's API rejects — this
-        # detects that transition so the caller can strip them before resuming.
-        new_provider, _ = self._provider_service.get_provider_for_model(
-            user_settings, new_model_id
-        )
-        new_provider_type = new_provider.get("provider_type") if new_provider else None
-
-        if new_provider_type != ProviderType.ANTHROPIC.value:
-            return False
-
-        last_message = await self.message_service.get_latest_assistant_message(chat_id)
-        if not last_message or not last_message.model_id:
-            return False
-
-        prev_provider, _ = self._provider_service.get_provider_for_model(
-            user_settings, last_message.model_id
-        )
-        prev_provider_type = (
-            prev_provider.get("provider_type") if prev_provider else None
-        )
-
-        if prev_provider_type != ProviderType.ANTHROPIC.value:
-            logger.info(
-                "Session cleaning needed for chat %s: switching from %s to %s",
-                chat_id,
-                prev_provider_type,
-                new_provider_type,
-            )
-            return True
-
-        return False

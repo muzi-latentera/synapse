@@ -59,18 +59,12 @@ AVAILABLE_TOOLS = [
     "WebSearch",
     "Write",
 ]
-VALID_COMMAND_MODELS = [
-    "claude-sonnet-4-5-20250929",
-    "claude-opus-4-5-20251101",
-    "claude-haiku-4-5-20251001",
-]
 
 
 class BaseMarkdownResourceService(ABC, Generic[T]):
     resource_type: str = ""
     max_size_bytes: int = MAX_RESOURCE_SIZE_BYTES
     exception_class: type[ServiceException] = ServiceException
-    valid_models: list[str] = VALID_COMMAND_MODELS
 
     def __init__(self, base_path: Path | None = None) -> None:
         if base_path is not None:
@@ -171,15 +165,6 @@ class BaseMarkdownResourceService(ABC, Generic[T]):
                 f"Valid tools are: {', '.join(AVAILABLE_TOOLS)}"
             )
 
-    def _validate_model(self, model: str | None) -> None:
-        if model is None:
-            return
-
-        if model not in self.valid_models:
-            self._raise(
-                f"Invalid model '{model}'. Valid models are: {', '.join(self.valid_models)}"
-            )
-
     @abstractmethod
     def _validate_additional_fields(self, metadata: YamlMetadata) -> None:
         pass
@@ -199,7 +184,6 @@ class BaseMarkdownResourceService(ABC, Generic[T]):
         metadata = parsed["metadata"]
 
         self._validate_allowed_tools(metadata.get("allowed_tools"))
-        self._validate_model(metadata.get("model"))
         self._validate_additional_fields(metadata)
 
         return parsed

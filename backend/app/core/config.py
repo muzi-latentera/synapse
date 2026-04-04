@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def build_database_url(cls, v: str) -> str:
+        # Normalize the various Postgres URL schemes that hosting providers use
+        # (postgres://, postgresql://) to the asyncpg driver SQLAlchemy expects.
         if isinstance(v, str):
             if v.startswith("postgres://"):
                 return v.replace("postgres://", "postgresql+asyncpg://", 1)
@@ -90,6 +92,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def apply_desktop_defaults(self) -> "Settings":
+        # Desktop (Tauri) mode uses a local SQLite DB and platform-specific data
+        # dir instead of the Docker-based Postgres/Redis defaults. Also adds
+        # Tauri origins so the webview can reach the local API.
         if not self.DESKTOP_MODE:
             return self
         data_dir = _desktop_data_dir()
@@ -116,8 +121,6 @@ class Settings(BaseSettings):
             if origin not in origins:
                 origins.append(origin)
         self.ALLOWED_ORIGINS = origins
-        if self.HOST_PERMISSION_API_URL == "http://localhost:8080":
-            self.HOST_PERMISSION_API_URL = self.BASE_URL
         return self
 
     @field_validator("SESSION_SECRET_KEY", mode="before")
@@ -158,9 +161,6 @@ class Settings(BaseSettings):
     # Logging configuration
     LOG_LEVEL: str = "INFO"
 
-    # Model context window (tokens)
-    CONTEXT_WINDOW_TOKENS: int = 200_000
-
     # Git configuration
     GIT_AUTHOR_NAME: str = ""
     GIT_AUTHOR_EMAIL: str = ""
@@ -179,8 +179,6 @@ class Settings(BaseSettings):
     # Example: DOCKER_PREVIEW_BASE_URL=https://yourdomain.com, DOCKER_TRAEFIK_NETWORK=coolify
     DOCKER_TRAEFIK_NETWORK: str = ""
     DOCKER_TRAEFIK_ENTRYPOINT: str = "https"
-    # URL the permission server inside Docker sandboxes uses to reach the API
-    DOCKER_PERMISSION_API_URL: str = "http://host.docker.internal:8080"
     DOCKER_RUNTIME: str = (
         ""  # e.g. "sysbox-runc" for Sysbox, leave empty for default Docker runtime
     )
@@ -193,8 +191,6 @@ class Settings(BaseSettings):
     HOST_STORAGE_PATH: str | None = None
     HOST_SANDBOX_BASE_DIR: str | None = None
     HOST_PREVIEW_BASE_URL: str = "http://localhost"
-    # URL the permission server in host mode uses to reach the API
-    HOST_PERMISSION_API_URL: str = "http://localhost:8080"
 
     @field_validator("HOST_SANDBOX_BASE_DIR", mode="before")
     @classmethod
@@ -224,15 +220,11 @@ class Settings(BaseSettings):
 
     # TTL Configuration (in seconds)
     BACKGROUND_CHAT_SHUTDOWN_TIMEOUT_SECONDS: float = 30.0
-    SCHEDULED_TASK_MAX_CONCURRENT_EXECUTIONS: int = 8
-    SCHEDULED_TASK_DISPATCH_STALE_SECONDS: int = 120
     DISPOSABLE_DOMAINS_CACHE_TTL_SECONDS: int = 3600
-    PERMISSION_REQUEST_TTL_SECONDS: int = 300
 
     USER_SETTINGS_CACHE_TTL_SECONDS: int = 300
     MODELS_CACHE_TTL_SECONDS: int = 3600
     CONTEXT_USAGE_CACHE_TTL_SECONDS: int = 600
-    CANCEL_PENDING_TTL_SECONDS: float = 10.0
     CHAT_PROCESS_IDLE_TTL_SECONDS: float = 1800.0
 
     # GitHub Copilot OAuth (default ID from https://github.com/anomalyco/opencode)

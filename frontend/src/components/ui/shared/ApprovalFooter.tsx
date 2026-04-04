@@ -1,6 +1,7 @@
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import type { ApprovalState } from '@/hooks/useApprovalState';
+import type { PermissionOption } from '@/types/chat.types';
 
 interface ApprovalTextareaProps {
   state: ApprovalState;
@@ -33,14 +34,23 @@ export function ApprovalTextarea({ state, textareaId, isLoading }: ApprovalTexta
   );
 }
 
-interface ApprovalButtonsProps {
+interface PermissionApprovalButtonsProps {
   state: ApprovalState;
-  onApprove: () => void;
+  allowOptions: PermissionOption[];
+  rejectOptions: PermissionOption[];
+  onApprove: (optionId: string) => void;
   isLoading: boolean;
   error: string | null;
 }
 
-export function ApprovalButtons({ state, onApprove, isLoading, error }: ApprovalButtonsProps) {
+export function PermissionApprovalButtons({
+  state,
+  allowOptions,
+  rejectOptions,
+  onApprove,
+  isLoading,
+  error,
+}: PermissionApprovalButtonsProps) {
   return (
     <div className="flex items-center justify-between border-t border-border px-3 py-2 dark:border-border-dark">
       <div>
@@ -69,18 +79,30 @@ export function ApprovalButtons({ state, onApprove, isLoading, error }: Approval
           </>
         ) : (
           <>
-            <Button
-              onClick={state.handleRejectClick}
-              variant="ghost"
-              size="sm"
-              disabled={isLoading}
-            >
-              Reject
-            </Button>
-            <Button onClick={onApprove} variant="primary" size="sm" disabled={isLoading}>
-              <CheckCircle className="h-3.5 w-3.5" />
-              Approve
-            </Button>
+            {rejectOptions.map((opt) => (
+              <Button
+                key={opt.option_id}
+                onClick={() => state.handleRejectClick(opt.option_id)}
+                variant="ghost"
+                size="sm"
+                disabled={isLoading}
+              >
+                <XCircle className="h-3.5 w-3.5" />
+                {opt.name}
+              </Button>
+            ))}
+            {allowOptions.map((opt) => (
+              <Button
+                key={opt.option_id}
+                onClick={() => onApprove(opt.option_id)}
+                variant={opt.kind === 'allow_once' ? 'primary' : 'secondary'}
+                size="sm"
+                disabled={isLoading}
+              >
+                <CheckCircle className="h-3.5 w-3.5" />
+                {opt.name}
+              </Button>
+            ))}
           </>
         )}
       </div>

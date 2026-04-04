@@ -7,7 +7,7 @@ import shlex
 import subprocess
 from abc import ABC, abstractmethod
 from pathlib import Path, PurePosixPath
-from typing import Any, Awaitable, Callable, TypeVar
+from typing import Any, Awaitable, TypeVar
 
 from app.constants import (
     SANDBOX_BASHRC_PATH,
@@ -19,7 +19,6 @@ from app.services.sandbox_providers.types import (
     CommandResult,
     FileContent,
     FileMetadata,
-    PreviewLink,
     PtyDataCallbackType,
     PtySession,
     PtySize,
@@ -30,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-LISTENING_PORTS_COMMAND = "ss -tuln | grep LISTEN | awk '{print $5}' | sed 's/.*://g' | grep -E '^[0-9]+$' | sort -u"
 GITIGNORE_CMD = "cat .gitignore 2>/dev/null"
 
 
@@ -76,23 +74,6 @@ class SandboxProvider(ABC):
             return await asyncio.wait_for(coro, timeout=timeout + 5)
         except asyncio.TimeoutError:
             raise TimeoutError(error_msg or f"Operation timed out after {timeout}s")
-
-    @staticmethod
-    def _parse_listening_ports(stdout: str) -> set[int]:
-        return {int(p) for p in stdout.strip().splitlines() if p.isdigit()}
-
-    @staticmethod
-    def _build_preview_links(
-        listening_ports: set[int],
-        url_builder: Callable[[int], str],
-        excluded_ports: set[int] | None = None,
-    ) -> list[PreviewLink]:
-        excluded = excluded_ports or set()
-        return [
-            PreviewLink(preview_url=url_builder(port), port=port)
-            for port in listening_ports
-            if port not in excluded
-        ]
 
     def _get_pty_session(
         self, sandbox_id: str, session_id: str
@@ -295,6 +276,9 @@ class SandboxProvider(ABC):
         path: str = SANDBOX_HOME_DIR,
         excluded_patterns: list[str] | None = None,
     ) -> list[FileMetadata]:
+        # Build a `find` command that respects .gitignore and caller-provided
+        # exclusions. Uses -prune so excluded subtrees are never descended into,
+        # keeping the command fast even in large repos (node_modules, .git, etc.).
         caller_patterns = list(dict.fromkeys(excluded_patterns or []))
         gitignore_patterns, exceptions = await self._get_gitignore_patterns(
             sandbox_id, path
@@ -413,11 +397,10 @@ class SandboxProvider(ABC):
     ) -> None:
         pass
 
-    @abstractmethod
-    async def get_preview_links(self, sandbox_id: str) -> list[PreviewLink]:
-        pass
-
     async def get_secrets(self, sandbox_id: str) -> list[SecretEntry]:
+        # Secrets are persisted as `export KEY=VALUE` lines in .bashrc so they
+        # survive container restarts and are available in all shell sessions.
+        # System variables (PATH, HOME, etc.) are filtered out.
         result = await self.execute_command(
             sandbox_id,
             f"grep '^export' {SANDBOX_BASHRC_PATH} | sed 's/^export //g'",
@@ -469,13 +452,6 @@ class SandboxProvider(ABC):
                         sandbox_id,
                         e,
                     )
-
-    @abstractmethod
-    async def get_ide_url(self, sandbox_id: str) -> str | None:
-        pass
-
-    async def get_vnc_url(self, sandbox_id: str) -> str | None:
-        return None
 
     async def __aenter__(self) -> "SandboxProvider":
         return self

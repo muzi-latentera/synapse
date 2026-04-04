@@ -8,9 +8,13 @@ import {
   DEFAULT_CHAT_SETTINGS_KEY,
   DEFAULT_PERSONA,
 } from '@/store/chatSettingsStore';
+import type { PermissionMode } from '@/store/chatSettingsStore';
 import { resolvePersona } from '@/utils/settings';
 import { useChatContext } from '@/hooks/useChatContext';
-import type { ChatRequest, Message } from '@/types/chat.types';
+import { useModelMap } from '@/hooks/queries/useModelQueries';
+import { coercePermissionModeForAgent } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
+import { coerceThinkingModeForAgent } from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
+import { getAgentKindForModelId, type ChatRequest, type Message } from '@/types/chat.types';
 import type { StreamState } from '@/types/stream.types';
 
 const textEncoder = new TextEncoder();
@@ -18,9 +22,10 @@ const textEncoder = new TextEncoder();
 interface UseMessageActionsParams {
   chatId: string | undefined;
   selectedModelId: string | null | undefined;
-  permissionMode: 'plan' | 'ask' | 'auto';
+  permissionMode: PermissionMode;
   thinkingMode: string | null | undefined;
   worktree: boolean;
+  planMode: boolean;
   setStreamState: (state: StreamState) => void;
   setCurrentMessageId: (id: string | null) => void;
   setError: (error: Error | null) => void;
@@ -51,6 +56,7 @@ export function useMessageActions({
   permissionMode,
   thinkingMode,
   worktree,
+  planMode,
   setStreamState,
   setCurrentMessageId,
   setError,
@@ -64,6 +70,7 @@ export function useMessageActions({
   isStreaming,
 }: UseMessageActionsParams) {
   const { personas } = useChatContext();
+  const modelMap = useModelMap();
 
   const sendMessage = useCallback(
     async (
@@ -94,15 +101,23 @@ export function useMessageActions({
         const storedPersona =
           useChatSettingsStore.getState().personaByChat[personaKey] ?? DEFAULT_PERSONA;
         const validPersona = resolvePersona(storedPersona, personas);
+        const agentKind =
+          modelMap.get(selectedModelId)?.agent_kind ?? getAgentKindForModelId(selectedModelId);
+        const effectivePermissionMode = coercePermissionModeForAgent(permissionMode, agentKind);
+        const effectiveThinkingMode = coerceThinkingModeForAgent(
+          thinkingMode ?? 'medium',
+          agentKind,
+        );
 
         const request: ChatRequest = {
           prompt: normalizedPrompt,
           model_id: selectedModelId,
           ...(chatIdOverride && { chat_id: chatIdOverride }),
           attached_files: filesToSend && filesToSend.length > 0 ? filesToSend : undefined,
-          permission_mode: permissionMode,
-          thinking_mode: thinkingMode || undefined,
+          permission_mode: effectivePermissionMode,
+          thinking_mode: effectiveThinkingMode,
           worktree: worktree ? true : undefined,
+          plan_mode: agentKind === 'codex' && planMode ? true : undefined,
           selected_persona_name: validPersona,
         };
 
@@ -149,8 +164,10 @@ export function useMessageActions({
     [
       chatId,
       addMessageToCache,
+      modelMap,
       personas,
       permissionMode,
+      planMode,
       selectedModelId,
       startStream,
       thinkingMode,

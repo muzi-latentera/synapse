@@ -11,15 +11,11 @@ import '@/styles/mosaic-theme.css';
 
 const VIEW_LABELS: Record<ViewType, string> = {
   agent: 'Agent',
-  browser: 'Browser',
   diff: 'Diff',
   editor: 'Editor',
-  ide: 'IDE',
   prReview: 'PR Review Inbox',
   terminal: 'Terminal',
   secrets: 'Secrets',
-  webPreview: 'Web Preview',
-  mobilePreview: 'Mobile Preview',
 };
 
 interface MosaicSplitViewProps {

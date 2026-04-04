@@ -11,7 +11,3 @@ GENERATE_TITLE_SYSTEM_PROMPT = (
     "User: write me a snake game → Building a Snake Game\n"
     "User: explain how async await works in javascript → JavaScript Async Await Explained"
 )
-
-GENERATE_TITLE_USER_TEMPLATE = (
-    "Generate a title for this message:\n<message>\n{message}\n</message>"
-)

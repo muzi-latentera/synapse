@@ -1,12 +1,10 @@
 from pydantic import BaseModel
 
-from app.models.schemas.settings import ProviderType
+from app.services.acp.adapters import AgentKind
 
 
 class AIModelResponse(BaseModel):
     model_id: str
     name: str
-    provider_id: str
-    provider_name: str
-    provider_type: ProviderType
+    agent_kind: AgentKind
     context_window: int | None = None

@@ -25,7 +25,7 @@ from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.sandbox_providers.types import SandboxProviderType
 from app.services.user import UserService
-from app.services.claude_session_registry import session_registry
+from app.services.session_registry import session_registry
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -106,7 +106,6 @@ class WorkspaceService(BaseDbService[Workspace]):
             custom_env_vars=user_settings.custom_env_vars,
             auto_compact_disabled=user_settings.auto_compact_disabled,
             attribution_disabled=user_settings.attribution_disabled,
-            custom_providers=user_settings.custom_providers,
         )
 
         try:

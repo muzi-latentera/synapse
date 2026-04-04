@@ -10,26 +10,19 @@ import shlex
 import shutil
 import signal
 import subprocess
-import sys
 import termios
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
-
 from app.constants import (
-    DOCKER_AVAILABLE_PORTS,
-    EXCLUDED_PREVIEW_PORTS,
     HOST_REQUIRED_PATH_PREFIX,
-    OPENVSCODE_PORT,
     SANDBOX_BASHRC_PATH,
     SANDBOX_BINARY_EXTENSIONS,
     SANDBOX_DEFAULT_COMMAND_TIMEOUT,
     SANDBOX_HOME_DIR,
     SANDBOX_WORKSPACE_DIR,
     TERMINAL_TYPE,
-    VNC_WEBSOCKET_PORT,
 )
 from app.core.config import get_settings
 from app.services.exceptions import SandboxException
@@ -38,7 +31,6 @@ from app.services.sandbox_providers.types import (
     CommandResult,
     FileContent,
     FileMetadata,
-    PreviewLink,
     PtyDataCallbackType,
     PtySession,
     PtySize,
@@ -47,15 +39,16 @@ from app.services.sandbox_providers.types import (
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-HOST_ALLOWED_PREVIEW_PORTS: set[int] = (
-    set(DOCKER_AVAILABLE_PORTS) - EXCLUDED_PREVIEW_PORTS
-)
-
 HOME_PREFIX = f"{SANDBOX_HOME_DIR}/"
 WORKSPACE_PREFIX = f"{SANDBOX_WORKSPACE_DIR}/"
 
 # Matches /home/user/workspace or /home/user at word-like boundaries in shell commands.
 # Workspace alternative comes first so the longer path wins.
+# The host provider uses a real directory per sandbox instead of a container.
+# Commands reference virtual paths (/home/user/workspace) that need to be
+# rewritten to the actual host path before execution, and output containing
+# host paths must be masked back to virtual paths so the frontend never
+# sees the real filesystem layout.
 VIRTUAL_PATH_PATTERN = re.compile(
     rf"(?:(?<=^)|(?<=[\s\"'=(]))"
     rf"({re.escape(SANDBOX_WORKSPACE_DIR)}|{re.escape(SANDBOX_HOME_DIR)})"
@@ -67,20 +60,6 @@ VIRTUAL_PATH_PATTERN = re.compile(
 class HostSandboxInfo:
     home_dir: Path
     workspace_dir: Path
-
-
-LISTENING_PORTS_COMMAND = (
-    (
-        "lsof -iTCP -sTCP:LISTEN -nP"
-        " | awk 'NR>1 {split($9,a,\":\"); print a[length(a)]}'"
-        " | grep -E '^[0-9]+$' | sort -u"
-    )
-    if sys.platform == "darwin"
-    else (
-        "ss -tuln | grep LISTEN | awk '{print $5}' | sed 's/.*://g'"
-        " | grep -E '^[0-9]+$' | sort -u"
-    )
-)
 
 
 class LocalHostProvider(SandboxProvider):
@@ -153,6 +132,9 @@ class LocalHostProvider(SandboxProvider):
         return self._sandboxes[sandbox_id].workspace_dir
 
     def _resolve_path(self, sandbox_id: str, path: str) -> Path:
+        # Map virtual sandbox paths (/home/user/...) to real host paths, enforcing
+        # that the resolved path stays within the sandbox home or workspace dir
+        # (prevents path traversal via ../ or symlinks).
         home_dir = self._resolve_sandbox_dir(sandbox_id)
         workspace_dir = self._resolve_workspace_dir(sandbox_id)
         requested = Path(path)
@@ -253,6 +235,8 @@ class LocalHostProvider(SandboxProvider):
             if candidate.exists() and candidate.is_dir():
                 home_dir = candidate
 
+        # Only delete if the home dir is inside our base dir — prevents
+        # accidental deletion of arbitrary directories via crafted sandbox IDs.
         if home_dir and home_dir.is_relative_to(self._base_dir):
             await asyncio.to_thread(shutil.rmtree, home_dir, ignore_errors=True)
 
@@ -572,6 +556,9 @@ class LocalHostProvider(SandboxProvider):
         home_dir_str: str,
         workspace_dir_str: str,
     ) -> None:
+        # In web mode, replace real host paths in terminal output with virtual
+        # paths so the user sees /home/user/workspace instead of /var/data/sandboxes/abc123.
+        # Desktop mode skips masking since the user's real paths are expected.
         mask = not settings.DESKTOP_MODE
         if mask:
             home_bytes = home_dir_str.encode()
@@ -661,6 +648,9 @@ class LocalHostProvider(SandboxProvider):
         sandbox_id: str,
         key: str,
     ) -> None:
+        # Host provider manages secrets as lines in .bashrc — override the base
+        # class sed-based approach with direct file manipulation since there's
+        # no container shell to exec into.
         bashrc = self._resolve_path(sandbox_id, SANDBOX_BASHRC_PATH)
         lines = await asyncio.to_thread(bashrc.read_text)
         prefix = f"export {key}="
@@ -670,34 +660,6 @@ class LocalHostProvider(SandboxProvider):
             if not line.startswith(prefix)
         ]
         await asyncio.to_thread(bashrc.write_text, "".join(filtered))
-
-    async def get_preview_links(self, sandbox_id: str) -> list[PreviewLink]:
-        result = await self.execute_command(
-            sandbox_id, LISTENING_PORTS_COMMAND, timeout=5
-        )
-        listening_ports = self._parse_listening_ports(result.stdout)
-        allowed_ports = listening_ports & HOST_ALLOWED_PREVIEW_PORTS
-        return self._build_preview_links(
-            listening_ports=allowed_ports,
-            url_builder=lambda port: f"{self._preview_base_url}:{port}",
-            excluded_ports=EXCLUDED_PREVIEW_PORTS,
-        )
-
-    async def get_ide_url(self, sandbox_id: str) -> str | None:
-        if not shutil.which("openvscode-server"):
-            return None
-        workspace_dir = self._resolve_workspace_dir(sandbox_id)
-        folder = quote(str(workspace_dir), safe="/")
-        return f"{self._preview_base_url}:{OPENVSCODE_PORT}/?folder={folder}"
-
-    async def get_vnc_url(self, sandbox_id: str) -> str | None:
-        if not shutil.which("websockify"):
-            return None
-        self._resolve_sandbox_dir(sandbox_id)
-        base_url = self._preview_base_url.replace("http://", "ws://", 1).replace(
-            "https://", "wss://", 1
-        )
-        return f"{base_url}:{VNC_WEBSOCKET_PORT}"
 
     async def cleanup(self) -> None:
         await super().cleanup()

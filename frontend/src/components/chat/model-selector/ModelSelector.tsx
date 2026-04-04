@@ -1,63 +1,70 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { Cpu } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import type { DropdownItemType } from '@/components/ui/primitives/Dropdown';
 import { useAuthStore } from '@/store/authStore';
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useIsSplitMode } from '@/hooks/useIsSplitMode';
-import type { Model } from '@/types/chat.types';
+import type { AgentKind, Model } from '@/types/chat.types';
 
-const groupModelsByProvider = (models: Model[]) => {
-  const groups = new Map<string, { name: string; models: Model[] }>();
-
-  models.forEach((model) => {
-    const key = model.provider_id;
-    if (!groups.has(key)) {
-      groups.set(key, { name: model.provider_name, models: [] });
-    }
-    groups.get(key)!.models.push(model);
-  });
-
-  return Array.from(groups.values()).map((group) => ({
-    label: group.name,
-    items: group.models,
-  }));
+const AGENT_LABELS: Record<AgentKind, string> = {
+  claude: 'Claude',
+  codex: 'Codex',
 };
 
 export interface ModelSelectorProps {
   selectedModelId: string;
   onModelChange: (modelId: string) => void;
+  chatId?: string;
   dropdownPosition?: 'top' | 'bottom';
   disabled?: boolean;
   compact?: boolean;
+  lockedAgentKind?: AgentKind | null;
 }
 
 export const ModelSelector = memo(function ModelSelector({
   selectedModelId,
   onModelChange,
+  chatId,
   dropdownPosition = 'bottom',
   disabled = false,
   compact,
+  lockedAgentKind,
 }: ModelSelectorProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isSplitMode = useIsSplitMode();
-  const { models, isLoading } = useModelSelection({ enabled: isAuthenticated });
+  const { models, isLoading } = useModelSelection({ enabled: isAuthenticated, chatId });
+
+  const filteredModels = useMemo(
+    () => (lockedAgentKind ? models.filter((m) => m.agent_kind === lockedAgentKind) : models),
+    [models, lockedAgentKind],
+  );
 
   const groupedItems = useMemo(() => {
-    const groups = groupModelsByProvider(models);
-    const items: DropdownItemType<Model>[] = [];
+    const groups = new Map<AgentKind, Model[]>();
+    filteredModels.forEach((model) => {
+      const list = groups.get(model.agent_kind) ?? [];
+      list.push(model);
+      groups.set(model.agent_kind, list);
+    });
 
-    groups.forEach((group) => {
-      items.push({ type: 'header', label: group.label });
-      group.items.forEach((model) => {
+    const items: DropdownItemType<Model>[] = [];
+    groups.forEach((agentModels, kind) => {
+      items.push({ type: 'header', label: AGENT_LABELS[kind] ?? kind });
+      agentModels.forEach((model) => {
         items.push({ type: 'item', data: model });
       });
     });
-
     return items;
-  }, [models]);
+  }, [filteredModels]);
 
-  const selectedModel = models.find((m) => m.model_id === selectedModelId);
+  const selectedModel = filteredModels.find((m) => m.model_id === selectedModelId);
+
+  useEffect(() => {
+    if (!selectedModel && filteredModels.length > 0) {
+      onModelChange(filteredModels[0].model_id);
+    }
+  }, [selectedModel, filteredModels, onModelChange]);
 
   if (isLoading) {
     return (
@@ -67,7 +74,7 @@ export const ModelSelector = memo(function ModelSelector({
     );
   }
 
-  if (models.length === 0) {
+  if (filteredModels.length === 0) {
     return (
       <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1">
         <span className="text-xs text-text-quaternary">No models</span>
@@ -77,10 +84,10 @@ export const ModelSelector = memo(function ModelSelector({
 
   return (
     <Dropdown
-      value={selectedModel || models[0]}
+      value={selectedModel || filteredModels[0]}
       items={groupedItems}
       getItemKey={(model) => model.model_id}
-      getItemLabel={(model) => `${model.provider_name} - ${model.name}`}
+      getItemLabel={(model) => model.name}
       getItemShortLabel={(model) => model.name}
       onSelect={(model) => onModelChange(model.model_id)}
       leftIcon={Cpu}

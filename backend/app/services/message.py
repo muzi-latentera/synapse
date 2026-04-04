@@ -27,6 +27,10 @@ class MessageService(BaseDbService[Message]):
 
     @staticmethod
     def extract_user_text_content(content: str) -> str:
+        # User messages can arrive as plain text or as a JSON array of typed
+        # content blocks (e.g. [{type: "user_text", text: "..."}, ...]) when
+        # the frontend sends multi-part input. Extract just the text portions
+        # for storage in content_text, which is used for title generation and search.
         stripped = content.strip()
         if not stripped:
             return ""
@@ -157,6 +161,8 @@ class MessageService(BaseDbService[Message]):
             values: dict[str, Any] = {
                 "content_text": content_text,
                 "content_render": content_render,
+                # Monotonic guard: never regress last_seq if a late-arriving
+                # flush races with a newer one (can happen during cancellation).
                 "last_seq": case(
                     (Message.last_seq > last_seq, Message.last_seq),
                     else_=last_seq,

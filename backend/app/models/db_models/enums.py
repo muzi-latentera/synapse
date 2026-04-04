@@ -19,27 +19,6 @@ class MessageStreamStatus(str, enum.Enum):
     INTERRUPTED = "interrupted"
 
 
-class RecurrenceType(str, enum.Enum):
-    ONCE = "once"
-    DAILY = "daily"
-    WEEKLY = "weekly"
-    MONTHLY = "monthly"
-
-
-class TaskStatus(str, enum.Enum):
-    PENDING = "pending"
-    ACTIVE = "active"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class TaskExecutionStatus(str, enum.Enum):
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-
-
 class ToolStatus(str, enum.Enum):
     STARTED = "started"
     COMPLETED = "completed"

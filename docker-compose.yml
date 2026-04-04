@@ -59,9 +59,6 @@ services:
         condition: service_completed_successfully
     ports:
       - "${BACKEND_PORT}:8080"
-      - "${VNC_PORT}:5900"
-      - "${VNC_WS_PORT}:6080"
-      - "${OPENVSCODE_PORT}:8765"
     volumes:
       - ./backend:/app
       - ./storage:/app/storage
