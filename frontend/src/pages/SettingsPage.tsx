@@ -64,7 +64,6 @@ const createFallbackSettings = (): UserSettings => ({
   user_id: '',
   github_personal_access_token: null,
   sandbox_provider: null,
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   custom_instructions: null,
   custom_agents: null,
   custom_mcps: null,
@@ -80,7 +79,7 @@ const createFallbackSettings = (): UserSettings => ({
 });
 
 const TAB_FIELDS: Record<TabKey, (keyof UserSettings)[]> = {
-  general: ['github_personal_access_token', 'timezone'],
+  general: ['github_personal_access_token'],
   marketplace: [],
   mcp: ['custom_mcps'],
   agents: ['custom_agents'],
@@ -177,7 +176,6 @@ const SettingsPage: React.FC = () => {
       const fields: (keyof UserSettingsUpdate)[] = [
         'github_personal_access_token',
         'sandbox_provider',
-        'timezone',
         'custom_instructions',
         'custom_agents',
         'custom_mcps',
@@ -291,10 +289,6 @@ const SettingsPage: React.FC = () => {
 
   const handleSandboxProviderChange = (provider: SandboxProviderType) => {
     persistSettings((prev) => ({ ...prev, sandbox_provider: provider }));
-  };
-
-  const handleTimezoneChange = (timezone: string) => {
-    handleInputChange('timezone', timezone);
   };
 
   const confirmDeleteAllChats = async () => {
@@ -550,7 +544,6 @@ const SettingsPage: React.FC = () => {
                         onAutoCompactDisabledChange={handleAutoCompactDisabledChange}
                         onAttributionDisabledChange={handleAttributionDisabledChange}
                         onSandboxProviderChange={handleSandboxProviderChange}
-                        onTimezoneChange={handleTimezoneChange}
                       />
                     </div>
                   )}

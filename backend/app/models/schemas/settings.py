@@ -1,5 +1,4 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Literal
 from uuid import UUID
 
@@ -59,7 +58,6 @@ class InstalledPluginSchema(BaseModel):
 class UserSettingsBase(BaseModel):
     github_personal_access_token: str | None = None
     sandbox_provider: Literal["docker", "host"] = "docker"
-    timezone: str = Field(default="UTC", max_length=64)
     custom_instructions: str | None = Field(default=None, max_length=1500)
     custom_mcps: list[CustomMcp] | None = None
     custom_env_vars: list[CustomEnvVar] | None = None
@@ -85,15 +83,6 @@ class UserSettingsBase(BaseModel):
         if isinstance(value, str):
             return []
         raise ValueError(f"Expected list or None, got {type(value).__name__}")
-
-    @field_validator("timezone")
-    @classmethod
-    def _validate_timezone(cls, value: str) -> str:
-        try:
-            ZoneInfo(value)
-        except ZoneInfoNotFoundError as exc:
-            raise ValueError(f"Invalid timezone: {value}") from exc
-        return value
 
 
 class UserSettingsResponse(UserSettingsBase):

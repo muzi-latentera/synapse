@@ -60,7 +60,6 @@ def upgrade() -> None:
     sa.Column('user_id', GUID(), nullable=False),
     sa.Column('github_personal_access_token', EncryptedString(), nullable=True),
     sa.Column('sandbox_provider', sa.String(length=32), server_default='docker', nullable=False),
-    sa.Column('timezone', sa.String(length=64), server_default='UTC', nullable=False),
     sa.Column('custom_instructions', sa.Text(), nullable=True),
     sa.Column('custom_mcps', sa.JSON(), nullable=True),
     sa.Column('custom_env_vars', sa.JSON(), nullable=True),

@@ -81,9 +81,6 @@ class UserSettings(Base):
     sandbox_provider: Mapped[str] = mapped_column(
         String(32), default="docker", server_default="docker", nullable=False
     )
-    timezone: Mapped[str] = mapped_column(
-        String(64), default="UTC", server_default="UTC", nullable=False
-    )
     custom_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     custom_mcps: Mapped[list[CustomMcpDict] | None] = mapped_column(JSON, nullable=True)
     custom_env_vars: Mapped[list[CustomEnvVarDict] | None] = mapped_column(

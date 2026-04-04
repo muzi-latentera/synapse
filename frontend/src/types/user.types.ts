@@ -65,7 +65,6 @@ export interface UserSettings {
   user_id: string;
   github_personal_access_token: string | null;
   sandbox_provider: SandboxProviderType | null;
-  timezone: string;
   custom_instructions: string | null;
   custom_agents: CustomAgent[] | null;
   custom_mcps: CustomMcp[] | null;
