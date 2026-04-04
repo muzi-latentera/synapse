@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/primitives/Button';
-import { Input } from '@/components/ui/primitives/Input';
 import { Switch } from '@/components/ui/primitives/Switch';
 import { SegmentedControl } from '@/components/ui/primitives/SegmentedControl';
 import type { ApiFieldKey, GeneralSecretFieldConfig } from '@/types/settings.types';
@@ -20,7 +19,6 @@ interface GeneralSettingsTabProps {
   onAutoCompactDisabledChange: (disabled: boolean) => void;
   onAttributionDisabledChange: (disabled: boolean) => void;
   onSandboxProviderChange: (provider: SandboxProviderType) => void;
-  onTimezoneChange: (timezone: string) => void;
 }
 
 function SectionCard({
@@ -70,7 +68,6 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
   onAutoCompactDisabledChange,
   onAttributionDisabledChange,
   onSandboxProviderChange,
-  onTimezoneChange,
 }) => (
   <div className="space-y-4">
     <SectionCard title="API Keys & Authentication">
@@ -112,19 +109,6 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
             { value: 'host', label: 'Host (Local)', disabled: false },
             { value: 'docker', label: 'Docker (Local)', disabled: false },
           ]}
-        />
-      </div>
-    </SectionCard>
-
-    <SectionCard title="Timezone">
-      <div className="space-y-2">
-        <p className="text-xs text-text-tertiary dark:text-text-dark-tertiary">
-          Used for scheduled tasks. Example: America/Los_Angeles
-        </p>
-        <Input
-          value={settings.timezone}
-          onChange={(event) => onTimezoneChange(event.target.value)}
-          placeholder="America/Los_Angeles"
         />
       </div>
     </SectionCard>
