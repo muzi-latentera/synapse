@@ -110,6 +110,7 @@ class ChatStreamRuntime:
         self._bg_tasks: set[asyncio.Task[None]] = set()
         self._last_emitted_tokens: int = 0
         self._last_emitted_context_window: int = 0
+        self._stream: AsyncIterator[StreamEvent] | None = None
 
     async def run(
         self,
@@ -117,6 +118,7 @@ class ChatStreamRuntime:
         stream_result: StreamResult,
         stream: AsyncIterator[StreamEvent],
     ) -> str:
+        self._stream = stream
         try:
             start_seq = await self.emit_event(
                 "stream_started",
@@ -140,6 +142,14 @@ class ChatStreamRuntime:
                 )
 
             if self.last_seq <= start_seq:
+                # Cancel/send-now may have arrived after the last event was
+                # consumed but before _consume_stream returned — the stream
+                # ended naturally (via StopAsyncIteration) so CancelledError
+                # never fired. Treat as interrupted rather than erroring.
+                if self._cancel_event and self._cancel_event.is_set():
+                    return await self._complete_stream(
+                        stream_result, MessageStreamStatus.INTERRUPTED
+                    )
                 raise AiServiceException("Stream completed without any events")
 
             return await self._complete_stream(
@@ -380,13 +390,6 @@ class ChatStreamRuntime:
         await self._save_final_snapshot(stream_result, status)
         final_content = self.snapshot.content_text
 
-        if status != MessageStreamStatus.COMPLETED and self.cache:
-            try:
-                queue_service = QueueService(self.cache)
-                await queue_service.clear_send_now(self.chat_id)
-            except CacheError as exc:
-                logger.debug("Failed to clear send-now flag: %s", exc)
-
         if status == MessageStreamStatus.COMPLETED:
             title_task = asyncio.create_task(self._generate_title())
             title_task.add_done_callback(ChatStreamRuntime._on_title_task_done)
@@ -401,18 +404,36 @@ class ChatStreamRuntime:
                     {"status": "completed"},
                     apply_snapshot=False,
                 )
+        elif status == MessageStreamStatus.INTERRUPTED:
+            # Close the stream generator before starting the send-now
+            # replacement. This ensures the old prompt_task is fully
+            # cancelled (and its handler.finish() sentinel already fired)
+            # before the new prompt begins on the same shared handler.
+            await self._close_stream()
+            if await self._process_next_queued(send_now_only=True):
+                session_registry.consume_pending_cancel(self.chat_id)
+                return final_content
+            await self._emit_context_usage(stream_result)
+            await self.emit_event(
+                "cancelled",
+                {"status": status.value},
+                apply_snapshot=False,
+            )
         else:
             await self._emit_context_usage(stream_result)
-            terminal_kind = (
-                "cancelled" if status == MessageStreamStatus.INTERRUPTED else "complete"
-            )
             await self.emit_event(
-                terminal_kind,
+                "complete",
                 {"status": status.value},
                 apply_snapshot=False,
             )
 
         return final_content
+
+    async def _close_stream(self) -> None:
+        stream = self._stream
+        if stream is not None and hasattr(stream, "aclose"):
+            self._stream = None
+            await stream.aclose()
 
     async def _handle_session_update(self, payload: dict[str, Any]) -> None:
         new_session_id = payload.get("session_id")
@@ -453,13 +474,13 @@ class ChatStreamRuntime:
         if exc:
             logger.error("Session update task failed: %s", exc)
 
-    async def _process_next_queued(self) -> bool:
+    async def _process_next_queued(self, *, send_now_only: bool = False) -> bool:
         next_msg: dict[str, Any] | None = None
         try:
             async with cache_connection() as cache:
                 queue_service = QueueService(cache)
                 next_msg = await queue_service.pop_send_now_message(self.chat_id)
-                if not next_msg:
+                if not next_msg and not send_now_only:
                     next_msg = await queue_service.pop_next_message(self.chat_id)
         except CacheError as exc:
             logger.error(
@@ -1034,8 +1055,7 @@ class ChatStreamRuntime:
                 await session_registry.terminate(runtime.chat_id)
                 raise
             finally:
-                if stream is not None and hasattr(stream, "aclose"):
-                    await stream.aclose()
+                await runtime._close_stream()
                 session.active_generation_task = None
                 session.last_used_at = time.monotonic()
 

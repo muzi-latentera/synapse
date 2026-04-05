@@ -86,6 +86,15 @@ class AcpClientHandler:
     def on_connect(self, conn: Any) -> None:
         pass
 
+    def prepare_for_prompt(self) -> None:
+        # Drain any stale events/sentinels left from a previous prompt whose
+        # stream consumer was force-closed (e.g., via aclose() after ACP cancel).
+        while True:
+            try:
+                self.event_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
     def finish(self) -> None:
         self._active_tools.clear()
         self._resolved_permissions.clear()
