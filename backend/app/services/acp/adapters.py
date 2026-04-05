@@ -71,7 +71,6 @@ class AgentAdapter(ABC):
     def build_permission_config(self, permission_mode: str) -> PermissionConfig:
         return PermissionConfig(session_mode=permission_mode)
 
-    @abstractmethod
     def build_cli_args(
         self,
         *,
@@ -81,7 +80,7 @@ class AgentAdapter(ABC):
         permission_mode: str | None = None,
         launch_approval_policy: str | None = None,
     ) -> list[str]:
-        raise NotImplementedError
+        return []
 
     @abstractmethod
     def build_session_meta(
@@ -108,17 +107,6 @@ class ClaudeAgentAdapter(AgentAdapter):
         max_thinking = THINKING_MODE_TOKENS.get(thinking_mode or "")
         if max_thinking:
             env["MAX_THINKING_TOKENS"] = str(max_thinking)
-
-    def build_cli_args(
-        self,
-        *,
-        system_prompt: str | None,
-        system_prompt_is_full_replace: bool,
-        reasoning_effort: str | None,
-        permission_mode: str | None = None,
-        launch_approval_policy: str | None = None,
-    ) -> list[str]:
-        return ["--hide-claude-auth"]
 
     def build_session_meta(
         self,
