@@ -94,6 +94,8 @@ class AcpSession:
         attachments: list[dict[str, Any]] | None = None,
         agent_kind: AgentKind = AgentKind.CLAUDE,
     ) -> None:
+        self._handler.prepare_for_prompt()
+
         prompt_blocks: list[
             TextContentBlock | ImageContentBlock | EmbeddedResourceContentBlock
         ] = [
@@ -292,8 +294,7 @@ class AcpSession:
                     )
                 finally:
                     handler.muted = False
-                    while not handler.event_queue.empty():
-                        handler.event_queue.get_nowait()
+                    handler.prepare_for_prompt()
                 acp_session_id = config.resume_session_id
             else:
                 response = await conn.new_session(
