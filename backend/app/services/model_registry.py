@@ -15,9 +15,9 @@ class ModelEntry:
 
 _RAW_MODELS: dict[AgentKind, list[tuple[str, str, int | None]]] = {
     AgentKind.CLAUDE: [
-        ("claude-sonnet-4-6", "Sonnet", 1_000_000),
-        ("claude-opus-4-6", "Opus", 1_000_000),
-        ("claude-haiku-4-5-20251001", "Haiku", 200_000),
+        ("sonnet[1m]", "Sonnet", 1_000_000),
+        ("opus[1m]", "Opus", 1_000_000),
+        ("haiku", "Haiku", 200_000),
     ],
     AgentKind.CODEX: [
         ("gpt-5.4", "GPT 5.4", 1_000_000),
