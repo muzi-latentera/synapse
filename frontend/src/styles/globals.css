@@ -32,20 +32,6 @@ body,
     min-height: 100dvh;
   }
 
-  .break-word-wrap {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-
-  .scrollbar-none {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
-  }
-
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -61,38 +47,6 @@ body,
     animation: fade-in 0.3s ease-out;
   }
 
-  @keyframes float {
-    0%,
-    100% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-6px);
-    }
-  }
-
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-
-  @keyframes bounce-vertical {
-    0%,
-    100% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
-  }
-
-  .animate-bounce-vertical {
-    animation: bounce-vertical 2s ease-in-out infinite;
-  }
-
-  .animate-bounce-vertical:hover {
-    animation-play-state: paused;
-  }
-
   .animate-in {
     animation: enter 0.2s ease-out;
   }
@@ -103,14 +57,6 @@ body,
 
   .slide-in-from-top-2 {
     --tw-enter-translate-y: -0.5rem;
-  }
-
-  .slide-in-from-left-3 {
-    --tw-enter-translate-x: -0.75rem;
-  }
-
-  .zoom-in-50 {
-    --tw-enter-scale: 0.5;
   }
 
   @keyframes enter {

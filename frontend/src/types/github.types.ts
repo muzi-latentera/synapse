@@ -15,7 +15,7 @@ export interface GitHubReposResponse {
   has_more: boolean;
 }
 
-export interface GitHubPullRequest {
+interface GitHubPullRequest {
   number: number;
   title: string;
   body: string | null;
@@ -32,7 +32,7 @@ export interface GitHubPRListResponse {
   items: GitHubPullRequest[];
 }
 
-export interface GitHubReviewComment {
+interface GitHubReviewComment {
   id: number;
   body: string;
   path: string | null;

@@ -22,7 +22,7 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'query-vendor': ['@tanstack/react-query', '@tanstack/react-query-devtools'],
           monaco: ['monaco-editor', '@monaco-editor/react'],
-          terminal: ['xterm', 'xterm-addon-fit', 'xterm-addon-web-links'],
+          terminal: ['xterm', 'xterm-addon-fit'],
           mermaid: ['mermaid'],
           markdown: ['react-markdown', 'remark-gfm', 'remark-math', 'rehype-katex'],
         },
