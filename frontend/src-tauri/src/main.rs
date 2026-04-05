@@ -135,8 +135,21 @@ fn spawn_backend(
 ) -> Child {
     let backend_bin = resolve_backend_binary(app_handle);
     let mut backend_path = std::env::var("PATH").unwrap_or_default();
+    let mut extra_paths: Vec<String> = Vec::new();
     if let Some(home) = dirs::home_dir() {
-        backend_path.push_str(&format!(":{}/.local/bin", home.display()));
+        extra_paths.push(format!("{}/.local/bin", home.display()));
+    }
+    extra_paths.extend([
+        "/opt/homebrew/bin".to_string(),
+        "/opt/homebrew/sbin".to_string(),
+        "/usr/local/bin".to_string(),
+        "/usr/local/sbin".to_string(),
+    ]);
+    for path in extra_paths {
+        if !backend_path.split(':').any(|p| p == path) {
+            backend_path.push(':');
+            backend_path.push_str(&path);
+        }
     }
 
     let db_path = data_dir.join("agentrove.db").to_string_lossy().to_string();
