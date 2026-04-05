@@ -8,8 +8,6 @@ export const EMPTY_QUEUE: LocalQueuedMessage[] = [];
 
 interface MessageQueueState {
   queues: Map<string, LocalQueuedMessage[]>;
-  isSyncing: Map<string, boolean>;
-
   queueMessage: (
     chatId: string,
     content: string,
@@ -23,24 +21,20 @@ interface MessageQueueState {
   ) => Promise<string>;
   updateQueuedMessage: (chatId: string, messageId: string, content: string) => Promise<void>;
   removeMessage: (chatId: string, messageId: string) => Promise<void>;
-  clearAndSync: (chatId: string) => Promise<void>;
   getQueue: (chatId: string) => LocalQueuedMessage[];
   sendNow: (chatId: string, messageId: string) => Promise<boolean>;
   clearQueue: (chatId: string) => void;
   fetchQueue: (chatId: string) => Promise<void>;
-  syncPendingMessages: (chatId: string) => Promise<void>;
   removeLocalOnly: (chatId: string, messageId: string) => void;
   cleanupChat: (chatId: string) => void;
 }
 
 // Optimistic message queue: messages are added locally with a temp ID, then
 // synced to the server. If the server returns a real ID, the temp ID is swapped
-// in-place. Network errors leave the message as unsynced for later retry via
-// syncPendingMessages. fetchQueue merges server state with any unsynced locals
-// so nothing is lost across page refreshes.
+// in-place. Network errors leave the message as unsynced. fetchQueue merges
+// server state with any unsynced locals so nothing is lost across page refreshes.
 export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
   queues: new Map<string, LocalQueuedMessage[]>(),
-  isSyncing: new Map<string, boolean>(),
 
   queueMessage: async (
     chatId: string,
@@ -171,25 +165,6 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
     }
   },
 
-  clearAndSync: async (chatId: string) => {
-    const queue = get().queues.get(chatId) || [];
-    const hasSynced = queue.some((m) => m.synced);
-
-    set((state) => {
-      const nextQueues = new Map(state.queues);
-      nextQueues.delete(chatId);
-      return { queues: nextQueues };
-    });
-
-    if (hasSynced) {
-      try {
-        await queueService.clearQueue(chatId);
-      } catch (error) {
-        console.error('Failed to sync queue clear:', error);
-      }
-    }
-  },
-
   // Asks the backend to immediately process this queued message instead of
   // waiting for the stream to finish. Sets a 30s timeout guard to reset the
   // sendingNow flag in case the request hangs without a response.
@@ -265,10 +240,8 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
   cleanupChat: (chatId: string) => {
     set((state) => {
       const nextQueues = new Map(state.queues);
-      const nextSyncing = new Map(state.isSyncing);
       nextQueues.delete(chatId);
-      nextSyncing.delete(chatId);
-      return { queues: nextQueues, isSyncing: nextSyncing };
+      return { queues: nextQueues };
     });
   },
 
@@ -311,62 +284,6 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
       });
     } catch (error) {
       console.error('Failed to fetch queue:', error);
-    }
-  },
-
-  // Retries sending any locally-queued messages that failed to sync earlier
-  // (e.g., due to a network blip). Processes sequentially — stops on first
-  // failure to preserve ordering guarantees.
-  syncPendingMessages: async (chatId: string) => {
-    const state = get();
-    if (state.isSyncing.get(chatId)) {
-      return;
-    }
-
-    set((s) => {
-      const nextSyncing = new Map(s.isSyncing);
-      nextSyncing.set(chatId, true);
-      return { isSyncing: nextSyncing };
-    });
-
-    try {
-      const queue = state.queues.get(chatId) || [];
-      const pendingMessages = queue.filter((m) => !m.synced);
-
-      for (const msg of pendingMessages) {
-        try {
-          const result = await queueService.queueMessage(
-            chatId,
-            msg.content,
-            msg.model_id,
-            msg.permissionMode ?? 'acceptEdits',
-            msg.thinkingMode ?? null,
-            msg.worktree ?? false,
-            msg.planMode ?? false,
-            msg.selectedPersonaName ?? DEFAULT_PERSONA,
-            msg.files,
-          );
-
-          set((s) => {
-            const nextQueues = new Map(s.queues);
-            const currentQueue = nextQueues.get(chatId) || [];
-            const updatedQueue = currentQueue.map((m) =>
-              m.id === msg.id ? { ...m, id: result.id, synced: true } : m,
-            );
-            nextQueues.set(chatId, updatedQueue);
-            return { queues: nextQueues };
-          });
-        } catch (error) {
-          console.error('Failed to sync pending message:', error);
-          break;
-        }
-      }
-    } finally {
-      set((s) => {
-        const nextSyncing = new Map(s.isSyncing);
-        nextSyncing.delete(chatId);
-        return { isSyncing: nextSyncing };
-      });
     }
   },
 }));

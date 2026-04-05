@@ -1,4 +1,4 @@
-export interface MarketplaceAuthor {
+interface MarketplaceAuthor {
   name: string;
   email?: string;
   url?: string;
@@ -15,7 +15,7 @@ export interface MarketplacePlugin {
   homepage?: string;
 }
 
-export interface PluginComponents {
+interface PluginComponents {
   agents: string[];
   commands: string[];
   skills: string[];
@@ -41,7 +41,7 @@ export interface InstallComponentRequest {
   components: string[];
 }
 
-export interface InstallComponentResult {
+interface InstallComponentResult {
   component: string;
   success: boolean;
   error?: string;

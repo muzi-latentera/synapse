@@ -569,14 +569,6 @@ export function useStreamCallbacks({
       timerIdsRef.current.forEach(clearTimeout);
       timerIdsRef.current = [];
 
-      // Delay usage refetch — the backend finalizes token counts asynchronously
-      // after the stream ends, so an immediate query would return stale totals.
-      timerIdsRef.current.push(
-        setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: [queryKeys.auth.usage] });
-        }, 2000),
-      );
-
       if (chatId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.chat(chatId), exact: true });
         if (currentChat?.parent_chat_id) {
