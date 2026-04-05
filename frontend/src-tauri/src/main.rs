@@ -142,8 +142,6 @@ fn spawn_backend(
     extra_paths.extend([
         "/opt/homebrew/bin".to_string(),
         "/opt/homebrew/sbin".to_string(),
-        "/usr/local/bin".to_string(),
-        "/usr/local/sbin".to_string(),
     ]);
     for path in extra_paths {
         if !backend_path.split(':').any(|p| p == path) {
