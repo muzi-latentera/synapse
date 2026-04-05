@@ -330,7 +330,7 @@ class AcpClientHandler:
             name=self._extract_tool_name(tc),
             title=tc.title,
             status=ToolStatus.STARTED.value,
-            parent_id=None,
+            parent_id=self._extract_parent_tool_id(tc),
             input=self._extract_raw_input(tc.raw_input),
         )
         self._active_tools[tc.tool_call_id] = payload
@@ -353,7 +353,7 @@ class AcpClientHandler:
                 name="unknown",
                 title="Unknown tool",
                 status=ToolStatus.STARTED.value,
-                parent_id=None,
+                parent_id=self._extract_parent_tool_id(tc),
                 input=None,
             )
 
@@ -403,6 +403,15 @@ class AcpClientHandler:
         # the outer SessionNotification and are injected by session_update().
         # Always emit so the caller can attach the session_id.
         return StreamEvent(type="system", data={})
+
+    @staticmethod
+    def _extract_parent_tool_id(tc: Any) -> str | None:
+        meta = getattr(tc, "field_meta", None) or {}
+        claude_meta = meta.get("claudeCode", {})
+        parent_id = claude_meta.get("parentToolUseId")
+        if parent_id:
+            return str(parent_id)
+        return None
 
     @staticmethod
     def _extract_tool_name(tc: Any) -> str:
