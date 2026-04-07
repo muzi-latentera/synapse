@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useSuggestionBase } from './useSuggestionBase';
 import type { SlashCommand } from '@/types/ui.types';
-import type { CustomCommand } from '@/types/user.types';
+import type { CustomSkill } from '@/types/user.types';
 
 const SLASH_COMMANDS: SlashCommand[] = [
   {
@@ -67,22 +67,22 @@ const SLASH_COMMANDS: SlashCommand[] = [
 interface UseSlashCommandOptions {
   message: string;
   onSelect: (command: SlashCommand) => void;
-  customSlashCommands?: CustomCommand[];
+  customSkills?: CustomSkill[];
 }
 
 export const useSlashCommandSuggestions = ({
   message,
   onSelect,
-  customSlashCommands = [],
+  customSkills = [],
 }: UseSlashCommandOptions) => {
   const allCommands = useMemo(() => {
-    const customCommandsFormatted: SlashCommand[] = customSlashCommands.map((cmd) => ({
-      value: `/${cmd.name}`,
-      label: cmd.name,
-      description: cmd.description,
+    const skillsFormatted: SlashCommand[] = customSkills.map((skill) => ({
+      value: `/${skill.name}`,
+      label: skill.name,
+      description: skill.description,
     }));
-    return [...SLASH_COMMANDS, ...customCommandsFormatted];
-  }, [customSlashCommands]);
+    return [...SLASH_COMMANDS, ...skillsFormatted];
+  }, [customSkills]);
 
   const { isActive, query } = useMemo(() => {
     const firstLine = message.split('\n', 1)[0] ?? '';

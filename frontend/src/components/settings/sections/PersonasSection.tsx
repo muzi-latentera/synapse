@@ -14,9 +14,9 @@ const PersonaEditDialog = lazyNamed(
 );
 
 export function PersonasSection() {
-  const { localSettings, persistSettings, setLocalSettings } = useSettingsContext();
+  const { localSettings, persistSettings } = useSettingsContext();
 
-  const personaCrud = useCrudForm(localSettings, persistSettings, setLocalSettings, {
+  const personaCrud = useCrudForm(localSettings, persistSettings, {
     createDefault: createDefaultPersonaForm,
     validateForm: (form, editingIndex) =>
       validatePersonaForm(form, editingIndex, localSettings.personas || []),

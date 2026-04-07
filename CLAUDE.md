@@ -40,7 +40,8 @@
 - Do not use Python's `str.format()` or f-strings to interpolate untrusted/user-provided content that may contain `{` or `}` characters (e.g., code diffs, source code snippets, JSON) — use string concatenation or `string.Template` instead
 - Add `Field(max_length=...)` to all `str` fields on Pydantic request models — bare `str` allows unbounded payloads; also add `min_length=1` when empty strings are invalid
 - Do not instantiate services directly in FastAPI route handlers — add a factory function in `deps.py` and inject via `Depends()`; route files should not import `SessionLocal`
-- Don't add comments or docstrings for self-explanatory code — but do add inline comments for non-obvious logic, implicit conventions, or design decisions that aren't clear from the code alone
+- Never use docstrings (`"""..."""`) — always use inline `#` comments instead when a comment is needed
+- Don't add comments for self-explanatory code — but do add inline comments for non-obvious logic, implicit conventions, or design decisions that aren't clear from the code alone
 - Do not delete existing comments without asking first — they may capture context that isn't obvious from the code
 - Let the code speak for itself - use clear variable/function names instead of comments
 - Do not use decorative section comments (e.g., `# ── Section ──────`) — code structure should be self-evident from class/method organization
@@ -71,6 +72,8 @@
 - Do not extract a shared React hook when callers must add `useCallback`/`useMemo` wrappers that the inline version did not need — the per-call-site ceremony can exceed the duplication it removes
 - When closing, cleaning up, or tearing down multiple independent resources in a loop, use `asyncio.gather(*[...], return_exceptions=True)` instead of sequential awaits — serializing I/O across independent resources wastes time, especially during shutdown or idle cleanup
 - When catching a `ServiceException` subclass at the API boundary to produce an `HTTPException`, use `exc.status_code` from the exception — do not hardcode a status code constant (e.g., `HTTP_500`) that shadows the exception's own classification
+- When a backend Pydantic response model field has a default value, the corresponding frontend TypeScript type must mark it as required — the API always includes it in responses, so optional markers are incorrect
+- Do not use `TypedDict` with `total=False` when all keys are always present in every construction site — use `total=True` (the default) so the type checker can verify direct key access is safe
 
 ## Naming Conventions
 

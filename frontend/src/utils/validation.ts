@@ -51,18 +51,6 @@ export function validateRequired(value: unknown, fieldName: string): void {
   }
 }
 
-export function validateRequiredIf(
-  value: unknown,
-  fieldName: string,
-  condition: boolean,
-  suffix?: string,
-): void {
-  if (condition && (value == null || (typeof value === 'string' && !value.trim()))) {
-    const message = suffix ? `${fieldName} is required ${suffix}` : `${fieldName} is required`;
-    throw new ValidationError(message);
-  }
-}
-
 export function validateUnique<T extends Record<string, unknown>>(
   field: keyof T,
   value: string,

@@ -20,7 +20,6 @@ import {
   useWorkspaceResourcesQuery,
 } from '@/hooks/queries/useWorkspaceQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
-import { mergeAgents, mergeByName, mergeCommands } from '@/utils/settings';
 import { findFileByToolPath } from '@/utils/file';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { CreateSubThreadDialog } from '@/components/chat/sub-threads/CreateSubThreadDialog';
@@ -108,32 +107,11 @@ export function ChatPage() {
 
   const { data: workspacesData } = useWorkspacesQuery();
   const workspaces = workspacesData?.items ?? [];
-
   const { data: settings } = useSettingsQuery();
 
   const { data: workspaceResources } = useWorkspaceResourcesQuery(currentChat?.workspace_id);
 
-  const allAgents = useMemo(
-    () => mergeByName(mergeAgents(settings?.custom_agents), workspaceResources?.agents ?? []),
-    [settings?.custom_agents, workspaceResources?.agents],
-  );
-
-  const enabledSlashCommands = useMemo(
-    () =>
-      mergeCommands(
-        settings?.custom_slash_commands,
-        settings?.custom_skills,
-        workspaceResources?.commands,
-        workspaceResources?.skills,
-      ),
-    [
-      settings?.custom_slash_commands,
-      settings?.custom_skills,
-      workspaceResources?.commands,
-      workspaceResources?.skills,
-    ],
-  );
-
+  const allSkills = useMemo(() => workspaceResources?.skills ?? [], [workspaceResources?.skills]);
   const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
   const { selectedFile, setSelectedFile, isRefreshing, handleRefresh, handleFileSelect } =
@@ -283,8 +261,7 @@ export function ChatPage() {
       sandboxId={currentChat?.sandbox_id}
       parentChatId={currentChat?.parent_chat_id ?? undefined}
       fileStructure={fileStructure}
-      customAgents={allAgents}
-      customSlashCommands={enabledSlashCommands}
+      customSkills={allSkills}
       personas={personas}
     >
       <ChatSessionOrchestrator

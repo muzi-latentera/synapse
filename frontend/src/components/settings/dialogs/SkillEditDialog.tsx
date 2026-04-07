@@ -7,38 +7,53 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { CustomSkill } from '@/types/user.types';
 import type { FileStructure } from '@/types/file-system.types';
 import { skillService, type SkillFileEntry } from '@/services/skillService';
-import { MONACO_EDITOR_OPTIONS } from '@/config/constants';
 import { detectLanguage, sortFiles } from '@/utils/file';
+import { MONACO_FONT_FAMILY } from '@/config/constants';
 
 const Editor = lazy(() => import('@monaco-editor/react'));
+
+const EDITOR_OPTIONS = {
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  wordWrap: 'on',
+  padding: { top: 8, bottom: 8 },
+  automaticLayout: true,
+  fontFamily: MONACO_FONT_FAMILY,
+  fontSize: 12,
+  scrollbar: {
+    useShadows: false,
+    vertical: 'auto',
+    horizontal: 'auto',
+    horizontalScrollbarSize: 6,
+    verticalScrollbarSize: 6,
+  },
+  overviewRulerBorder: false,
+  overviewRulerLanes: 0,
+} as const;
 
 interface SkillEditDialogProps {
   isOpen: boolean;
   skill: CustomSkill | null;
-  error: string | null;
-  saving: boolean;
   onClose: () => void;
-  onSave: (content: string) => Promise<void>;
+  onSaved: () => Promise<void>;
 }
 
 export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
   isOpen,
   skill,
-  error,
-  saving,
   onClose,
-  onSave,
+  onSaved,
 }) => {
   const [files, setFiles] = useState<SkillFileEntry[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileStructure | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [modifiedFiles, setModifiedFiles] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const theme = useResolvedTheme();
 
   const fileTree = useMemo(() => skillFilesToFileTree(files), [files]);
-
   const modifiedPathsKey = useMemo(
     () => [...modifiedFiles.keys()].sort().join('\0'),
     [modifiedFiles],
@@ -54,17 +69,17 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
     setSelectedFile(null);
     setExpandedFolders({});
     setModifiedFiles(new Map());
-    setLoadError(null);
+    setError(null);
     setLoading(true);
 
     let cancelled = false;
-    (async () => {
-      try {
-        const loaded = await skillService.getSkillFiles(skill.name);
+    void skillService
+      .getSkillFiles(skill.name)
+      .then((loaded) => {
         if (cancelled) return;
         setFiles(loaded);
         setExpandedFolders(collectFolderPathsFromFiles(loaded));
-        const firstTextFile = loaded.find((f) => !f.is_binary);
+        const firstTextFile = loaded.find((file) => !file.is_binary);
         if (firstTextFile) {
           setSelectedFile({
             path: firstTextFile.path,
@@ -73,13 +88,14 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
             is_binary: false,
           });
         }
-      } catch (err) {
+      })
+      .catch((loadError: unknown) => {
         if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : 'Failed to load skill files');
-      } finally {
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load skill files');
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false);
-      }
-    })();
+      });
 
     return () => {
       cancelled = true;
@@ -87,90 +103,77 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
   }, [isOpen, skill]);
 
   const selectedSkillFile = useMemo(
-    () => files.find((f) => f.path === selectedFile?.path) ?? null,
+    () => files.find((file) => file.path === selectedFile?.path) ?? null,
     [files, selectedFile],
   );
 
   const currentContent = useMemo(() => {
     if (!selectedSkillFile) return '';
-    if (modifiedFiles.has(selectedSkillFile.path))
-      return modifiedFiles.get(selectedSkillFile.path)!;
-    return selectedSkillFile.content;
+    const modified = modifiedFiles.get(selectedSkillFile.path);
+    return modified ?? selectedSkillFile.content;
   }, [selectedSkillFile, modifiedFiles]);
 
   const hasChanges = modifiedFiles.size > 0;
 
-  const handleEditorChange = (value: string | undefined) => {
-    if (!selectedFile) return;
-    const original = files.find((f) => f.path === selectedFile.path);
-    if (!original) return;
+  const handleEditorChange = useCallback(
+    (value: string | undefined) => {
+      if (!selectedFile) return;
+      const original = files.find((file) => file.path === selectedFile.path);
+      if (!original) return;
 
-    setModifiedFiles((prev) => {
-      const next = new Map(prev);
-      if (value === original.content) {
-        next.delete(selectedFile.path);
-      } else {
-        next.set(selectedFile.path, value ?? '');
-      }
-      return next;
-    });
-  };
+      setModifiedFiles((previous) => {
+        const next = new Map(previous);
+        if ((value ?? '') === original.content) {
+          next.delete(selectedFile.path);
+        } else {
+          next.set(selectedFile.path, value ?? '');
+        }
+        return next;
+      });
+    },
+    [files, selectedFile],
+  );
 
   const handleToggleFolder = useCallback((path: string) => {
-    setExpandedFolders((prev) => ({ ...prev, [path]: !prev[path] }));
+    setExpandedFolders((previous) => ({ ...previous, [path]: !previous[path] }));
   }, []);
 
-  const handleSave = async () => {
-    const merged = files.map((f) => {
-      const modified = modifiedFiles.get(f.path);
-      if (modified !== undefined) {
-        return { ...f, content: modified };
-      }
-      return f;
-    });
-    await onSave(JSON.stringify(merged));
-  };
+  const handleSave = useCallback(async () => {
+    if (!skill) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const merged = files.map((file) => {
+        const modified = modifiedFiles.get(file.path);
+        return modified === undefined ? file : { ...file, content: modified };
+      });
+      await skillService.updateSkill(skill.name, JSON.stringify(merged));
+      await onSaved();
+      onClose();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to update skill');
+    } finally {
+      setSaving(false);
+    }
+  }, [files, modifiedFiles, onClose, onSaved, skill]);
 
   if (!isOpen || !skill) return null;
 
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose} size="4xl">
+    <BaseModal isOpen={isOpen} onClose={onClose} size="4xl" className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-5 py-3 dark:border-border-dark">
         <h3 className="text-sm font-medium text-text-primary dark:text-text-dark-primary">
           Edit Skill: {skill.name}
         </h3>
-        <button
-          onClick={onClose}
-          aria-label="Close dialog"
-          className="text-text-quaternary transition-colors hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30 dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
 
       <div className="flex h-[600px]">
-        <div className="w-52 shrink-0 overflow-y-auto border-r border-border dark:border-border-dark">
+        <div className="w-64 shrink-0 overflow-y-auto border-r border-border dark:border-border-dark">
           {loading ? (
-            <div className="space-y-2 p-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-6 animate-pulse rounded bg-surface-secondary dark:bg-surface-dark-secondary"
-                />
-              ))}
+            <div className="p-4 text-xs text-text-tertiary dark:text-text-dark-tertiary">
+              Loading files...
             </div>
-          ) : loadError ? (
-            <p className="p-4 text-xs text-text-tertiary dark:text-text-dark-tertiary">
-              {loadError}
-            </p>
           ) : (
             <Tree
               files={fileTree}
@@ -195,7 +198,9 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
           ) : (
             <Suspense
               fallback={
-                <div className="h-full animate-pulse bg-surface-secondary dark:bg-surface-dark-secondary" />
+                <div className="flex h-full items-center justify-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
+                  Loading editor...
+                </div>
               }
             >
               <Editor
@@ -204,26 +209,20 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
                 value={currentContent}
                 onChange={handleEditorChange}
                 theme={theme === 'dark' ? 'vs-dark' : 'vs'}
-                options={MONACO_EDITOR_OPTIONS}
-                loading={
-                  <div className="flex h-full items-center justify-center text-text-quaternary dark:text-text-dark-quaternary">
-                    Loading editor...
-                  </div>
-                }
+                options={EDITOR_OPTIONS}
               />
             </Suspense>
           )}
         </div>
       </div>
 
-      <DialogError error={error || loadError} />
-
+      <DialogError error={error} />
       <DialogFooter
         onCancel={onClose}
         onSave={handleSave}
         saveLabel="Save Changes"
         saving={saving}
-        disabled={!hasChanges}
+        disabled={!hasChanges || loading}
         bordered
       />
     </BaseModal>
@@ -237,20 +236,20 @@ function skillFilesToFileTree(files: SkillFileEntry[]): FileStructure[] {
     const parts = file.path.split('/');
     let current = root;
 
-    for (let i = 0; i < parts.length; i++) {
-      const isLast = i === parts.length - 1;
-      const partPath = parts.slice(0, i + 1).join('/');
+    for (let index = 0; index < parts.length; index += 1) {
+      const isLast = index === parts.length - 1;
+      const partPath = parts.slice(0, index + 1).join('/');
 
-      let existing = current.find((n) => n.path === partPath);
+      let existing = current.find((item) => item.path === partPath);
       if (!existing) {
         existing = isLast
           ? {
               path: partPath,
               content: file.content,
-              type: 'file' as const,
+              type: 'file',
               is_binary: file.is_binary,
             }
-          : { path: partPath, content: '', type: 'folder' as const, children: [] };
+          : { path: partPath, content: '', type: 'folder', children: [] };
         current.push(existing);
       }
 
@@ -265,12 +264,12 @@ function skillFilesToFileTree(files: SkillFileEntry[]): FileStructure[] {
 }
 
 function collectFolderPathsFromFiles(files: SkillFileEntry[]): Record<string, boolean> {
-  const result: Record<string, boolean> = {};
+  const expandedFolders: Record<string, boolean> = {};
   for (const file of files) {
     const parts = file.path.split('/');
-    for (let i = 1; i < parts.length; i++) {
-      result[parts.slice(0, i).join('/')] = true;
+    for (let index = 1; index < parts.length; index += 1) {
+      expandedFolders[parts.slice(0, index).join('/')] = true;
     }
   }
-  return result;
+  return expandedFolders;
 }

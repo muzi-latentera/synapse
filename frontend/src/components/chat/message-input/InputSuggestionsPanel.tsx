@@ -11,7 +11,6 @@ export const InputSuggestionsPanel = memo(function InputSuggestionsPanel() {
     return (
       <MentionSuggestionsPanel
         files={state.filteredFiles}
-        agents={state.filteredAgents}
         highlightedIndex={state.highlightedMentionIndex}
         onSelect={actions.selectMention}
       />

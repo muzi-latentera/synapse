@@ -11,8 +11,7 @@ export function useChatContext() {
       sandboxId: undefined,
       parentChatId: undefined,
       fileStructure: EMPTY,
-      customAgents: EMPTY,
-      customSlashCommands: EMPTY,
+      customSkills: EMPTY,
       personas: EMPTY,
     }
   );

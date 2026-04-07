@@ -1,11 +1,10 @@
 import { type ReactNode, useMemo } from 'react';
 import type { FileStructure } from '@/types/file-system.types';
-import type { CustomAgent, CustomCommand, Persona } from '@/types/user.types';
+import type { CustomSkill, Persona } from '@/types/user.types';
 import { ChatContext } from './ChatContextDefinition';
 
 const EMPTY_FILES: FileStructure[] = [];
-const EMPTY_AGENTS: CustomAgent[] = [];
-const EMPTY_COMMANDS: CustomCommand[] = [];
+const EMPTY_SKILLS: CustomSkill[] = [];
 const EMPTY_PERSONAS: Persona[] = [];
 
 interface ChatProviderProps {
@@ -13,8 +12,7 @@ interface ChatProviderProps {
   sandboxId?: string;
   parentChatId?: string;
   fileStructure?: FileStructure[];
-  customAgents?: CustomAgent[];
-  customSlashCommands?: CustomCommand[];
+  customSkills?: CustomSkill[];
   personas?: Persona[];
   children: ReactNode;
 }
@@ -24,8 +22,7 @@ export function ChatProvider({
   sandboxId,
   parentChatId,
   fileStructure = EMPTY_FILES,
-  customAgents = EMPTY_AGENTS,
-  customSlashCommands = EMPTY_COMMANDS,
+  customSkills = EMPTY_SKILLS,
   personas = EMPTY_PERSONAS,
   children,
 }: ChatProviderProps) {
@@ -35,11 +32,10 @@ export function ChatProvider({
       sandboxId,
       parentChatId,
       fileStructure,
-      customAgents,
-      customSlashCommands,
+      customSkills,
       personas,
     }),
-    [chatId, sandboxId, parentChatId, fileStructure, customAgents, customSlashCommands, personas],
+    [chatId, sandboxId, parentChatId, fileStructure, customSkills, personas],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

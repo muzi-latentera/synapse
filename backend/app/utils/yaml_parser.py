@@ -3,15 +3,12 @@ from typing import cast
 
 import yaml
 
-from app.models.types import YamlFrontmatterResult, YamlMetadata
+from app.models.types import YamlMetadata
 
 YAML_FIELD_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*:\s*")
 KNOWN_YAML_FIELDS = {
     "name",
     "description",
-    "allowed_tools",
-    "argument_hint",
-    "color",
 }
 
 
@@ -32,29 +29,11 @@ class YAMLParser:
         if not YAML_FIELD_PATTERN.match(line):
             return False
 
-        field_name, _, value = line.partition(":")
-        field_name = field_name.strip()
-        value = value.strip()
-
-        if field_name not in KNOWN_YAML_FIELDS:
-            return False
-
-        if field_name in ("description", "name"):
-            return True
-
-        if not value:
-            return True
-
-        if value.startswith("[") or value.startswith("{"):
-            return True
-
-        if " " not in value or len(value) < 20:
-            return True
-
-        return False
+        field_name, _, _ = line.partition(":")
+        return field_name.strip() in KNOWN_YAML_FIELDS
 
     @staticmethod
-    def normalize(content: str) -> str:
+    def _normalize(content: str) -> str:
         lines = content.split("\n")
 
         if not lines or lines[0].strip() != "---":
@@ -115,7 +94,7 @@ class YAMLParser:
         return "\n".join(normalized_lines)
 
     @staticmethod
-    def parse(content: str) -> YamlFrontmatterResult:
+    def parse(content: str) -> YamlMetadata:
         lines = content.split("\n")
 
         if not lines or lines[0].strip() != "---":
@@ -130,7 +109,7 @@ class YAMLParser:
         if yaml_end is None:
             raise ValueError("YAML frontmatter must end with ---")
 
-        normalized_content = YAMLParser.normalize(content)
+        normalized_content = YAMLParser._normalize(content)
         normalized_lines = normalized_content.split("\n")
 
         normalized_yaml_end = None
@@ -143,9 +122,6 @@ class YAMLParser:
             raise ValueError("YAML frontmatter must end with ---")
 
         yaml_content = "\n".join(normalized_lines[1:normalized_yaml_end])
-        markdown_content = "\n".join(
-            normalized_lines[normalized_yaml_end + 1 :]
-        ).strip()
 
         try:
             metadata = yaml.safe_load(yaml_content)
@@ -155,7 +131,4 @@ class YAMLParser:
         if not isinstance(metadata, dict):
             raise ValueError("YAML frontmatter must be a dictionary")
 
-        return {
-            "metadata": cast(YamlMetadata, metadata),
-            "markdown_content": markdown_content,
-        }
+        return cast(YamlMetadata, metadata)

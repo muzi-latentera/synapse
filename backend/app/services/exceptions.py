@@ -13,12 +13,6 @@ class ErrorCode(str, Enum):
     STORAGE_FILE_NOT_FOUND = "STORAGE_FILE_NOT_FOUND"
     AI_SERVICE_ERROR = "AI_SERVICE_ERROR"
     API_KEY_MISSING = "API_KEY_MISSING"
-    SKILL_NOT_FOUND = "SKILL_NOT_FOUND"
-    COMMAND_NOT_FOUND = "COMMAND_NOT_FOUND"
-    AGENT_NOT_FOUND = "AGENT_NOT_FOUND"
-    MARKETPLACE_FETCH_FAILED = "MARKETPLACE_FETCH_FAILED"
-    MARKETPLACE_PLUGIN_NOT_FOUND = "MARKETPLACE_PLUGIN_NOT_FOUND"
-    MARKETPLACE_INSTALL_FAILED = "MARKETPLACE_INSTALL_FAILED"
     WORKSPACE_NOT_FOUND = "WORKSPACE_NOT_FOUND"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
@@ -107,39 +101,6 @@ class AiServiceException(ServiceException):
         super().__init__(message, error_code, details, status_code)
 
 
-class SkillException(ServiceException):
-    def __init__(
-        self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.SKILL_NOT_FOUND,
-        details: dict[str, str] | None = None,
-        status_code: int = 400,
-    ):
-        super().__init__(message, error_code, details, status_code)
-
-
-class CommandException(ServiceException):
-    def __init__(
-        self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.COMMAND_NOT_FOUND,
-        details: dict[str, str] | None = None,
-        status_code: int = 400,
-    ):
-        super().__init__(message, error_code, details, status_code)
-
-
-class AgentException(ServiceException):
-    def __init__(
-        self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.AGENT_NOT_FOUND,
-        details: dict[str, str] | None = None,
-        status_code: int = 400,
-    ):
-        super().__init__(message, error_code, details, status_code)
-
-
 class AuthException(ServiceException):
     def __init__(
         self,
@@ -147,17 +108,6 @@ class AuthException(ServiceException):
         error_code: ErrorCode = ErrorCode.AUTH_INVALID_TOKEN,
         details: dict[str, str] | None = None,
         status_code: int = 401,
-    ):
-        super().__init__(message, error_code, details, status_code)
-
-
-class MarketplaceException(ServiceException):
-    def __init__(
-        self,
-        message: str,
-        error_code: ErrorCode = ErrorCode.MARKETPLACE_FETCH_FAILED,
-        details: dict[str, str] | None = None,
-        status_code: int = 400,
     ):
         super().__init__(message, error_code, details, status_code)
 

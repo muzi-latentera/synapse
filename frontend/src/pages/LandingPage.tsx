@@ -13,10 +13,12 @@ import { useModelStore } from '@/store/modelStore';
 import { useChatSettingsStore } from '@/store/chatSettingsStore';
 import { useAuthStore } from '@/store/authStore';
 import { useCreateChatMutation } from '@/hooks/queries/useChatQueries';
-import { useWorkspacesQuery } from '@/hooks/queries/useWorkspaceQueries';
+import {
+  useWorkspacesQuery,
+  useWorkspaceResourcesQuery,
+} from '@/hooks/queries/useWorkspaceQueries';
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
-import { mergeAgents, mergeCommands } from '@/utils/settings';
 import { ChatProvider } from '@/contexts/ChatContext';
 
 const EXAMPLE_PROMPTS = [
@@ -74,17 +76,17 @@ export function LandingPage() {
     setMessage(initialMessage);
   }
 
+  const { data: workspaceResources } = useWorkspaceResourcesQuery(
+    selectedWorkspaceId ?? undefined,
+    {
+      enabled: isAuthenticated && !!selectedWorkspaceId,
+    },
+  );
   const { data: settings } = useSettingsQuery({
     enabled: isAuthenticated,
   });
 
-  const allAgents = useMemo(() => mergeAgents(settings?.custom_agents), [settings?.custom_agents]);
-
-  const enabledSlashCommands = useMemo(
-    () => mergeCommands(settings?.custom_slash_commands, settings?.custom_skills),
-    [settings?.custom_slash_commands, settings?.custom_skills],
-  );
-
+  const allSkills = useMemo(() => workspaceResources?.skills ?? [], [workspaceResources?.skills]);
   const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
   useMountEffect(() => {
@@ -177,11 +179,7 @@ export function LandingPage() {
               {selectedModel?.agent_kind !== 'codex' && <WorktreeToggle disabled={isLoading} />}
             </div>
 
-            <ChatProvider
-              customAgents={allAgents}
-              customSlashCommands={enabledSlashCommands}
-              personas={personas}
-            >
+            <ChatProvider customSkills={allSkills} personas={personas}>
               <ChatInput
                 message={message}
                 setMessage={setMessage}

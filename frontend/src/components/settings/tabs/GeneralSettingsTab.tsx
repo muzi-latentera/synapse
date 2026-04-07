@@ -131,7 +131,7 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
             </p>
           </div>
           <Switch
-            checked={settings.notifications_enabled ?? true}
+            checked={settings.notifications_enabled}
             onCheckedChange={onNotificationsEnabledChange}
             aria-label="Notifications"
           />
@@ -146,7 +146,7 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
             </p>
           </div>
           <Switch
-            checked={settings.auto_compact_disabled ?? false}
+            checked={settings.auto_compact_disabled}
             onCheckedChange={onAutoCompactDisabledChange}
             aria-label="Disable auto compact"
           />
@@ -161,7 +161,7 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
             </p>
           </div>
           <Switch
-            checked={settings.attribution_disabled ?? false}
+            checked={settings.attribution_disabled}
             onCheckedChange={onAttributionDisabledChange}
             aria-label="Disable attribution"
           />

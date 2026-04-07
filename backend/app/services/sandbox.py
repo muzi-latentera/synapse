@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
+from app.core.config import get_settings
 from app.constants import (
     CLAUDE_DIR,
     CODEX_DIR,
@@ -19,21 +20,16 @@ from app.constants import (
     SANDBOX_HOME_DIR,
 )
 from app.models.types import CustomEnvVarDict
-from app.services.agent import AgentService
-from app.services.command import CommandService
 from app.services.exceptions import SandboxException
 from app.services.sandbox_providers import (
     PtyDataCallbackType,
     PtySize,
     SandboxProvider,
 )
-from app.services.claude_folder_sync import (
-    CLAUDE_PLUGINS_CACHE_DIR,
-    ClaudeFolderSync,
-)
 from app.services.sandbox_providers.types import CommandResult
 from app.services.skill import SkillService
 
+settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
@@ -288,18 +284,15 @@ class SandboxService:
         self,
         sandbox_id: str,
     ) -> None:
-        # In desktop mode, resources already live at ~/.claude/ which the
-        # sandbox reads directly — no need to copy anything.
-        if ClaudeFolderSync.is_active():
+        # In desktop mode, resources already live under the host's CLI config
+        # directories (~/.claude and ~/.codex), which the sandbox reads
+        # directly, so there is nothing to copy.
+        if settings.DESKTOP_MODE:
             return
 
-        skill_service = SkillService()
-        command_service = CommandService()
-        agent_service = AgentService()
+        skill_service = SkillService(base_paths=SkillService.get_default_base_paths())
 
         skill_paths = skill_service.get_all_skill_paths()
-        command_paths = command_service.get_all_resource_paths()
-        agent_paths = agent_service.get_all_resource_paths()
 
         writes: list[tuple[str, str | bytes]] = []
 
@@ -321,69 +314,9 @@ class SandboxService:
                 except OSError:
                     continue
                 rel = str(f.relative_to(skill_dir))
-                writes.append(
-                    (f"{SANDBOX_CLAUDE_DIR}/skills/{skill_name}/{rel}", file_bytes)
+                writes.extend(
+                    SkillService.format_for_sandbox(skill_name, rel, file_bytes)
                 )
-
-        for command in command_paths:
-            command_name = command["name"]
-            local_path = Path(command["path"])
-
-            if not local_path.exists():
-                logger.warning("Command not found: %s at %s", command_name, local_path)
-                continue
-
-            command_content = local_path.read_text(encoding="utf-8")
-            writes.append(
-                (f"{SANDBOX_CLAUDE_DIR}/commands/{command_name}.md", command_content)
-            )
-
-        for agent in agent_paths:
-            agent_name = agent["name"]
-            local_path = Path(agent["path"])
-
-            if not local_path.exists():
-                logger.warning("Agent not found: %s at %s", agent_name, local_path)
-                continue
-
-            agent_content = local_path.read_text(encoding="utf-8")
-            writes.append(
-                (f"{SANDBOX_CLAUDE_DIR}/agents/{agent_name}.md", agent_content)
-            )
-
-        container_cache_dir = f"{SANDBOX_CLAUDE_DIR}/plugins/cache"
-        plugins_data = ClaudeFolderSync.read_installed_plugins()
-        plugin_paths = ClaudeFolderSync.get_active_plugin_paths(plugins_data)
-        if plugin_paths:
-            remapped_json = ClaudeFolderSync.rewrite_installed_plugins_for_container(
-                container_cache_dir, plugins_data
-            )
-            if remapped_json:
-                writes.append(
-                    (
-                        f"{SANDBOX_CLAUDE_DIR}/plugins/installed_plugins.json",
-                        remapped_json,
-                    )
-                )
-            for plugin_dir in plugin_paths:
-                try:
-                    rel_to_cache = plugin_dir.relative_to(CLAUDE_PLUGINS_CACHE_DIR)
-                except ValueError:
-                    continue
-                for f in plugin_dir.rglob("*"):
-                    if not f.is_file():
-                        continue
-                    try:
-                        file_bytes = f.read_bytes()
-                    except OSError:
-                        continue
-                    rel_file = f.relative_to(plugin_dir)
-                    writes.append(
-                        (
-                            f"{container_cache_dir}/{rel_to_cache}/{rel_file}",
-                            file_bytes,
-                        )
-                    )
 
         if not writes:
             return
@@ -395,10 +328,9 @@ class SandboxService:
                         self.provider.write_file(sandbox_id, remote_path, content)
                     )
 
-            resource_count = len(skill_paths) + len(command_paths) + len(agent_paths)
             logger.info(
-                "Deployed %d resources (%d files) to sandbox %s",
-                resource_count,
+                "Deployed %d skills (%d files) to sandbox %s",
+                len(skill_paths),
                 len(writes),
                 sandbox_id,
             )

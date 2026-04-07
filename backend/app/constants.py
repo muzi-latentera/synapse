@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 from typing import Final
 
+from app.core.config import get_settings
+
+settings = get_settings()
 
 CLAUDE_DIR: Final[Path] = (
     Path(d) if (d := os.environ.get("CLAUDE_CONFIG_DIR")) else Path.home() / ".claude"
@@ -9,14 +12,16 @@ CLAUDE_DIR: Final[Path] = (
 CODEX_DIR: Final[Path] = (
     Path(d) if (d := os.environ.get("CODEX_HOME")) else Path.home() / ".codex"
 )
+CLAUDE_SKILLS_DIR: Final[Path] = (
+    CLAUDE_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".claude"
+) / "skills"
+CODEX_SKILLS_DIR: Final[Path] = (
+    CODEX_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".codex"
+) / "skills"
 
 HOST_REQUIRED_PATH_PREFIX: Final[str] = (
     f"{Path.home()}/.local/bin:/opt/homebrew/bin:/usr/local/bin"
 )
-
-MAX_RESOURCE_NAME_LENGTH: Final[int] = 50
-MIN_RESOURCE_NAME_LENGTH: Final[int] = 2
-MAX_RESOURCE_SIZE_BYTES: Final[int] = 100 * 1024
 
 REDIS_KEY_CHAT_STREAM_LIVE: Final[str] = "chat:{chat_id}:stream:live"
 REDIS_KEY_USER_SETTINGS: Final[str] = "user_settings:{user_id}"
@@ -26,9 +31,7 @@ REDIS_KEY_CHAT_QUEUE_SEND_NOW: Final[str] = "chat:{chat_id}:queue:send_now"
 
 QUEUE_MESSAGE_TTL_SECONDS: Final[int] = 3600
 
-SANDBOX_AUTO_PAUSE_TIMEOUT: Final[int] = 3000
 SANDBOX_DEFAULT_COMMAND_TIMEOUT: Final[int] = 120
-SANDBOX_DEFAULT_TIMEOUT: Final[int] = 3600
 PTY_OUTPUT_QUEUE_SIZE: Final[int] = 512
 PTY_INPUT_QUEUE_SIZE: Final[int] = 1024
 
@@ -130,6 +133,7 @@ SANDBOX_BINARY_EXTENSIONS: Final[set[str]] = {
 SANDBOX_HOME_DIR: Final[str] = "/home/user"
 SANDBOX_WORKSPACE_DIR: Final[str] = "/home/user/workspace"
 SANDBOX_CLAUDE_DIR: Final[str] = "/home/user/.claude"
+SANDBOX_CODEX_DIR: Final[str] = "/home/user/.codex"
 SANDBOX_CLAUDE_JSON_PATH: Final[str] = "/home/user/.claude.json"
 SANDBOX_GIT_ASKPASS_PATH: Final[str] = "/home/user/.git-askpass.sh"
 

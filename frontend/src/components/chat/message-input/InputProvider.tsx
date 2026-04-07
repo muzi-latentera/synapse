@@ -54,7 +54,7 @@ export function InputProvider({
   disabled = false,
   children,
 }: InputProps & { children: ReactNode }) {
-  const { fileStructure, customAgents, customSlashCommands, personas } = useChatContext();
+  const { fileStructure, customSkills, personas } = useChatContext();
   const modelMap = useModelMap();
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -143,7 +143,7 @@ export function InputProvider({
   } = useSlashCommandSuggestions({
     message,
     onSelect: handleSlashCommandSelect,
-    customSlashCommands,
+    customSkills,
   });
 
   const handleMentionSelect = useCallback(
@@ -171,7 +171,6 @@ export function InputProvider({
 
   const {
     filteredFiles,
-    filteredAgents,
     highlightedIndex: highlightedMentionIndex,
     selectItem: selectMention,
     handleKeyDown: handleMentionKeyDown,
@@ -180,7 +179,6 @@ export function InputProvider({
     message,
     cursorPosition: cursorPosition,
     fileStructure,
-    customAgents,
     onSelect: handleMentionSelect,
   });
 
@@ -336,7 +334,6 @@ export function InputProvider({
       slashCommandSuggestions,
       highlightedSlashCommandIndex,
       filteredFiles,
-      filteredAgents,
       highlightedMentionIndex,
     }),
     [
@@ -367,7 +364,6 @@ export function InputProvider({
       slashCommandSuggestions,
       highlightedSlashCommandIndex,
       filteredFiles,
-      filteredAgents,
       highlightedMentionIndex,
     ],
   );

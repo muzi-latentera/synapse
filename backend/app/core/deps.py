@@ -10,14 +10,10 @@ from app.core.user_manager import optional_current_active_user
 from app.db.session import SessionLocal, get_db
 from app.models.db_models.workspace import Workspace
 from app.models.db_models.user import User
-from app.services.agent import AgentService
 from app.services.chat import ChatService
 from app.services.agent_service import AiAgentService
-from app.services.command import CommandService
 from app.services.exceptions import UserException
 from app.services.github import GitHubService
-from app.services.marketplace import MarketplaceService
-from app.services.plugin_installer import PluginInstallerService
 from app.services.refresh_token import RefreshTokenService
 from app.services.sandbox import SandboxService
 from app.services.workspace import WorkspaceService
@@ -38,15 +34,7 @@ def get_refresh_token_service() -> RefreshTokenService:
 
 
 def get_skill_service() -> SkillService:
-    return SkillService()
-
-
-def get_command_service() -> CommandService:
-    return CommandService()
-
-
-def get_agent_service() -> AgentService:
-    return AgentService()
+    return SkillService(base_paths=SkillService.get_default_base_paths())
 
 
 async def get_github_token(
@@ -83,14 +71,6 @@ def get_github_service(
 
 def get_ai_agent_service() -> AiAgentService:
     return AiAgentService(session_factory=SessionLocal)
-
-
-def get_marketplace_service() -> MarketplaceService:
-    return MarketplaceService()
-
-
-def get_plugin_installer_service() -> PluginInstallerService:
-    return PluginInstallerService()
 
 
 async def validate_sandbox_ownership(
