@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense, useMemo, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { DialogFooter } from '@/components/ui/shared/DialogFooter';
 import { DialogError } from '@/components/ui/shared/DialogError';
@@ -151,6 +152,7 @@ export const SkillEditDialog: React.FC<SkillEditDialogProps> = ({
       await skillService.updateSkill(skill.name, JSON.stringify(merged));
       await onSaved();
       onClose();
+      toast.success('Skill updated');
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Failed to update skill');
     } finally {
