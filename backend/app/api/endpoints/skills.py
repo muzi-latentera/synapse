@@ -44,7 +44,7 @@ async def update_skill(
 ) -> CustomSkillDict:
     try:
         skill_service.validate_exact_sanitized_name(skill_name)
-        files_data = [
+        files_data: list[dict[str, str | bool]] = [
             {"path": file.path, "content": file.content, "is_binary": file.is_binary}
             for file in request.files
         ]
