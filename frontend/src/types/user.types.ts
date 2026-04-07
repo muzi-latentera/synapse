@@ -12,26 +12,6 @@ export interface AuthResponse {
   token_type: string;
 }
 
-export interface CustomAgent {
-  name: string;
-  description: string;
-  content: string;
-  allowed_tools?: string[] | null;
-  [key: string]: unknown;
-}
-
-export interface CustomMcp {
-  name: string;
-  description: string;
-  command_type: 'npx' | 'bunx' | 'uvx' | 'http';
-  package?: string;
-  url?: string;
-  env_vars?: Record<string, string>;
-  args?: string[];
-  enabled: boolean;
-  [key: string]: unknown;
-}
-
 export interface CustomEnvVar {
   key: string;
   value: string;
@@ -43,14 +23,7 @@ export interface CustomSkill {
   description: string;
   size_bytes: number;
   file_count: number;
-}
-
-export interface CustomCommand {
-  name: string;
-  description: string;
-  content: string;
-  argument_hint?: string | null;
-  allowed_tools?: string[] | null;
+  source: string;
 }
 
 export interface Persona {
@@ -66,15 +39,11 @@ export interface UserSettings {
   github_personal_access_token: string | null;
   sandbox_provider: SandboxProviderType | null;
   custom_instructions: string | null;
-  custom_agents: CustomAgent[] | null;
-  custom_mcps: CustomMcp[] | null;
   custom_env_vars: CustomEnvVar[] | null;
-  custom_skills: CustomSkill[] | null;
-  custom_slash_commands: CustomCommand[] | null;
   personas: Persona[] | null;
-  notifications_enabled?: boolean;
-  auto_compact_disabled?: boolean;
-  attribution_disabled?: boolean;
+  notifications_enabled: boolean;
+  auto_compact_disabled: boolean;
+  attribution_disabled: boolean;
   created_at: string;
   updated_at: string;
 }

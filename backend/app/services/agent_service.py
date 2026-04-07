@@ -39,29 +39,6 @@ from app.services.user import UserService
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-MCP_TYPE_CONFIGS: dict[str, dict[str, Any]] = {
-    "npx": {
-        "command": "npx",
-        "required_field": "package",
-        "args_prefix": ("-y",),
-    },
-    "bunx": {
-        "command": "bunx",
-        "required_field": "package",
-        "args_prefix": (),
-    },
-    "uvx": {
-        "command": "uvx",
-        "required_field": "package",
-        "args_prefix": (),
-    },
-    "http": {
-        "type": "http",
-        "required_field": "url",
-        "is_http": True,
-    },
-}
-
 
 class StreamResult:
     __slots__ = ("total_cost_usd", "usage")
@@ -370,62 +347,6 @@ class AiAgentService:
                 env[env_var["key"]] = env_var["value"]
         return env
 
-    async def _get_mcp_servers(
-        self,
-        user_settings: UserSettings,
-    ) -> list[dict[str, Any]]:
-        servers: list[dict[str, Any]] = []
-        for mcp in user_settings.custom_mcps or []:
-            if not mcp.get("enabled", True):
-                continue
-            mcp_name = mcp.get("name")
-            command_type = mcp.get("command_type")
-            if not mcp_name or not command_type:
-                continue
-            try:
-                cfg = self._build_mcp_config(mcp, command_type)
-                cfg["name"] = mcp_name
-                servers.append(cfg)
-            except AiServiceException:
-                logger.error("Failed to configure MCP '%s'", mcp_name, exc_info=True)
-
-        return servers
-
-    @staticmethod
-    def _build_mcp_config(mcp: dict[str, Any], command_type: str) -> dict[str, Any]:
-        type_config = MCP_TYPE_CONFIGS.get(command_type)
-        if not type_config:
-            raise AiServiceException(f"Unknown MCP command type: {command_type}")
-
-        mcp_name = mcp.get("name", "unknown")
-        required_field = type_config["required_field"]
-        value = mcp.get(required_field)
-
-        if not value:
-            raise AiServiceException(
-                f"{command_type.upper()} MCP '{mcp_name}' requires '{required_field}' field"
-            )
-
-        if type_config.get("is_http"):
-            config: dict[str, Any] = {
-                "type": type_config["type"],
-                "url": value,
-            }
-            if mcp.get("env_vars"):
-                config["headers"] = mcp["env_vars"]
-        else:
-            args = list(type_config["args_prefix"]) + [value]
-            if mcp.get("args"):
-                args.extend(mcp["args"])
-            config = {
-                "command": type_config["command"],
-                "args": args,
-            }
-            if mcp.get("env_vars"):
-                config["env"] = mcp["env_vars"]
-
-        return config
-
     async def _build_acp_config(
         self,
         *,
@@ -461,15 +382,12 @@ class AiAgentService:
         reasoning_effort = adapter.map_reasoning_effort(thinking_mode)
         permission_config = adapter.build_permission_config(permission_mode)
 
-        mcp_servers = await self._get_mcp_servers(user_settings)
-
         return AcpSessionConfig(
             sandbox_id=sandbox_id,
             sandbox_provider=sandbox_provider,
             cwd=cwd,
             agent_kind=agent_kind,
             env=env,
-            mcp_servers=mcp_servers,
             model=model_id,
             permission_mode=permission_config.session_mode,
             launch_approval_policy=permission_config.launch_approval_policy,

@@ -8,8 +8,6 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.models.types import (
     CustomEnvVarDict,
-    CustomMcpDict,
-    InstalledPluginDict,
     PersonaDict,
 )
 
@@ -82,7 +80,6 @@ class UserSettings(Base):
         String(32), default="docker", server_default="docker", nullable=False
     )
     custom_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
-    custom_mcps: Mapped[list[CustomMcpDict] | None] = mapped_column(JSON, nullable=True)
     custom_env_vars: Mapped[list[CustomEnvVarDict] | None] = mapped_column(
         JSON, nullable=True
     )
@@ -95,8 +92,5 @@ class UserSettings(Base):
     )
     attribution_disabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False
-    )
-    installed_plugins: Mapped[list[InstalledPluginDict] | None] = mapped_column(
-        JSON, nullable=True
     )
     user = relationship("User", back_populates="settings")

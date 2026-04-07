@@ -1,18 +1,12 @@
 import { apiClient } from '@/lib/api';
 import { ensureResponse, withAuth } from '@/services/base/BaseService';
-import { uploadFile, UPLOAD_OPTIONS } from '@/services/base/uploadFile';
 import type { CustomSkill } from '@/types/user.types';
 import { validateRequired } from '@/utils/validation';
 
-async function uploadSkill(file: File): Promise<CustomSkill> {
-  return uploadFile<CustomSkill>(file, UPLOAD_OPTIONS.SKILL);
-}
-
-async function deleteSkill(skillName: string): Promise<void> {
-  validateRequired(skillName, 'Skill name');
-
-  await withAuth(async () => {
-    await apiClient.delete(`/skills/${skillName}`);
+async function listSkills(): Promise<CustomSkill[]> {
+  return withAuth(async () => {
+    const response = await apiClient.get<CustomSkill[]>('/skills');
+    return ensureResponse(response, 'Failed to fetch skills');
   });
 }
 
@@ -32,7 +26,7 @@ async function getSkillFiles(skillName: string): Promise<SkillFileEntry[]> {
 
   return withAuth(async () => {
     const response = await apiClient.get<SkillFilesResponse>(`/skills/${skillName}/files`);
-    const data = ensureResponse(response, 'Invalid response from server');
+    const data = ensureResponse(response, 'Failed to fetch skill files');
     return data.files;
   });
 }
@@ -45,13 +39,12 @@ async function updateSkill(skillName: string, filesJson: string): Promise<Custom
 
   return withAuth(async () => {
     const response = await apiClient.put<CustomSkill>(`/skills/${skillName}`, { files });
-    return ensureResponse(response, 'Invalid response from server');
+    return ensureResponse(response, 'Failed to update skill');
   });
 }
 
 export const skillService = {
-  uploadSkill,
-  deleteSkill,
+  listSkills,
   getSkillFiles,
   updateSkill,
 };

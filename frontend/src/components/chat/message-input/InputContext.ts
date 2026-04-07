@@ -30,7 +30,6 @@ export interface InputState {
   slashCommandSuggestions: SlashCommand[];
   highlightedSlashCommandIndex: number;
   filteredFiles: MentionItem[];
-  filteredAgents: MentionItem[];
   highlightedMentionIndex: number;
 }
 

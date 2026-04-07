@@ -10,6 +10,7 @@ export const queryKeys = {
     user: 'auth-user',
   },
   settings: 'settings',
+  skills: 'skills',
   sandbox: {
     fileContent: (sandboxId: string, filePath: string) =>
       ['sandbox', sandboxId, 'file-content', filePath] as const,
@@ -27,11 +28,6 @@ export const queryKeys = {
   workspaces: ['workspaces'] as const,
   workspaceResources: (workspaceId: string) => ['workspaces', workspaceId, 'resources'] as const,
   models: 'models',
-  marketplace: {
-    catalog: ['marketplace', 'catalog'] as const,
-    pluginDetails: (pluginName: string) => ['marketplace', 'plugin', pluginName] as const,
-    installed: ['marketplace', 'installed'] as const,
-  },
   github: {
     repos: (query: string) => ['github-repos', query] as const,
     pulls: (owner: string, repo: string) => ['github-pulls', owner, repo] as const,

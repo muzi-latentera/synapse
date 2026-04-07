@@ -14,9 +14,9 @@ const EnvVarDialog = lazyNamed(
 );
 
 export function EnvVarsSection() {
-  const { localSettings, persistSettings, setLocalSettings } = useSettingsContext();
+  const { localSettings, persistSettings } = useSettingsContext();
 
-  const envVarCrud = useCrudForm(localSettings, persistSettings, setLocalSettings, {
+  const envVarCrud = useCrudForm(localSettings, persistSettings, {
     createDefault: createDefaultEnvVarForm,
     validateForm: (form, editingIndex) =>
       validateEnvVarForm(form, editingIndex, localSettings.custom_env_vars || []),

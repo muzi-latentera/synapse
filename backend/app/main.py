@@ -12,15 +12,11 @@ from sqlalchemy import text
 
 from app.api.docs import custom_openapi
 from app.api.endpoints import (
-    agents,
     ai_model,
     attachments,
     auth,
     chat,
-    commands,
     github,
-    marketplace,
-    mcps,
     sandbox,
     workspace,
 )
@@ -137,21 +133,6 @@ def create_application() -> FastAPI:
         tags=["Skills"],
     )
     application.include_router(
-        commands.router,
-        prefix=f"{settings.API_V1_STR}/commands",
-        tags=["Commands"],
-    )
-    application.include_router(
-        agents.router,
-        prefix=f"{settings.API_V1_STR}/agents",
-        tags=["Agents"],
-    )
-    application.include_router(
-        mcps.router,
-        prefix=f"{settings.API_V1_STR}/mcps",
-        tags=["MCPs"],
-    )
-    application.include_router(
         attachments.router,
         prefix=f"{settings.API_V1_STR}",
         tags=["Attachments"],
@@ -165,11 +146,6 @@ def create_application() -> FastAPI:
         workspace.router,
         prefix=f"{settings.API_V1_STR}/workspaces",
         tags=["Workspaces"],
-    )
-    application.include_router(
-        marketplace.router,
-        prefix=f"{settings.API_V1_STR}/marketplace",
-        tags=["Marketplace"],
     )
     application.include_router(
         github.router,

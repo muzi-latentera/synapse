@@ -11,45 +11,20 @@ PermissionMode: TypeAlias = Literal[
 ]
 
 
-class BaseResourceDict(TypedDict, total=False):
-    name: str
-    description: str
-    content: str
-
-
-class CustomAgentDict(BaseResourceDict, total=False):
-    allowed_tools: list[str] | None
-
-
-class CustomMcpDict(TypedDict, total=False):
-    name: str
-    description: str
-    command_type: Literal["npx", "bunx", "uvx", "http"]
-    package: str | None
-    url: str | None
-    env_vars: dict[str, str] | None
-    args: list[str] | None
-    enabled: bool
-
-
-class CustomEnvVarDict(TypedDict, total=False):
+class CustomEnvVarDict(TypedDict):
     key: str
     value: str
 
 
-class CustomSkillDict(TypedDict, total=False):
+class CustomSkillDict(TypedDict):
     name: str
     description: str
     size_bytes: int
     file_count: int
+    source: str
 
 
-class CustomSlashCommandDict(BaseResourceDict, total=False):
-    argument_hint: str | None
-    allowed_tools: list[str] | None
-
-
-class PersonaDict(TypedDict, total=False):
+class PersonaDict(TypedDict):
     name: str
     content: str
 
@@ -67,72 +42,10 @@ class ChatCompletionResult(TypedDict):
     last_seq: int
 
 
-class YamlFrontmatterResult(TypedDict):
-    metadata: "YamlMetadata"
-    markdown_content: str
-
-
 class YamlMetadata(TypedDict, total=False):
-    name: str
     description: str
-    model: str | None
-    allowed_tools: list[str] | None
-    argument_hint: str | None
-
-
-class ParsedResourceResult(TypedDict):
-    metadata: YamlMetadata
-    content: str
-    markdown_content: str
 
 
 class EnabledResourceInfo(TypedDict):
     name: str
     path: str
-
-
-class MarketplaceAuthorDict(TypedDict, total=False):
-    name: str
-    email: str | None
-    url: str | None
-
-
-class PluginComponentsDict(TypedDict, total=False):
-    agents: list[str]
-    commands: list[str]
-    skills: list[str]
-    mcp_servers: list[str]
-    lsp_servers: list[str]
-
-
-class MarketplacePluginDict(TypedDict, total=False):
-    name: str
-    description: str
-    category: str
-    source: str
-    marketplace: str
-    version: str | None
-    author: MarketplaceAuthorDict | None
-    homepage: str | None
-    components: PluginComponentsDict
-
-
-class PluginDetailsDict(TypedDict, total=False):
-    name: str
-    description: str
-    category: str
-    source: str
-    marketplace: str
-    version: str | None
-    author: MarketplaceAuthorDict | None
-    homepage: str | None
-    readme: str | None
-    components: PluginComponentsDict
-    is_external: bool
-
-
-class InstalledPluginDict(TypedDict, total=False):
-    name: str
-    version: str | None
-    installed_at: str
-    components: list[str]

@@ -2,11 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef, Suspense, lazy } fro
 import {
   AlertCircle,
   Settings2,
-  Store,
-  Plug,
-  Bot,
   Zap,
-  Terminal,
   UserCircle,
   Key,
   ScrollText,
@@ -19,42 +15,25 @@ import type { UserSettings, UserSettingsUpdate, SandboxProviderType } from '@/ty
 import type { ApiFieldKey } from '@/types/settings.types';
 import { useDeleteAllChatsMutation } from '@/hooks/queries/useChatQueries';
 import { useSettingsQuery, useUpdateSettingsMutation } from '@/hooks/queries/useSettingsQueries';
+import { useSkillsQuery } from '@/hooks/queries/useSkillsQueries';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Button } from '@/components/ui/primitives/Button';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import toast from 'react-hot-toast';
 import { GeneralSettingsTab } from '@/components/settings/tabs/GeneralSettingsTab';
+import { SkillsSettingsTab } from '@/components/settings/tabs/SkillsSettingsTab';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { getGeneralSecretFields } from '@/utils/settings';
-
-import { McpSection } from '@/components/settings/sections/McpSection';
-import { AgentsSection } from '@/components/settings/sections/AgentsSection';
-import { SkillsSection } from '@/components/settings/sections/SkillsSection';
-import { CommandsSection } from '@/components/settings/sections/CommandsSection';
 import { PersonasSection } from '@/components/settings/sections/PersonasSection';
 import { EnvVarsSection } from '@/components/settings/sections/EnvVarsSection';
-const MarketplaceSettingsTab = lazy(() =>
-  import('@/components/settings/tabs/MarketplaceSettingsTab').then((m) => ({
-    default: m.MarketplaceSettingsTab,
-  })),
-);
 const InstructionsSettingsTab = lazy(() =>
   import('@/components/settings/tabs/InstructionsSettingsTab').then((m) => ({
     default: m.InstructionsSettingsTab,
   })),
 );
 
-type TabKey =
-  | 'general'
-  | 'marketplace'
-  | 'mcp'
-  | 'agents'
-  | 'skills'
-  | 'commands'
-  | 'personas'
-  | 'env_vars'
-  | 'instructions';
+type TabKey = 'general' | 'skills' | 'personas' | 'env_vars' | 'instructions';
 
 const getErrorMessage = (error: unknown): string | undefined =>
   error instanceof Error ? error.message : undefined;
@@ -65,11 +44,7 @@ const createFallbackSettings = (): UserSettings => ({
   github_personal_access_token: null,
   sandbox_provider: null,
   custom_instructions: null,
-  custom_agents: null,
-  custom_mcps: null,
   custom_env_vars: null,
-  custom_skills: null,
-  custom_slash_commands: null,
   personas: null,
   notifications_enabled: true,
   auto_compact_disabled: false,
@@ -80,11 +55,7 @@ const createFallbackSettings = (): UserSettings => ({
 
 const TAB_FIELDS: Record<TabKey, (keyof UserSettings)[]> = {
   general: ['github_personal_access_token'],
-  marketplace: [],
-  mcp: ['custom_mcps'],
-  agents: ['custom_agents'],
-  skills: ['custom_skills'],
-  commands: ['custom_slash_commands'],
+  skills: [],
   personas: ['personas'],
   env_vars: ['custom_env_vars'],
   instructions: ['custom_instructions'],
@@ -104,19 +75,11 @@ interface SettingsNavGroup {
 const SETTINGS_NAV: SettingsNavGroup[] = [
   {
     label: 'Account',
-    items: [
-      { id: 'general', label: 'General', icon: Settings2 },
-      { id: 'marketplace', label: 'Marketplace', icon: Store },
-    ],
+    items: [{ id: 'general', label: 'General', icon: Settings2 }],
   },
   {
     label: 'Extensions',
-    items: [
-      { id: 'mcp', label: 'MCP Servers', icon: Plug },
-      { id: 'agents', label: 'Agents', icon: Bot },
-      { id: 'skills', label: 'Skills', icon: Zap },
-      { id: 'commands', label: 'Commands', icon: Terminal },
-    ],
+    items: [{ id: 'skills', label: 'Skills', icon: Zap }],
   },
   {
     label: 'Configuration',
@@ -147,6 +110,7 @@ const SettingsPage: React.FC = () => {
   const generalSecretFields = getGeneralSecretFields();
 
   const { data: settings, isLoading: loading, error: fetchError } = useSettingsQuery();
+  const { data: skills, refetch: refetchSkills } = useSkillsQuery();
   const deleteAllChats = useDeleteAllChatsMutation();
 
   const [localSettings, setLocalSettings] = useState<UserSettings>(
@@ -177,11 +141,7 @@ const SettingsPage: React.FC = () => {
         'github_personal_access_token',
         'sandbox_provider',
         'custom_instructions',
-        'custom_agents',
-        'custom_mcps',
         'custom_env_vars',
-        'custom_skills',
-        'custom_slash_commands',
         'personas',
         'notifications_enabled',
         'auto_compact_disabled',
@@ -548,43 +508,9 @@ const SettingsPage: React.FC = () => {
                     </div>
                   )}
 
-                  {activeTab === 'marketplace' && (
-                    <div role="tabpanel" id="marketplace-panel" aria-labelledby="marketplace-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <MarketplaceSettingsTab />
-                      </Suspense>
-                    </div>
-                  )}
-
-                  {activeTab === 'mcp' && (
-                    <div role="tabpanel" id="mcp-panel" aria-labelledby="mcp-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <McpSection />
-                      </Suspense>
-                    </div>
-                  )}
-
-                  {activeTab === 'agents' && (
-                    <div role="tabpanel" id="agents-panel" aria-labelledby="agents-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <AgentsSection />
-                      </Suspense>
-                    </div>
-                  )}
-
                   {activeTab === 'skills' && (
                     <div role="tabpanel" id="skills-panel" aria-labelledby="skills-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <SkillsSection />
-                      </Suspense>
-                    </div>
-                  )}
-
-                  {activeTab === 'commands' && (
-                    <div role="tabpanel" id="commands-panel" aria-labelledby="commands-tab">
-                      <Suspense fallback={tabLoadingFallback}>
-                        <CommandsSection />
-                      </Suspense>
+                      <SkillsSettingsTab skills={skills} onSkillsChanged={refetchSkills} />
                     </div>
                   )}
 

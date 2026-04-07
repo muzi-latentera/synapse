@@ -17,13 +17,18 @@ from app.models.db_models.chat import Chat, Message
 from app.models.db_models.user import User
 from app.models.db_models.workspace import Workspace
 from app.models.schemas.workspace import WorkspaceCreate, WorkspaceUpdate
-from app.models.schemas.workspace import Workspace as WorkspaceSchema
+from app.models.schemas.workspace import (
+    CustomSkill,
+    Workspace as WorkspaceSchema,
+    WorkspaceResources,
+)
 from app.models.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import ErrorCode, WorkspaceException
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.sandbox_providers.types import SandboxProviderType
+from app.services.skill import SkillService
 from app.services.user import UserService
 from app.services.session_registry import session_registry
 
@@ -167,7 +172,18 @@ class WorkspaceService(BaseDbService[Workspace]):
             rows = result.all()
             workspace_schemas = []
             for workspace, chat_count, last_chat_at in rows:
-                ws = WorkspaceSchema.model_validate(workspace)
+                ws = WorkspaceSchema(
+                    id=workspace.id,
+                    name=workspace.name,
+                    user_id=workspace.user_id,
+                    sandbox_id=workspace.sandbox_id,
+                    sandbox_provider=workspace.sandbox_provider,
+                    workspace_path=workspace.workspace_path,
+                    source_type=workspace.source_type,
+                    source_url=workspace.source_url,
+                    created_at=workspace.created_at,
+                    updated_at=workspace.updated_at,
+                )
                 ws.chat_count = chat_count or 0
                 ws.last_chat_at = last_chat_at
                 workspace_schemas.append(ws)
@@ -215,6 +231,26 @@ class WorkspaceService(BaseDbService[Workspace]):
                 managed.name = data.name
             await db.commit()
             return managed
+
+    @staticmethod
+    def _build_workspace_resources(skill_service: SkillService) -> WorkspaceResources:
+        return WorkspaceResources(
+            skills=[CustomSkill(**skill) for skill in skill_service.list_all()]
+        )
+
+    async def get_workspace_resources(
+        self, workspace_id: UUID, user: User
+    ) -> WorkspaceResources:
+        workspace = await self.get_workspace(workspace_id, user)
+        workspace_path = Path(workspace.workspace_path)
+        skill_service = SkillService(
+            base_paths=(
+                workspace_path / ".claude" / "skills",
+                workspace_path / ".codex" / "skills",
+            )
+        )
+
+        return await asyncio.to_thread(self._build_workspace_resources, skill_service)
 
     async def delete_workspace(self, workspace_id: UUID, user: User) -> None:
         workspace = await self.get_workspace(workspace_id, user)
