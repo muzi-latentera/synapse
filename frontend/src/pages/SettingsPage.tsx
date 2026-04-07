@@ -67,32 +67,16 @@ interface SettingsNavItem {
   icon: LucideIcon;
 }
 
-interface SettingsNavGroup {
-  label: string;
-  items: SettingsNavItem[];
-}
-
-const SETTINGS_NAV: SettingsNavGroup[] = [
-  {
-    label: 'Account',
-    items: [{ id: 'general', label: 'General', icon: Settings2 }],
-  },
-  {
-    label: 'Extensions',
-    items: [{ id: 'skills', label: 'Skills', icon: Zap }],
-  },
-  {
-    label: 'Configuration',
-    items: [
-      { id: 'personas', label: 'Personas', icon: UserCircle },
-      { id: 'env_vars', label: 'Env Variables', icon: Key },
-      { id: 'instructions', label: 'Instructions', icon: ScrollText },
-    ],
-  },
+const SETTINGS_NAV: SettingsNavItem[] = [
+  { id: 'general', label: 'General', icon: Settings2 },
+  { id: 'skills', label: 'Skills', icon: Zap },
+  { id: 'personas', label: 'Personas', icon: UserCircle },
+  { id: 'env_vars', label: 'Env Variables', icon: Key },
+  { id: 'instructions', label: 'Instructions', icon: ScrollText },
 ];
 
 const TAB_LABELS: Record<TabKey, string> = Object.fromEntries(
-  SETTINGS_NAV.flatMap((g) => g.items).map((item) => [item.id, item.label]),
+  SETTINGS_NAV.map((item) => [item.id, item.label]),
 ) as Record<TabKey, string>;
 
 const tabLoadingFallback = (
@@ -313,49 +297,38 @@ const SettingsPage: React.FC = () => {
           </h1>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-2">
-          {SETTINGS_NAV.map((group) => (
-            <div key={group.label} className="mb-1">
-              <div className="px-2 pb-1 pt-3">
-                <span className="text-2xs font-medium uppercase tracking-widest text-text-quaternary dark:text-text-dark-quaternary">
-                  {group.label}
-                </span>
-              </div>
-              <div className="space-y-px">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <Button
-                      key={item.id}
-                      onClick={() => handleTabChange(item.id)}
-                      variant="unstyled"
-                      className={cn(
-                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors duration-200',
-                        isActive
-                          ? 'bg-surface-hover font-medium text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'
-                          : 'text-text-tertiary hover:bg-surface-hover/50 hover:text-text-secondary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover/50 dark:hover:text-text-dark-secondary',
-                      )}
-                      role="tab"
-                      aria-selected={isActive}
-                      aria-controls={`${item.id}-panel`}
-                      id={`${item.id}-tab`}
-                    >
-                      <Icon
-                        className={cn(
-                          'h-3.5 w-3.5 shrink-0 transition-colors duration-200',
-                          isActive
-                            ? 'text-text-secondary dark:text-text-dark-secondary'
-                            : 'text-text-quaternary dark:text-text-dark-quaternary',
-                        )}
-                      />
-                      {item.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        <div className="flex-1 space-y-px overflow-y-auto px-3 py-3">
+          {SETTINGS_NAV.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <Button
+                key={item.id}
+                onClick={() => handleTabChange(item.id)}
+                variant="unstyled"
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs transition-colors duration-200',
+                  isActive
+                    ? 'bg-surface-hover font-medium text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'
+                    : 'text-text-tertiary hover:bg-surface-hover/50 hover:text-text-secondary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover/50 dark:hover:text-text-dark-secondary',
+                )}
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`${item.id}-panel`}
+                id={`${item.id}-tab`}
+              >
+                <Icon
+                  className={cn(
+                    'h-3.5 w-3.5 shrink-0 transition-colors duration-200',
+                    isActive
+                      ? 'text-text-secondary dark:text-text-dark-secondary'
+                      : 'text-text-quaternary dark:text-text-dark-quaternary',
+                  )}
+                />
+                {item.label}
+              </Button>
+            );
+          })}
         </div>
       </nav>
 
@@ -395,45 +368,34 @@ const SettingsPage: React.FC = () => {
 
         {/* Mobile dropdown nav */}
         {mobileNavOpen && (
-          <div className="animate-in fade-in border-b border-border bg-surface px-3 py-2 duration-150 dark:border-border-dark dark:bg-surface-dark md:hidden">
-            {SETTINGS_NAV.map((group) => (
-              <div key={group.label} className="mb-1">
-                <div className="px-2 pb-1 pt-2">
-                  <span className="text-2xs font-medium uppercase tracking-widest text-text-quaternary dark:text-text-dark-quaternary">
-                    {group.label}
-                  </span>
-                </div>
-                <div className="space-y-px">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <Button
-                        key={item.id}
-                        onClick={() => handleTabChange(item.id)}
-                        variant="unstyled"
-                        className={cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition-colors duration-200',
-                          isActive
-                            ? 'bg-surface-hover font-medium text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'
-                            : 'text-text-tertiary hover:bg-surface-hover/50 dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover/50',
-                        )}
-                      >
-                        <Icon
-                          className={cn(
-                            'h-3.5 w-3.5 shrink-0',
-                            isActive
-                              ? 'text-text-secondary dark:text-text-dark-secondary'
-                              : 'text-text-quaternary dark:text-text-dark-quaternary',
-                          )}
-                        />
-                        {item.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          <div className="animate-in fade-in space-y-px border-b border-border bg-surface px-3 py-2 duration-150 dark:border-border-dark dark:bg-surface-dark md:hidden">
+            {SETTINGS_NAV.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <Button
+                  key={item.id}
+                  onClick={() => handleTabChange(item.id)}
+                  variant="unstyled"
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition-colors duration-200',
+                    isActive
+                      ? 'bg-surface-hover font-medium text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'
+                      : 'text-text-tertiary hover:bg-surface-hover/50 dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover/50',
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      'h-3.5 w-3.5 shrink-0',
+                      isActive
+                        ? 'text-text-secondary dark:text-text-dark-secondary'
+                        : 'text-text-quaternary dark:text-text-dark-quaternary',
+                    )}
+                  />
+                  {item.label}
+                </Button>
+              );
+            })}
           </div>
         )}
 
