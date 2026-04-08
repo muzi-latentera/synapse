@@ -23,7 +23,7 @@ from acp.schema import (
 
 from app.constants import SANDBOX_HOME_DIR, SANDBOX_WORKSPACE_DIR, TERMINAL_TYPE
 from app.core.config import get_settings
-from app.services.acp.adapters import AgentKind, get_agent_adapter
+from app.services.acp.adapters import AGENT_ADAPTERS, AgentKind, LaunchConfig
 from app.services.acp.client import AcpClientHandler
 from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.docker_provider import (
@@ -59,6 +59,7 @@ class AcpSessionConfig:
     system_prompt_is_full_replace: bool = False
     worktree: bool = False
     reasoning_effort: str | None = None
+    session_meta: dict[str, Any] = field(default_factory=dict)
 
 
 class AcpSession:
@@ -279,7 +280,7 @@ class AcpSession:
 
             session_cwd = cls._resolve_cwd(config)
             mcp_servers = cls._build_mcp_servers(config.mcp_servers)
-            session_meta = cls._build_session_meta(config)
+            session_meta = config.session_meta
 
             if config.resume_session_id:
                 # Mute the handler during load_session so replayed history
@@ -377,9 +378,9 @@ class AcpSession:
             )
 
     @staticmethod
-    def _build_cli_args(config: AcpSessionConfig) -> list[str]:
-        adapter = get_agent_adapter(config.agent_kind)
-        return adapter.build_cli_args(
+    def _build_launch_config(config: AcpSessionConfig) -> LaunchConfig:
+        adapter = AGENT_ADAPTERS[config.agent_kind]
+        return adapter.build_launch_config(
             system_prompt=config.system_prompt,
             system_prompt_is_full_replace=config.system_prompt_is_full_replace,
             reasoning_effort=config.reasoning_effort,
@@ -398,7 +399,7 @@ class AcpSession:
     @staticmethod
     async def _spawn_docker(config: AcpSessionConfig) -> asyncio.subprocess.Process:
         container_name = f"{DOCKER_SANDBOX_CONTAINER_PREFIX}{config.sandbox_id}"
-        adapter = get_agent_adapter(config.agent_kind)
+        launch = AcpSession._build_launch_config(config)
 
         cmd: list[str] = [
             "docker",
@@ -413,8 +414,7 @@ class AcpSession:
             cmd.extend(["-e", f"{key}={value}"])
 
         # Run through bash login shell so .bashrc env vars are available
-        cli_args = AcpSession._build_cli_args(config)
-        agent_parts = [adapter.binary, *cli_args]
+        agent_parts = [launch.binary, *launch.cli_args]
         agent_cmd = "exec " + shlex.join(agent_parts)
         cmd.extend([container_name, "bash", "-lc", agent_cmd])
 
@@ -428,7 +428,7 @@ class AcpSession:
 
     @staticmethod
     async def _spawn_host(config: AcpSessionConfig) -> asyncio.subprocess.Process:
-        adapter = get_agent_adapter(config.agent_kind)
+        launch = AcpSession._build_launch_config(config)
 
         # Start from the host environment so auth tokens, proxy vars,
         # TLS settings, and tool paths are available to the agent process.
@@ -452,29 +452,15 @@ class AcpSession:
 
         cwd = config.workspace_path or config.cwd
 
-        cli_args = AcpSession._build_cli_args(config)
-
         return await asyncio.create_subprocess_exec(
-            adapter.binary,
-            *cli_args,
+            launch.binary,
+            *launch.cli_args,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             limit=STDIO_BUFFER_LIMIT,
             env=env,
             cwd=cwd,
-        )
-
-    @staticmethod
-    def _build_session_meta(config: AcpSessionConfig) -> dict[str, Any]:
-        # Returns kwargs for new_session/load_session. The ACP SDK passes
-        # **kwargs as field_meta (alias="_meta") on the request, so these
-        # keys become top-level properties inside the JSON _meta object.
-        adapter = get_agent_adapter(config.agent_kind)
-        return adapter.build_session_meta(
-            system_prompt=config.system_prompt,
-            system_prompt_is_full_replace=config.system_prompt_is_full_replace,
-            worktree=config.worktree,
         )
 
     @staticmethod
