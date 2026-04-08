@@ -55,6 +55,7 @@
 - If a wrapper exists, it must add concrete value (validation, transformation, error handling, compatibility boundary, or stable public API surface)
 - Prefer direct imports/calls over indirection when behavior is unchanged
 - Do not call private methods (`_method`) from outside the file where they are defined; if cross-file usage is needed, make the method public and rename it accordingly
+- Do not define helper functions in endpoint files — endpoint files should only contain route handlers; no-op exception-translation wrappers (e.g., `_raise_foo_http_exception`) should be inlined at each call site, reusable access-check or service-construction helpers should be moved to `deps.py` as `Depends()` dependencies, and pure utility functions should be moved to `utils/`
 - When a caller passes a value to a function that already stores/registers it internally, do not call a second function to store/register the same value again — one code path, one registration
 - Do not use inline imports; only allow inline imports when required to avoid circular imports and no cleaner module-level import structure exists
 - Strong typing only: do not use `# type: ignore`, `# pyright: ignore`, `# noqa` to silence typing/import issues; fix the types/usages directly (if absolutely unavoidable, document why in the PR description)
@@ -90,6 +91,13 @@
 - Group related free functions into a class with static methods rather than leaving them as loose module-level functions (e.g., `StreamEnvelope.build()` + `StreamEnvelope.sanitize_payload()` instead of separate `build_envelope()` + `redact_for_audit()`)
 - Prefer one data structure over two when one can serve both purposes — don't add a second dict/set to handle an edge case that can be folded into the primary structure; if a property can be derived from existing data (e.g., checking `path.is_relative_to(base_dir)` instead of tracking a separate `managed` set), derive it
 - Do not create multiple overlapping data containers for the same concept — if fields are shared across dataclasses, consolidate into one
+- **`utils/`** is for stateless, pure functions only — parsing, formatting, string building, validation. No I/O, no database access, no service dependencies, no HTTP concerns (`HTTPException`). Raise `ValueError` for invalid input, let callers translate to the appropriate exception type.
+- **`services/`** is for stateful, I/O-bound business logic — database queries, API calls, sandbox commands. Services are instantiated with dependencies (`session_factory`, providers) and injected via `Depends()`. Raise domain exceptions (`SandboxException`, `ChatException`, etc.).
+- **`core/deps.py`** is for FastAPI dependency injection wiring — instantiate services, validate access, translate domain exceptions to `HTTPException` at the boundary.
+- **`core/security.py`** is for authentication and authorization — token validation, password hashing, encryption, and WebSocket auth handshake.
+- If a function does I/O or depends on a service, it does not belong in `utils/` — move it to the appropriate service class or `core/` module
+- When a service accumulates responsibilities from two distinct domains, extract the secondary domain into its own service — e.g., git operations belong in `GitService` (not `SandboxService`), with `GitService` depending on `SandboxService` for command execution
+- Endpoint files must contain only route handlers — all business logic (command building, output parsing, branching decisions) belongs in the service layer; endpoints handle HTTP concerns (request validation, response formatting, exception translation) only
 
 ## Frontend Component Architecture
 

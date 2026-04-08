@@ -1,5 +1,3 @@
-from typing import NoReturn
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import get_agent_service, get_github_service
@@ -24,10 +22,6 @@ from app.services.github import GitHubService
 router = APIRouter()
 
 
-def _raise_from_github(exc: GitHubException) -> NoReturn:
-    raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
-
-
 @router.get("/repositories", response_model=GitHubReposResponse)
 async def list_repositories(
     q: str = Query(default="", max_length=256),
@@ -39,7 +33,7 @@ async def list_repositories(
     try:
         return await github.list_repositories(q, page, per_page)
     except GitHubException as exc:
-        _raise_from_github(exc)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.get("/pulls", response_model=GitHubPRListResponse)
@@ -52,7 +46,7 @@ async def list_pull_requests(
     try:
         return await github.list_pull_requests(owner, repo)
     except GitHubException as exc:
-        _raise_from_github(exc)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.get(
@@ -69,7 +63,7 @@ async def get_pr_comments(
     try:
         return await github.get_pr_comments(owner, repo, number)
     except GitHubException as exc:
-        _raise_from_github(exc)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.post("/pulls", response_model=CreatePullRequestResponse)
@@ -81,7 +75,7 @@ async def create_pull_request(
     try:
         return await github.create_pull_request(request)
     except GitHubException as exc:
-        _raise_from_github(exc)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
 
 @router.post(
@@ -130,4 +124,4 @@ async def list_collaborators(
     try:
         return await github.list_collaborators(owner, repo)
     except GitHubException as exc:
-        _raise_from_github(exc)
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc

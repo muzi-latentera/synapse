@@ -1,20 +1,27 @@
+import asyncio
 import base64
 import hashlib
+import json
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import cast
+from typing import NamedTuple, cast
 from uuid import UUID
 
 from cryptography.fernet import Fernet
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query, WebSocket, status
 from fastapi_users.password import PasswordHelper
 from jose import jwt
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db.session import get_db
+from ..constants import WS_MSG_AUTH
+from ..db.session import SessionLocal, get_db
 from ..models.db_models.user import User
+from ..services.exceptions import UserException
+from ..services.sandbox_providers import SandboxProviderType
+from ..services.user import UserService
 from .config import get_settings
 from .user_manager import optional_current_active_user
 
@@ -118,3 +125,55 @@ def get_refresh_token_expiry() -> datetime:
     return datetime.now(timezone.utc) + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
+
+
+class WebSocketAuthResult(NamedTuple):
+    user: User | None
+    sandbox_provider: str
+
+
+NO_WS_AUTH = WebSocketAuthResult(None, SandboxProviderType.DOCKER.value)
+
+
+async def authenticate_websocket_user(token: str) -> WebSocketAuthResult:
+    # Validates the JWT, loads the user, and resolves their sandbox provider
+    # preference so the terminal connects to the right backend (Docker/Host).
+    try:
+        async with SessionLocal() as db:
+            user = await get_user_from_token(token, db)
+            if not user:
+                return NO_WS_AUTH
+
+            user_service = UserService(session_factory=SessionLocal)
+            try:
+                user_settings = await user_service.get_user_settings(user.id, db=db)
+                sandbox_provider = user_settings.sandbox_provider
+            except UserException:
+                sandbox_provider = SandboxProviderType.DOCKER.value
+
+        return WebSocketAuthResult(user, sandbox_provider)
+    except (ValueError, OSError, SQLAlchemyError) as e:
+        logger.warning("WebSocket authentication failed: %s", e)
+        return NO_WS_AUTH
+
+
+async def wait_for_websocket_auth(
+    websocket: WebSocket, timeout: float = 10.0
+) -> WebSocketAuthResult:
+    # WebSocket connections can't send headers after the handshake, so the
+    # client sends a JSON auth message as the first frame. This waits for
+    # that message and validates the token.
+    try:
+        message = await asyncio.wait_for(websocket.receive(), timeout=timeout)
+        data = json.loads(message["text"])
+    except (asyncio.TimeoutError, json.JSONDecodeError, KeyError):
+        return NO_WS_AUTH
+
+    if not isinstance(data, dict) or data.get("type") != WS_MSG_AUTH:
+        return NO_WS_AUTH
+
+    token = data.get("token")
+    if not isinstance(token, str) or not token:
+        return NO_WS_AUTH
+
+    return await authenticate_websocket_user(token)

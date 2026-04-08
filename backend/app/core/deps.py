@@ -1,5 +1,6 @@
 import logging
 from collections.abc import AsyncIterator
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -8,14 +9,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import get_current_user
 from app.core.user_manager import optional_current_active_user
 from app.db.session import SessionLocal, get_db
+from app.models.db_models.chat import Chat
 from app.models.db_models.workspace import Workspace
 from app.models.db_models.user import User
 from app.services.attachment import AttachmentService
 from app.services.chat import ChatService
 from app.services.agent import AgentService
+from app.services.exceptions import ChatException, UserException
+from app.services.git import GitService
 from app.services.message import MessageService
-from app.services.exceptions import UserException
 from app.services.github import GitHubService
+from app.services.queue import QueueService
 from app.services.refresh_token import RefreshTokenService
 from app.services.sandbox import SandboxService
 from app.services.workspace import WorkspaceService
@@ -23,6 +27,7 @@ from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.skill import SkillService
 from app.services.user import UserService
+from app.utils.cache import CacheError, cache_connection
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +157,12 @@ async def get_sandbox_service(
         await provider.cleanup()
 
 
+def get_git_service(
+    sandbox_service: SandboxService = Depends(get_sandbox_service),
+) -> GitService:
+    return GitService(sandbox_service)
+
+
 async def get_workspace_service(
     sandbox_service: SandboxService = Depends(get_sandbox_service),
     user_service: UserService = Depends(get_user_service),
@@ -176,3 +187,29 @@ async def get_chat_service(
         user_service,
         session_factory=SessionLocal,
     )
+
+
+async def ensure_chat_access(
+    chat_id: UUID,
+    current_user: User = Depends(get_current_user),
+    chat_service: ChatService = Depends(get_chat_service),
+) -> Chat:
+    try:
+        return await chat_service.get_chat(chat_id, current_user)
+    except ChatException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found or access denied",
+        )
+
+
+async def get_queue_service() -> AsyncIterator[QueueService]:
+    try:
+        async with cache_connection() as cache:
+            yield QueueService(cache)
+    except CacheError as e:
+        logger.error("Redis error: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable",
+        ) from e
