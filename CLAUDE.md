@@ -79,6 +79,8 @@
 - Do not use `TypedDict` with `total=False` when all keys are always present in every construction site — use `total=True` (the default) so the type checker can verify direct key access is safe
 - Do not create standalone functions that only wrap a single dict lookup with a default — inline `DICT[key].field` or `DICT.get(key)` at the call site; if the data structure is a plain tuple, use a `NamedTuple` for self-documenting field access instead of adding accessor functions
 - Do not introduce a new frontend type/interface when an existing one has the same shape — reuse the existing type directly, even across module boundaries
+- When defining an abstract method signature during a refactor, verify every parameter receives a meaningful value from all call sites — do not carry forward parameters from the old design that become dead in the new interface (e.g., always hardcoded to `None`)
+- Do not create inline dict literals for identity mappings (where every key maps to itself) — use a `set`/`frozenset` membership check instead, hoisted to a module-level constant
 
 ## Naming Conventions
 

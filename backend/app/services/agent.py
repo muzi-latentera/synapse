@@ -25,7 +25,7 @@ from app.prompts.generate_pr_description import (
 )
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 from app.prompts.generate_title import GENERATE_TITLE_SYSTEM_PROMPT
-from app.services.acp.adapters import AgentKind, get_agent_adapter
+from app.services.acp.adapters import AGENT_ADAPTERS, AgentKind
 from app.services.acp.client import AcpClientHandler
 from app.services.acp.session import AcpSession, AcpSessionConfig
 from app.services.exceptions import AgentException, ChatException, ErrorCode
@@ -80,7 +80,7 @@ class AgentService:
             cwd = SANDBOX_WORKSPACE_DIR
 
         agent_kind = MODELS[model_id].agent_kind
-        adapter = get_agent_adapter(agent_kind)
+        adapter = AGENT_ADAPTERS[agent_kind]
         stored_agent_kind = getattr(chat, "session_agent_kind", None)
         if stored_agent_kind and stored_agent_kind != agent_kind.value:
             raise ChatException(
@@ -125,7 +125,7 @@ class AgentService:
             custom_instructions,
             plan_mode=plan_mode,
         )
-        adapter = get_agent_adapter(agent_kind)
+        adapter = AGENT_ADAPTERS[agent_kind]
 
         handler = session.handler
         prompt_task = asyncio.create_task(
@@ -140,8 +140,8 @@ class AgentService:
 
                 ui_mode = self._get_plan_mode_transition(event)
                 if ui_mode:
-                    permission_config = adapter.build_permission_config(ui_mode)
-                    await session.set_mode(permission_config.session_mode)
+                    session_mode = adapter.map_session_mode(ui_mode)
+                    await session.set_mode(session_mode)
 
             result.total_cost_usd = handler.total_cost_usd
             result.usage = handler.usage
@@ -377,10 +377,15 @@ class AgentService:
 
         env.update(self._build_custom_env(user_settings))
 
-        adapter = get_agent_adapter(agent_kind)
-        adapter.apply_env_overrides(env, thinking_mode)
-        reasoning_effort = adapter.map_reasoning_effort(thinking_mode)
-        permission_config = adapter.build_permission_config(permission_mode)
+        adapter = AGENT_ADAPTERS[agent_kind]
+        session_config = adapter.build_session_config(
+            system_prompt=system_prompt,
+            system_prompt_is_full_replace=system_prompt_is_full_replace,
+            worktree=worktree,
+            thinking_mode=thinking_mode,
+            permission_mode=permission_mode,
+        )
+        env.update(session_config.env_overrides)
 
         return AcpSessionConfig(
             sandbox_id=sandbox_id,
@@ -389,14 +394,15 @@ class AgentService:
             agent_kind=agent_kind,
             env=env,
             model=model_id,
-            permission_mode=permission_config.session_mode,
-            launch_approval_policy=permission_config.launch_approval_policy,
+            permission_mode=session_config.permission.session_mode,
+            launch_approval_policy=session_config.permission.launch_approval_policy,
             resume_session_id=session_id,
             workspace_path=workspace_path,
             system_prompt=system_prompt,
             system_prompt_is_full_replace=system_prompt_is_full_replace,
             worktree=worktree,
-            reasoning_effort=reasoning_effort,
+            reasoning_effort=session_config.reasoning_effort,
+            session_meta=session_config.meta,
         )
 
     @staticmethod
