@@ -1,10 +1,18 @@
 import os
 from pathlib import Path
-from typing import Final
+from typing import Final, NamedTuple
 
 from app.core.config import get_settings
+from app.services.acp.adapters import AgentKind
 
 settings = get_settings()
+
+
+class ModelInfo(NamedTuple):
+    display_name: str
+    agent_kind: AgentKind
+    context_window: int | None
+
 
 CLAUDE_DIR: Final[Path] = (
     Path(d) if (d := os.environ.get("CLAUDE_CONFIG_DIR")) else Path.home() / ".claude"
@@ -153,3 +161,102 @@ DEFAULT_PTY_COLS: Final[int] = 80
 DOCKER_STATUS_RUNNING: Final[str] = "running"
 
 SANDBOX_BASHRC_PATH: Final[str] = "/home/user/.bashrc"
+
+
+MODELS: dict[str, ModelInfo] = {
+    "sonnet[1m]": ModelInfo("Sonnet", AgentKind.CLAUDE, 1_000_000),
+    "opus[1m]": ModelInfo("Opus", AgentKind.CLAUDE, 1_000_000),
+    "haiku": ModelInfo("Haiku", AgentKind.CLAUDE, 200_000),
+    "gpt-5.4": ModelInfo("GPT 5.4", AgentKind.CODEX, 1_000_000),
+    "gpt-5.4-mini": ModelInfo("GPT 5.4 Mini", AgentKind.CODEX, 400_000),
+    "gpt-5.3-codex": ModelInfo("GPT 5.3 Codex", AgentKind.CODEX, 400_000),
+    "gpt-5.2-codex": ModelInfo("GPT 5.2 Codex", AgentKind.CODEX, 400_000),
+    "gpt-5.2": ModelInfo("GPT 5.2", AgentKind.CODEX, 400_000),
+    "gpt-5.1-codex-max": ModelInfo("GPT 5.1 Codex Max", AgentKind.CODEX, 400_000),
+    "gpt-5.1-codex-mini": ModelInfo("GPT 5.1 Codex Mini", AgentKind.CODEX, 400_000),
+}
+
+# Built-in slash commands exposed to the frontend per agent kind.
+# Claude commands sourced from the Claude SDK's supportedCommands(),
+# filtered by what claude-agent-acp exposes via ACP (excludes cost,
+# login, logout, release-notes, todos, and local-only commands like
+# context, heapdump, extra-usage).
+# Codex commands sourced from the codex-acp README.
+BUILTIN_SLASH_COMMANDS: dict[AgentKind, list[dict[str, str]]] = {
+    AgentKind.CLAUDE: [
+        {
+            "value": "/compact",
+            "label": "Compact",
+            "description": "Clear conversation history but keep a summary in context. Optional: /compact [instructions for summarization]",
+        },
+        {"value": "/review", "label": "Review", "description": "Review a pull request"},
+        {
+            "value": "/init",
+            "label": "Init",
+            "description": "Initialize a new CLAUDE.md file with codebase documentation",
+        },
+        {
+            "value": "/debug",
+            "label": "Debug",
+            "description": "Debug your current Claude Code session",
+        },
+        {
+            "value": "/security-review",
+            "label": "Security Review",
+            "description": "Complete a security review of the pending changes on the current branch",
+        },
+        {
+            "value": "/insights",
+            "label": "Insights",
+            "description": "Generate a report analyzing your Claude Code sessions",
+        },
+        {
+            "value": "/simplify",
+            "label": "Simplify",
+            "description": "Review changed code for reuse, quality and efficiency, then fix any issues found",
+        },
+        {
+            "value": "/loop",
+            "label": "Loop",
+            "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo, defaults to 10m)",
+        },
+        {
+            "value": "/batch",
+            "label": "Batch",
+            "description": "Research and plan a large-scale change, then execute it in parallel across isolated worktree agents that each open a PR",
+        },
+        {
+            "value": "/update-config",
+            "label": "Update Config",
+            "description": "Configure Claude Code settings via settings.json",
+        },
+        {
+            "value": "/claude-api",
+            "label": "Claude API",
+            "description": "Build apps with the Claude API or Anthropic SDK",
+        },
+    ],
+    AgentKind.CODEX: [
+        {"value": "/review", "label": "Review", "description": "Review a pull request"},
+        {
+            "value": "/review-branch",
+            "label": "Review Branch",
+            "description": "Review changes on the current branch",
+        },
+        {
+            "value": "/review-commit",
+            "label": "Review Commit",
+            "description": "Review a specific commit",
+        },
+        {
+            "value": "/init",
+            "label": "Init",
+            "description": "Initialize project configuration",
+        },
+        {
+            "value": "/compact",
+            "label": "Compact",
+            "description": "Clear conversation history but keep a summary in context",
+        },
+    ],
+}

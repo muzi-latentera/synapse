@@ -13,6 +13,12 @@ class CustomSkill(BaseModel):
     source: str
 
 
+class BuiltinSlashCommand(BaseModel):
+    value: str
+    label: str
+    description: str
+
+
 class WorkspaceCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     source_type: Literal["git", "local", "empty"] = "empty"
@@ -44,3 +50,7 @@ class Workspace(BaseModel):
 
 class WorkspaceResources(BaseModel):
     skills: list[CustomSkill] = Field(default_factory=list)
+    # Keyed by agent kind ("claude", "codex")
+    builtin_slash_commands: dict[str, list[BuiltinSlashCommand]] = Field(
+        default_factory=dict
+    )

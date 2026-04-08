@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
 from app.constants import (
+    MODELS,
     REDIS_KEY_CHAT_CONTEXT_USAGE,
     REDIS_KEY_CHAT_STREAM_LIVE,
 )
@@ -34,7 +35,6 @@ from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.session_registry import ChatSession, session_registry
 from app.services.db import SessionFactoryType
 from app.services.exceptions import AgentException
-from app.services.model_registry import get_agent_kind_for_model, get_context_window
 from app.services.message import MessageService
 from app.services.queue import QueueService
 from app.services.streaming.types import (
@@ -447,7 +447,7 @@ class ChatStreamRuntime:
         ):
             return
         self.session_container["session_id"] = new_session_id
-        agent_kind = get_agent_kind_for_model(self.model_id)
+        agent_kind = MODELS[self.model_id].agent_kind
         self.chat.session_id = new_session_id
         self.chat.session_agent_kind = agent_kind.value
         self.chat.worktree_cwd = new_worktree_cwd
@@ -755,7 +755,7 @@ class ChatStreamRuntime:
             user_settings,
             selected_persona_name=selected_persona_name,
         )
-        context_window = get_context_window(queued_msg["model_id"])
+        context_window = MODELS[queued_msg["model_id"]].context_window
         resolved_session_id = session_id_override or chat.session_id
         return ChatStreamRequest(
             prompt=queued_msg["content"],

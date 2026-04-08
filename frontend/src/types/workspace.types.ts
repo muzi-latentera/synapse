@@ -1,4 +1,6 @@
 import type { CustomSkill } from './user.types';
+import type { AgentKind } from './chat.types';
+import type { SlashCommand } from './ui.types';
 
 export type WorkspaceSourceType = 'git' | 'local' | 'empty';
 
@@ -31,4 +33,5 @@ export interface UpdateWorkspaceRequest {
 
 export interface WorkspaceResources {
   skills: CustomSkill[];
+  builtin_slash_commands: Record<AgentKind, SlashCommand[]>;
 }
