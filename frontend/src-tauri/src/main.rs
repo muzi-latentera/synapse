@@ -138,7 +138,7 @@ fn spawn_backend(
     if let Some(home) = dirs::home_dir() {
         backend_path.push_str(&format!(":{}/.local/bin", home.display()));
     }
-    backend_path.push_str(":/opt/homebrew/bin:/opt/homebrew/sbin");
+    backend_path.push_str(":/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin");
 
     let db_path = data_dir.join("agentrove.db").to_string_lossy().to_string();
     let mut command = Command::new(&backend_bin);
