@@ -51,10 +51,10 @@ from app.models.schemas.pagination import (
 )
 from app.models.schemas.queue import QueueAddResponse, QueuedMessage, QueueMessageUpdate
 from app.services.chat import ChatService
-from app.core.deps import get_ai_agent_service
-from app.services.agent_service import AiAgentService
+from app.core.deps import get_agent_service
+from app.services.agent import AgentService
 from app.services.exceptions import (
-    AiServiceException,
+    AgentException,
     ChatException,
 )
 from app.services.queue import QueueService
@@ -191,14 +191,14 @@ async def send_message(
 async def enhance_prompt(
     prompt: str = Form(...),
     model_id: str = Form(...),
-    ai_service: AiAgentService = Depends(get_ai_agent_service),
+    ai_service: AgentService = Depends(get_agent_service),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
     try:
         enhanced_prompt = await ai_service.enhance_prompt(
             prompt, model_id, current_user
         )
-    except AiServiceException as e:
+    except AgentException as e:
         raise HTTPException(status_code=e.status_code, detail=str(e)) from e
     return {"enhanced_prompt": enhanced_prompt}
 

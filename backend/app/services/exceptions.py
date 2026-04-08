@@ -90,7 +90,7 @@ class StorageException(ServiceException):
         super().__init__(message, error_code, details, status_code)
 
 
-class AiServiceException(ServiceException):
+class AgentException(ServiceException):
     def __init__(
         self,
         message: str,

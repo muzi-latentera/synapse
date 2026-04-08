@@ -28,7 +28,7 @@ from app.prompts.generate_title import GENERATE_TITLE_SYSTEM_PROMPT
 from app.services.acp.adapters import AgentKind, get_agent_adapter
 from app.services.acp.client import AcpClientHandler
 from app.services.acp.session import AcpSession, AcpSessionConfig
-from app.services.exceptions import AiServiceException, ChatException, ErrorCode
+from app.services.exceptions import AgentException, ChatException, ErrorCode
 from app.services.model_registry import get_agent_kind_for_model
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers import SandboxProviderType
@@ -48,7 +48,7 @@ class StreamResult:
         self.usage: dict[str, Any] | None = None
 
 
-class AiAgentService:
+class AgentService:
     def __init__(self, session_factory: Any | None = None) -> None:
         self.session_factory = session_factory or SessionLocal
 
@@ -238,7 +238,7 @@ class AiAgentService:
             if title:
                 title = title.strip().strip('"').strip("'")
             return title or None
-        except AiServiceException:
+        except AgentException:
             logger.debug("Title generation failed for user %s", user.id)
             return None
 
@@ -252,7 +252,7 @@ class AiAgentService:
             user,
         )
         if not result:
-            raise AiServiceException("AI returned an empty description")
+            raise AgentException("AI returned an empty description")
         return result
 
     async def generate_commit_message(
@@ -265,7 +265,7 @@ class AiAgentService:
             user,
         )
         if not result:
-            raise AiServiceException("AI returned an empty commit message")
+            raise AgentException("AI returned an empty commit message")
         return result
 
     async def _generate_text(
@@ -309,12 +309,12 @@ class AiAgentService:
 
         try:
             session = await AcpSession.create(config)
-        except AiServiceException:
+        except AgentException:
             raise
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            raise AiServiceException(f"Failed to create ACP session: {e}") from e
+            raise AgentException(f"Failed to create ACP session: {e}") from e
 
         prompt_task: asyncio.Task[None] | None = None
         try:
@@ -331,10 +331,10 @@ class AiAgentService:
             return "".join(result_parts)
         except asyncio.CancelledError:
             raise
-        except AiServiceException:
+        except AgentException:
             raise
         except Exception as e:
-            raise AiServiceException(f"ACP call failed: {e}") from e
+            raise AgentException(f"ACP call failed: {e}") from e
         finally:
             await self._cancel_prompt_task(prompt_task)
             await session.close()

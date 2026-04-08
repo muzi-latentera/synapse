@@ -11,7 +11,7 @@ from app.db.session import SessionLocal, get_db
 from app.models.db_models.workspace import Workspace
 from app.models.db_models.user import User
 from app.services.chat import ChatService
-from app.services.agent_service import AiAgentService
+from app.services.agent import AgentService
 from app.services.exceptions import UserException
 from app.services.github import GitHubService
 from app.services.refresh_token import RefreshTokenService
@@ -69,8 +69,8 @@ def get_github_service(
     return GitHubService(token=github_token)
 
 
-def get_ai_agent_service() -> AiAgentService:
-    return AiAgentService(session_factory=SessionLocal)
+def get_agent_service() -> AgentService:
+    return AgentService(session_factory=SessionLocal)
 
 
 async def validate_sandbox_ownership(

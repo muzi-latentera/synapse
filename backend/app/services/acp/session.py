@@ -43,7 +43,7 @@ STDIO_BUFFER_LIMIT = 100 * 1024 * 1024
 @dataclass
 class AcpSessionConfig:
     # Everything needed to spawn an ACP agent process and create a session.
-    # Built by AiAgentService._build_acp_config() from chat/user/model state.
+    # Built by AgentService._build_acp_config() from chat/user/model state.
     sandbox_id: str
     sandbox_provider: str
     cwd: str

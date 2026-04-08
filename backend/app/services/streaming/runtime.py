@@ -24,8 +24,8 @@ from app.models.db_models.enums import MessageRole, MessageStreamStatus
 from app.models.db_models.user import User, UserSettings
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
 from app.services.acp.session import AcpSessionConfig
-from app.services.agent_service import (
-    AiAgentService,
+from app.services.agent import (
+    AgentService,
     StreamResult,
 )
 from app.services.sandbox import SandboxService
@@ -33,7 +33,7 @@ from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.session_registry import ChatSession, session_registry
 from app.services.db import SessionFactoryType
-from app.services.exceptions import AiServiceException
+from app.services.exceptions import AgentException
 from app.services.model_registry import get_agent_kind_for_model, get_context_window
 from app.services.message import MessageService
 from app.services.queue import QueueService
@@ -114,7 +114,7 @@ class ChatStreamRuntime:
 
     async def run(
         self,
-        ai_service: AiAgentService,
+        ai_service: AgentService,
         stream_result: StreamResult,
         stream: AsyncIterator[StreamEvent],
     ) -> str:
@@ -150,7 +150,7 @@ class ChatStreamRuntime:
                     return await self._complete_stream(
                         stream_result, MessageStreamStatus.INTERRUPTED
                     )
-                raise AiServiceException("Stream completed without any events")
+                raise AgentException("Stream completed without any events")
 
             return await self._complete_stream(
                 stream_result, MessageStreamStatus.COMPLETED
@@ -168,7 +168,7 @@ class ChatStreamRuntime:
 
     async def _consume_stream(
         self,
-        ai_service: AiAgentService,
+        ai_service: AgentService,
         stream_result: StreamResult,
         stream: AsyncIterator[StreamEvent],
     ) -> None:
@@ -609,7 +609,7 @@ class ChatStreamRuntime:
         if not self.prompt or not self._is_new_chat:
             return
 
-        ai_service = AiAgentService(session_factory=self.session_factory)
+        ai_service = AgentService(session_factory=self.session_factory)
         user = User(id=self.chat.user_id)
         title = await ai_service.generate_title(
             self.prompt, self.model_id, user, chat=self.chat
@@ -824,7 +824,7 @@ class ChatStreamRuntime:
                 )
                 chat = result.scalar_one_or_none()
                 if not chat:
-                    raise AiServiceException(
+                    raise AgentException(
                         f"Chat {chat_id} not found for idle send-now"
                     )
 
@@ -976,7 +976,7 @@ class ChatStreamRuntime:
         async with cache_connection() as cache:
             runtime.cache = cache
 
-            ai_service = AiAgentService(session_factory=runtime.session_factory)
+            ai_service = AgentService(session_factory=runtime.session_factory)
             user = User(id=runtime.chat.user_id)
 
             config: AcpSessionConfig = await ai_service.build_session_config(
@@ -1043,7 +1043,7 @@ class ChatStreamRuntime:
                 )
                 return await runtime.run(ai_service, stream_result, stream)
             except (
-                AiServiceException,
+                AgentException,
                 asyncio.CancelledError,
             ) as exc:
                 if cls._is_transport_fatal(exc):
