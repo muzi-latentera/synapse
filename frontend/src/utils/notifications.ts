@@ -14,11 +14,6 @@ const NOTIFIED_PERMISSION_REQUESTS = new Set<string>();
 
 function buildPermissionNotification(request: PermissionRequest): { title: string; body: string } {
   switch (request.tool_name) {
-    case 'AskUserQuestion':
-      return {
-        title: 'Question needs your input',
-        body: 'Answer the pending question to continue the task.',
-      };
     case 'ExitPlanMode':
       return {
         title: 'Plan ready for approval',

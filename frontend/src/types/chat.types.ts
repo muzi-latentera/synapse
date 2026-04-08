@@ -130,19 +130,3 @@ export interface PermissionRequest {
   tool_input: Record<string, unknown>;
   options: PermissionOption[];
 }
-
-export interface QuestionOption {
-  label: string;
-  description?: string;
-}
-
-export interface UserQuestion {
-  question: string;
-  header?: string;
-  options?: QuestionOption[];
-  multiSelect?: boolean;
-}
-
-export interface AskUserQuestionInput {
-  questions: UserQuestion[];
-}

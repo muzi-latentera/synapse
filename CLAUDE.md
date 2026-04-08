@@ -9,6 +9,7 @@
 - Use Redis for pub/sub and caching only, not as a task broker or distributed coordination layer
 - Background work runs as asyncio tasks in the API process — no separate worker services
 - Treat per-user request handling as effectively sequential for reviews and refactors: do not flag bugs that only appear under overlapping concurrent requests (retries, double-submit, multi-tab) unless the task explicitly asks for concurrency hardening
+- ACP `field_meta` (`_meta`) is extensibility metadata that agents are not required to read — do not use it to pass user-facing data (alternative instructions, form answers) that agents need to act on; if the ACP schema has no first-class field for a concept, the feature cannot be reliably implemented through metadata alone
 
 ## SQLAlchemy Model Conventions
 
@@ -135,6 +136,9 @@
 - The `components/chat/tools/` directory is exclusively for tool components (one per tool type) — helper modals, dialogs, and detail views triggered by tools belong in `components/chat/` or a relevant feature folder, not in `tools/`
 - Shared UI components used by 2+ feature areas belong in `components/ui/shared/` — do not place them loose in a feature folder just because the first consumer lives there
 
+### Event Handler Signatures
+- Never pass a callback directly to `onClick` (or similar event props) when the callback expects domain-typed arguments — always wrap in an arrow function: `onClick={() => handler(value)}` not `onClick={handler}` — React will pass the event object as the first argument, silently corrupting typed parameters
+
 ### useEffect Discipline
 - Never place hooks (`useState`, `useCallback`, `useMemo`, `useEffect`) after conditional early returns in a component — React requires hooks to be called in the same order on every render; move all hooks above any `return` statements
 - Never call `useEffect` directly for mount-only effects — use `useMountEffect()` from `hooks/useMountEffect.ts` (`useEffect(fn, [])` wrapper) to make intent explicit and enable lint enforcement
@@ -234,6 +238,9 @@
 - Loading states: `animate-spin` for circular spinner icons only (e.g., `Loader2`), `animate-pulse` for non-circular icons used as loading indicators and skeletons, `animate-bounce` with staggered `animationDelay` for dot loaders
 - Expandable content: `transition-all duration-200` with `max-h-*` and `opacity` toggling
 - Dropdowns: `animate-fadeIn` for entry — no scale transforms on buttons
+
+### Button Layout
+- When action buttons have variable-length or long text labels, stack them vertically (`flex-col`) at full width instead of placing them in a horizontal row — horizontal layouts break awkwardly when text wraps or buttons have uneven widths
 
 ## Code Review Guidelines
 

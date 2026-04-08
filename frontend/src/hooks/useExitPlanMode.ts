@@ -11,9 +11,9 @@ export function useExitPlanMode(chatId: string | undefined) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const pendingRequests = usePermissionStore((state) => state.pendingRequests);
-
-  const pendingRequest = chatId ? (pendingRequests.get(chatId) ?? null) : null;
+  const pendingRequest = usePermissionStore((state) =>
+    chatId ? (state.pendingRequests.get(chatId) ?? null) : null,
+  );
   const isExitPlanModeRequest = pendingRequest?.tool_name === 'ExitPlanMode';
 
   const handleApprove = useCallback(
@@ -44,18 +44,12 @@ export function useExitPlanMode(chatId: string | undefined) {
   );
 
   const handleReject = useCallback(
-    async (optionId: string, alternativeInstruction?: string) => {
+    async (optionId: string) => {
       if (!chatId || !pendingRequest || !isExitPlanModeRequest) return;
 
       await executePermissionResponse(
         pendingRequest.request_id,
-        () =>
-          permissionService.respondToPermission(
-            chatId,
-            pendingRequest.request_id,
-            optionId,
-            alternativeInstruction,
-          ),
+        () => permissionService.respondToPermission(chatId, pendingRequest.request_id, optionId),
         {
           setIsLoading,
           setError,

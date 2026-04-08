@@ -16,8 +16,6 @@ const toolLoaders: Record<string, ToolModuleLoader> = {
   Write: () => import('./claude/FileOperationTool').then((m) => ({ default: m.WriteTool })),
   Read: () => import('./claude/FileOperationTool').then((m) => ({ default: m.ReadTool })),
   Edit: () => import('./claude/FileOperationTool').then((m) => ({ default: m.EditTool })),
-  AskUserQuestion: () =>
-    import('./claude/AskUserQuestion').then((m) => ({ default: m.AskUserQuestion })),
   Bash: () => import('./claude/BashTool').then((m) => ({ default: m.BashTool })),
   Glob: () => import('./claude/GlobTool').then((m) => ({ default: m.GlobTool })),
   Grep: () => import('./claude/GrepTool').then((m) => ({ default: m.GrepTool })),

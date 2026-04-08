@@ -3,8 +3,7 @@ import { Map, Terminal } from 'lucide-react';
 import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import type { ToolAggregate } from '@/types/tools.types';
 import { MessageActions } from '../../message-bubble/MessageActions';
-import { useApprovalState } from '@/hooks/useApprovalState';
-import { ApprovalTextarea, PermissionApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
+import { PermissionApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
 import { filterOptions } from '@/utils/permissionStorage';
 import { ToolCard } from '../common/ToolCard';
 import { useExitPlanMode } from '@/hooks/useExitPlanMode';
@@ -40,7 +39,6 @@ const EnterPlanModeInner: React.FC<PlanModeToolProps> = ({ tool }) => (
 
 const ExitPlanModeInner: React.FC<PlanModeToolProps> = ({ tool, chatId }) => {
   const { pendingRequest, isLoading, error, handleApprove, handleReject } = useExitPlanMode(chatId);
-  const approvalState = useApprovalState(handleReject);
 
   const planContent = tool.input?.plan as string | undefined;
   const copyId = `plan-${tool.id}`;
@@ -101,19 +99,13 @@ const ExitPlanModeInner: React.FC<PlanModeToolProps> = ({ tool, chatId }) => {
               </div>
             </div>
           )}
-
-          <ApprovalTextarea
-            state={approvalState}
-            textareaId="plan-feedback"
-            isLoading={isLoading}
-          />
         </div>
 
         <PermissionApprovalButtons
-          state={approvalState}
           allowOptions={filterOptions(pendingRequest.options, 'allow')}
           rejectOptions={filterOptions(pendingRequest.options, 'reject')}
           onApprove={handleApprove}
+          onReject={handleReject}
           isLoading={isLoading}
           error={error}
         />

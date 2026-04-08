@@ -42,7 +42,6 @@ const MessageInlinePermission = memo(function MessageInlinePermission() {
 
   if (
     !state.pendingPermissionRequest ||
-    state.pendingPermissionRequest.tool_name === 'AskUserQuestion' ||
     state.pendingPermissionRequest.tool_name === 'ExitPlanMode'
   ) {
     return null;
@@ -312,9 +311,7 @@ export const Chat = memo(function Chat() {
   const lastBotMessageId = lastBotMessage?.id ?? null;
 
   const canShowPermissionInline =
-    pendingPermissionRequest &&
-    pendingPermissionRequest.tool_name !== 'AskUserQuestion' &&
-    pendingPermissionRequest.tool_name !== 'ExitPlanMode';
+    pendingPermissionRequest && pendingPermissionRequest.tool_name !== 'ExitPlanMode';
   const lastBotIsStreaming = !!lastBotMessageId && streamingMessageIdSet.has(lastBotMessageId);
   const lastBotHasContent =
     !!lastBotMessage &&

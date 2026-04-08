@@ -402,32 +402,12 @@ async def respond_to_permission(
     chat_id: UUID,
     request_id: str,
     option_id: str = Form(""),
-    alternative_instruction: str | None = Form(None),
-    user_answers: str | None = Form(None, max_length=50000),
     _chat: Chat = Depends(ensure_chat_access),
 ) -> PermissionRespondResponse:
-    parsed_answers = None
-    if user_answers:
-        try:
-            parsed_answers = json.loads(user_answers)
-        except json.JSONDecodeError as e:
-            logger.error("Invalid JSON in user_answers: %s", e)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid JSON format for user_answers",
-            )
-        if not isinstance(parsed_answers, dict):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="user_answers must be a JSON object",
-            )
-
     acp_resolved = session_registry.resolve_permission(
         str(chat_id),
         request_id,
         option_id=option_id,
-        user_answers=parsed_answers,
-        alternative_instruction=alternative_instruction,
     )
     if not acp_resolved:
         raise HTTPException(

@@ -196,8 +196,6 @@ class AcpClientHandler:
         request_id: str,
         *,
         option_id: str = "",
-        user_answers: dict[str, Any] | None = None,
-        alternative_instruction: str | None = None,
     ) -> bool:
         # Called from the SSE endpoint when the user responds to a permission
         # request. Unblocks the matching request_permission() awaiter with
@@ -205,13 +203,6 @@ class AcpClientHandler:
         future = self._pending_permissions.get(request_id)
         if future is None or future.done():
             return False
-
-        meta: dict[str, Any] = {}
-        if user_answers:
-            meta["userAnswers"] = user_answers
-        if alternative_instruction:
-            meta["alternativeInstruction"] = alternative_instruction
-        response_meta = meta or None
 
         if option_id:
             option_modes = self._permission_option_modes.pop(request_id, {})
@@ -221,10 +212,7 @@ class AcpClientHandler:
             self._permission_option_modes.pop(request_id, None)
             outcome = DeniedOutcome(outcome="cancelled")
 
-        response = RequestPermissionResponse(
-            outcome=outcome,
-            field_meta=response_meta,
-        )
+        response = RequestPermissionResponse(outcome=outcome)
         future.set_result({"response": response})
         return True
 
