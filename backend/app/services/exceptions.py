@@ -123,6 +123,17 @@ class GitHubException(ServiceException):
         super().__init__(message, error_code, details, status_code)
 
 
+class AttachmentException(ServiceException):
+    def __init__(
+        self,
+        message: str,
+        error_code: ErrorCode = ErrorCode.STORAGE_FILE_NOT_FOUND,
+        details: dict[str, str] | None = None,
+        status_code: int = 400,
+    ):
+        super().__init__(message, error_code, details, status_code)
+
+
 class WorkspaceException(ServiceException):
     def __init__(
         self,
