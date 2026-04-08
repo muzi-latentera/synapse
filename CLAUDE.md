@@ -41,10 +41,11 @@
 - Add `Field(max_length=...)` to all `str` fields on Pydantic request models — bare `str` allows unbounded payloads; also add `min_length=1` when empty strings are invalid
 - Do not instantiate services directly in FastAPI route handlers — add a factory function in `deps.py` and inject via `Depends()`; route files should not import `SessionLocal`
 - Never use docstrings (`"""..."""`) — always use inline `#` comments instead when a comment is needed
-- Don't add comments for self-explanatory code — but do add inline comments for non-obvious logic, implicit conventions, or design decisions that aren't clear from the code alone
+- Always add inline `#` comments for non-obvious logic, implicit conventions, design decisions, or anything that isn't clear from the code alone — treat this as mandatory for new and modified code, not optional; comment the *why*, never the *what*
 - Do not delete existing comments without asking first — they may capture context that isn't obvious from the code
 - Let the code speak for itself - use clear variable/function names instead of comments
 - Do not use decorative section comments (e.g., `# ── Section ──────`) — code structure should be self-evident from class/method organization
+- Place comments inside methods and classes, not above them — a comment describing a method belongs as the first line inside the method body, not on the line before `def`/`async def`
 - Method-level comments should explain the *why* and *context*, not just restate the method name — describe the purpose, who uses it, and any non-obvious behavior (e.g., "Catch-up mechanism for SSE reconnection: when a client reconnects it sends the last seq it saw, and this method pages through persisted events so nothing is missed before switching to live pub/sub")
 - Example — no comment needed (self-explanatory): `user_dir.mkdir(parents=True, exist_ok=True)`
 - Example — comment needed (non-obvious why): `# Read from the API host, not the sandbox — sandbox containers don't have the user's global git config`

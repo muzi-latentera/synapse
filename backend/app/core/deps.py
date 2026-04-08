@@ -10,8 +10,10 @@ from app.core.user_manager import optional_current_active_user
 from app.db.session import SessionLocal, get_db
 from app.models.db_models.workspace import Workspace
 from app.models.db_models.user import User
+from app.services.attachment import AttachmentService
 from app.services.chat import ChatService
 from app.services.agent import AgentService
+from app.services.message import MessageService
 from app.services.exceptions import UserException
 from app.services.github import GitHubService
 from app.services.refresh_token import RefreshTokenService
@@ -158,6 +160,12 @@ async def get_workspace_service(
         sandbox_service,
         user_service,
         session_factory=SessionLocal,
+    )
+
+
+def get_attachment_service() -> AttachmentService:
+    return AttachmentService(
+        message_service=MessageService(session_factory=SessionLocal)
     )
 
 

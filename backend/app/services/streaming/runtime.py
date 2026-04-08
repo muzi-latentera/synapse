@@ -824,9 +824,7 @@ class ChatStreamRuntime:
                 )
                 chat = result.scalar_one_or_none()
                 if not chat:
-                    raise AgentException(
-                        f"Chat {chat_id} not found for idle send-now"
-                    )
+                    raise AgentException(f"Chat {chat_id} not found for idle send-now")
 
             user_service = UserService(session_factory=session_factory)
             user_settings = await user_service.get_user_settings(chat.user_id, db=None)
