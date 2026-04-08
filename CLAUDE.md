@@ -77,6 +77,8 @@
 - When catching a `ServiceException` subclass at the API boundary to produce an `HTTPException`, use `exc.status_code` from the exception — do not hardcode a status code constant (e.g., `HTTP_500`) that shadows the exception's own classification
 - When a backend Pydantic response model field has a default value, the corresponding frontend TypeScript type must mark it as required — the API always includes it in responses, so optional markers are incorrect
 - Do not use `TypedDict` with `total=False` when all keys are always present in every construction site — use `total=True` (the default) so the type checker can verify direct key access is safe
+- Do not create standalone functions that only wrap a single dict lookup with a default — inline `DICT[key].field` or `DICT.get(key)` at the call site; if the data structure is a plain tuple, use a `NamedTuple` for self-documenting field access instead of adding accessor functions
+- Do not introduce a new frontend type/interface when an existing one has the same shape — reuse the existing type directly, even across module boundaries
 
 ## Naming Conventions
 
@@ -85,6 +87,7 @@
 - Keep names short when meaning is preserved (`_try_create_checkpoint` not `_create_checkpoint_if_needed`, `_prune_done_tasks` not `_prune_finished_background_tasks`)
 - Don't put implementation details in public method names (`execute_chat` not `execute_chat_with_managed_resources`)
 - Use consistent terminology within a module — don't mix synonyms (e.g., pick "cancel" or "revoke", not both)
+- Do not prefix module-level constants with `_` — leading underscores are for private class methods and instance variables only, not for constants or classes
 
 ## Module Organization
 
@@ -99,6 +102,7 @@
 - If a function does I/O or depends on a service, it does not belong in `utils/` — move it to the appropriate service class or `core/` module
 - When a service accumulates responsibilities from two distinct domains, extract the secondary domain into its own service — e.g., git operations belong in `GitService` (not `SandboxService`), with `GitService` depending on `SandboxService` for command execution
 - Endpoint files must contain only route handlers — all business logic (command building, output parsing, branching decisions) belongs in the service layer; endpoints handle HTTP concerns (request validation, response formatting, exception translation) only
+- Place class definitions (including `NamedTuple` and `TypedDict`) at the top of the file after imports — never between constant declarations
 
 ## Frontend Component Architecture
 

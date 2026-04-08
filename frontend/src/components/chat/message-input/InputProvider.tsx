@@ -54,8 +54,10 @@ export function InputProvider({
   disabled = false,
   children,
 }: InputProps & { children: ReactNode }) {
-  const { fileStructure, customSkills, personas } = useChatContext();
+  const { fileStructure, customSkills, builtinSlashCommands, personas } = useChatContext();
   const modelMap = useModelMap();
+  const agentKind =
+    modelMap.get(selectedModelId)?.agent_kind ?? getAgentKindForModelId(selectedModelId);
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [previewDismissed, setPreviewDismissed] = useState(false);
@@ -144,6 +146,8 @@ export function InputProvider({
     message,
     onSelect: handleSlashCommandSelect,
     customSkills,
+    builtinSlashCommands,
+    agentKind,
   });
 
   const handleMentionSelect = useCallback(
@@ -204,8 +208,6 @@ export function InputProvider({
 
     if (isStreaming && hasMessage && chatId) {
       const settings = useChatSettingsStore.getState();
-      const agentKind =
-        modelMap.get(selectedModelId)?.agent_kind ?? getAgentKindForModelId(selectedModelId);
       const permissionMode = coercePermissionModeForAgent(
         settings.permissionModeByChat[chatId] ?? DEFAULT_PERMISSION_MODE,
         agentKind,
@@ -270,7 +272,7 @@ export function InputProvider({
     attachedFiles,
     setMessage,
     clearAttachedFiles,
-    modelMap,
+    agentKind,
     selectedModelId,
   ]);
 

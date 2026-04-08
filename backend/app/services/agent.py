@@ -29,7 +29,7 @@ from app.services.acp.adapters import AgentKind, get_agent_adapter
 from app.services.acp.client import AcpClientHandler
 from app.services.acp.session import AcpSession, AcpSessionConfig
 from app.services.exceptions import AgentException, ChatException, ErrorCode
-from app.services.model_registry import get_agent_kind_for_model
+from app.constants import MODELS
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
@@ -79,7 +79,7 @@ class AgentService:
         if workspace_path:
             cwd = SANDBOX_WORKSPACE_DIR
 
-        agent_kind = get_agent_kind_for_model(model_id)
+        agent_kind = MODELS[model_id].agent_kind
         adapter = get_agent_adapter(agent_kind)
         stored_agent_kind = getattr(chat, "session_agent_kind", None)
         if stored_agent_kind and stored_agent_kind != agent_kind.value:
@@ -278,7 +278,7 @@ class AgentService:
     ) -> str:
         user_settings = await self._get_user_settings(user.id)
 
-        agent_kind = get_agent_kind_for_model(model_id)
+        agent_kind = MODELS[model_id].agent_kind
         env = self._build_custom_env(user_settings)
 
         if chat and chat.sandbox_id:

@@ -18,6 +18,7 @@ from app.models.db_models.user import User
 from app.models.db_models.workspace import Workspace
 from app.models.schemas.workspace import WorkspaceCreate, WorkspaceUpdate
 from app.models.schemas.workspace import (
+    BuiltinSlashCommand,
     CustomSkill,
     Workspace as WorkspaceSchema,
     WorkspaceResources,
@@ -28,6 +29,8 @@ from app.services.exceptions import ErrorCode, WorkspaceException
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.sandbox_providers.types import SandboxProviderType
+from app.services.acp.adapters import AgentKind
+from app.constants import BUILTIN_SLASH_COMMANDS
 from app.services.skill import SkillService
 from app.services.user import UserService
 from app.services.session_registry import session_registry
@@ -233,9 +236,18 @@ class WorkspaceService(BaseDbService[Workspace]):
             return managed
 
     @staticmethod
-    def _build_workspace_resources(skill_service: SkillService) -> WorkspaceResources:
+    def _build_workspace_resources(
+        skill_service: SkillService,
+    ) -> WorkspaceResources:
         return WorkspaceResources(
-            skills=[CustomSkill(**skill) for skill in skill_service.list_all()]
+            skills=[CustomSkill(**skill) for skill in skill_service.list_all()],
+            builtin_slash_commands={
+                kind.value: [
+                    BuiltinSlashCommand(**cmd)
+                    for cmd in BUILTIN_SLASH_COMMANDS.get(kind, [])
+                ]
+                for kind in AgentKind
+            },
         )
 
     async def get_workspace_resources(
@@ -243,10 +255,12 @@ class WorkspaceService(BaseDbService[Workspace]):
     ) -> WorkspaceResources:
         workspace = await self.get_workspace(workspace_id, user)
         workspace_path = Path(workspace.workspace_path)
+        # Include both workspace-local and global skill directories
         skill_service = SkillService(
             base_paths=(
                 workspace_path / ".claude" / "skills",
                 workspace_path / ".codex" / "skills",
+                *SkillService.get_default_base_paths(),
             )
         )
 

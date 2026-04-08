@@ -20,6 +20,7 @@ import {
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { ChatProvider } from '@/contexts/ChatContext';
+import { EMPTY_BUILTIN_COMMANDS } from '@/config/constants';
 
 const EXAMPLE_PROMPTS = [
   'Build a REST API with authentication',
@@ -87,6 +88,10 @@ export function LandingPage() {
   });
 
   const allSkills = useMemo(() => workspaceResources?.skills ?? [], [workspaceResources?.skills]);
+  const builtinSlashCommands = useMemo(
+    () => workspaceResources?.builtin_slash_commands ?? EMPTY_BUILTIN_COMMANDS,
+    [workspaceResources?.builtin_slash_commands],
+  );
   const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
   useMountEffect(() => {
@@ -179,7 +184,11 @@ export function LandingPage() {
               {selectedModel?.agent_kind !== 'codex' && <WorktreeToggle disabled={isLoading} />}
             </div>
 
-            <ChatProvider customSkills={allSkills} personas={personas}>
+            <ChatProvider
+              customSkills={allSkills}
+              builtinSlashCommands={builtinSlashCommands}
+              personas={personas}
+            >
               <ChatInput
                 message={message}
                 setMessage={setMessage}

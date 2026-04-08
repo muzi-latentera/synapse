@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import get_current_user
 from app.models.db_models.user import User
 from app.models.schemas.ai_model import AIModelResponse
-from app.services.model_registry import get_all_models, get_models_for_agent
+from app.constants import MODELS
+from app.services.acp.adapters import AgentKind
 
 router = APIRouter()
 
@@ -13,13 +14,23 @@ async def list_models(
     current_user: User = Depends(get_current_user),
     agent_kind: str | None = Query(None, max_length=32),
 ) -> list[AIModelResponse]:
-    entries = get_models_for_agent(agent_kind) if agent_kind else get_all_models()
+    kind: AgentKind | None = None
+    if agent_kind:
+        try:
+            kind = AgentKind(agent_kind)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid agent_kind: {agent_kind}",
+            )
+
     return [
         AIModelResponse(
-            model_id=m.model_id,
-            name=m.name,
-            agent_kind=m.agent_kind,
-            context_window=m.context_window,
+            model_id=mid,
+            name=info.display_name,
+            agent_kind=info.agent_kind,
+            context_window=info.context_window,
         )
-        for m in entries
+        for mid, info in MODELS.items()
+        if kind is None or info.agent_kind == kind
     ]

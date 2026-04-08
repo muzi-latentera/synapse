@@ -30,7 +30,7 @@ from app.services.session_registry import session_registry
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import ChatException, ErrorCode
 from app.services.message import MessageService
-from app.services.model_registry import get_context_window
+from app.constants import MODELS
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.factory import SandboxProviderFactory
 from app.services.storage import StorageService
@@ -333,7 +333,7 @@ class ChatService(BaseDbService[Chat]):
         last_msg = await self.message_service.get_latest_assistant_message(chat_id)
         if not last_msg or not last_msg.model_id:
             return None
-        return get_context_window(last_msg.model_id)
+        return MODELS[last_msg.model_id].context_window
 
     async def delete_chat(self, chat_id: UUID, user: User) -> None:
         # Soft-delete a chat and its messages, terminate the active session,
@@ -817,7 +817,7 @@ class ChatService(BaseDbService[Chat]):
             user_settings.custom_instructions if user_settings else None
         )
 
-        context_window = get_context_window(request.model_id)
+        context_window = MODELS[request.model_id].context_window
         try:
             await self._enqueue_chat_task(
                 prompt=user_prompt,
