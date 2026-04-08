@@ -1,16 +1,5 @@
 import type { PermissionOption } from '@/types/chat.types';
 
-export function findOptionId(options: PermissionOption[], prefix: 'allow' | 'reject'): string {
-  return options.find((o) => o.kind.startsWith(prefix))?.option_id ?? '';
-}
-
-export function findOptionIdByKind(
-  options: PermissionOption[],
-  kind: PermissionOption['kind'],
-): string {
-  return options.find((o) => o.kind === kind)?.option_id ?? '';
-}
-
 export function filterOptions(
   options: PermissionOption[],
   prefix: 'allow' | 'reject',

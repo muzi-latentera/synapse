@@ -1,8 +1,7 @@
 import { ShieldAlert } from 'lucide-react';
 import { LazyMarkDown } from '@/components/ui/LazyMarkDown';
 import type { PermissionRequest } from '@/types/chat.types';
-import { useApprovalState } from '@/hooks/useApprovalState';
-import { ApprovalTextarea, PermissionApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
+import { PermissionApprovalButtons } from '@/components/ui/shared/ApprovalFooter';
 import { filterOptions } from '@/utils/permissionStorage';
 
 function formatValue(value: unknown): string {
@@ -15,7 +14,7 @@ function formatValue(value: unknown): string {
 interface ToolPermissionInlineProps {
   request: PermissionRequest | null;
   onApprove: (optionId: string) => void;
-  onReject: (optionId: string, alternativeInstruction?: string) => void;
+  onReject: (optionId: string) => void;
   isLoading?: boolean;
   error?: string | null;
 }
@@ -27,10 +26,7 @@ export function ToolPermissionInline({
   isLoading = false,
   error = null,
 }: ToolPermissionInlineProps) {
-  const approvalState = useApprovalState(onReject);
-
-  if (!request || request.tool_name === 'AskUserQuestion' || request.tool_name === 'ExitPlanMode')
-    return null;
+  if (!request || request.tool_name === 'ExitPlanMode') return null;
 
   const hasParams = request.tool_input && Object.keys(request.tool_input).length > 0;
   const allowOptions = filterOptions(request.options, 'allow');
@@ -76,19 +72,13 @@ export function ToolPermissionInline({
             No parameters
           </p>
         )}
-
-        <ApprovalTextarea
-          state={approvalState}
-          textareaId="permission-feedback"
-          isLoading={isLoading}
-        />
       </div>
 
       <PermissionApprovalButtons
-        state={approvalState}
         allowOptions={allowOptions}
         rejectOptions={rejectOptions}
         onApprove={onApprove}
+        onReject={onReject}
         isLoading={isLoading}
         error={error}
       />

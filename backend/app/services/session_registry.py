@@ -91,8 +91,6 @@ class SessionRegistry:
         request_id: str,
         *,
         option_id: str = "",
-        user_answers: dict[str, Any] | None = None,
-        alternative_instruction: str | None = None,
     ) -> bool:
         session = self._sessions.get(chat_id)
         if session is None:
@@ -100,8 +98,6 @@ class SessionRegistry:
         return session.acp_session.handler.resolve_permission(
             request_id,
             option_id=option_id,
-            user_answers=user_answers,
-            alternative_instruction=alternative_instruction,
         )
 
     def consume_pending_cancel(self, chat_id: str) -> bool:

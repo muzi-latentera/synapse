@@ -16,7 +16,7 @@ interface UsePermissionRequestReturn {
   error: string | null;
   handlePermissionRequest: (request: PermissionRequest) => void;
   handleApprove: (optionId: string) => Promise<void>;
-  handleReject: (optionId: string, alternativeInstruction?: string) => Promise<void>;
+  handleReject: (optionId: string) => Promise<void>;
 }
 
 // Manages the tool-permission approval flow for a single chat. Reads the
@@ -28,9 +28,10 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
   const [error, setError] = useState<string | null>(null);
   const { data: settings } = useSettingsQuery();
 
-  const pendingRequests = usePermissionStore((state) => state.pendingRequests);
-
-  const pendingRequest = chatId ? (pendingRequests.get(chatId) ?? null) : null;
+  // Select only this chat's request to avoid re-renders from other chats' permission changes
+  const pendingRequest = usePermissionStore((state) =>
+    chatId ? (state.pendingRequests.get(chatId) ?? null) : null,
+  );
   const prevRequestIdRef = useRef(pendingRequest?.request_id);
 
   // Clear stale error when a new permission request arrives, so errors from
@@ -76,18 +77,12 @@ export function usePermissionRequest(chatId: string | undefined): UsePermissionR
   );
 
   const handleReject = useCallback(
-    async (optionId: string, alternativeInstruction?: string) => {
+    async (optionId: string) => {
       if (!chatId || !pendingRequest) return;
 
       await executePermissionResponse(
         pendingRequest.request_id,
-        () =>
-          permissionService.respondToPermission(
-            chatId,
-            pendingRequest.request_id,
-            optionId,
-            alternativeInstruction,
-          ),
+        () => permissionService.respondToPermission(chatId, pendingRequest.request_id, optionId),
         {
           setIsLoading,
           setError,
