@@ -1,5 +1,4 @@
 import logging
-from typing import NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,10 +21,6 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def _raise_workspace_http_exception(exc: WorkspaceException) -> NoReturn:
-    raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-
-
 @router.post(
     "",
     response_model=WorkspaceSchema,
@@ -39,7 +34,7 @@ async def create_workspace(
     try:
         return await workspace_service.create_workspace(current_user, data)
     except WorkspaceException as e:
-        _raise_workspace_http_exception(e)
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
     except SQLAlchemyError as e:
         logger.error("Database error creating workspace: %s", e, exc_info=True)
         raise HTTPException(
@@ -65,7 +60,7 @@ async def get_workspace(
     try:
         return await workspace_service.get_workspace(workspace_id, current_user)
     except WorkspaceException as e:
-        _raise_workspace_http_exception(e)
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
 
 @router.patch("/{workspace_id}", response_model=WorkspaceSchema)
@@ -80,7 +75,7 @@ async def update_workspace(
             workspace_id, current_user, data
         )
     except WorkspaceException as e:
-        _raise_workspace_http_exception(e)
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
 
 @router.get("/{workspace_id}/resources", response_model=WorkspaceResources)
@@ -94,7 +89,7 @@ async def get_workspace_resources(
             workspace_id, current_user
         )
     except WorkspaceException as e:
-        _raise_workspace_http_exception(e)
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
 
 
 @router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -106,4 +101,4 @@ async def delete_workspace(
     try:
         await workspace_service.delete_workspace(workspace_id, current_user)
     except WorkspaceException as e:
-        _raise_workspace_http_exception(e)
+        raise HTTPException(status_code=e.status_code, detail=str(e)) from e
