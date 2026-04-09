@@ -75,7 +75,6 @@ class AgentAdapter(ABC):
     # differs in CLI flags, env vars, session metadata, and permission models.
     # Adapters encapsulate those differences so the rest of the codebase works
     # with a uniform AcpSessionConfig regardless of which agent is running.
-    supports_worktree: bool = False
 
     def __init__(self, kind: AgentKind) -> None:
         self.kind = kind
@@ -98,7 +97,6 @@ class AgentAdapter(ABC):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
-        worktree: bool,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
@@ -113,8 +111,6 @@ class AgentAdapter(ABC):
 
 
 class ClaudeAgentAdapter(AgentAdapter):
-    supports_worktree = True
-
     def __init__(self) -> None:
         super().__init__(kind=AgentKind.CLAUDE)
 
@@ -135,7 +131,6 @@ class ClaudeAgentAdapter(AgentAdapter):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
-        worktree: bool,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
@@ -149,12 +144,6 @@ class ClaudeAgentAdapter(AgentAdapter):
                 meta["systemPrompt"] = system_prompt
             else:
                 meta["systemPrompt"] = {"append": system_prompt}
-
-        agent_options: dict[str, Any] = {}
-        if worktree:
-            agent_options["worktree"] = True
-        if agent_options:
-            meta["claudeCode"] = {"options": agent_options}
 
         # Claude uses MAX_THINKING_TOKENS env var for thinking budget.
         env_overrides: dict[str, str] = {}
@@ -210,7 +199,6 @@ class CodexAgentAdapter(AgentAdapter):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
-        worktree: bool,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:

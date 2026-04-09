@@ -57,7 +57,6 @@ class AcpSessionConfig:
     workspace_path: str | None = None
     system_prompt: str | None = None
     system_prompt_is_full_replace: bool = False
-    worktree: bool = False
     reasoning_effort: str | None = None
     session_meta: dict[str, Any] = field(default_factory=dict)
 
@@ -468,17 +467,30 @@ class AcpSession:
         )
 
     @staticmethod
+    def _is_virtual_prefix(cwd: str, prefix: str) -> bool:
+        # Exact match or prefix followed by "/" — avoids false positives
+        # on real Linux paths like /home/username/... when the virtual
+        # prefix is /home/user.
+        return cwd == prefix or cwd.startswith(prefix + "/")
+
+    @staticmethod
     def _resolve_cwd(config: AcpSessionConfig) -> str:
         # Host mode needs the real filesystem path since the virtual
         # sandbox path (/home/user/workspace) doesn't exist on the host.
         if config.sandbox_provider == SandboxProviderType.HOST.value:
-            # Real host paths should be used as-is. Only rewrite the
-            # virtual sandbox paths that don't exist on the host.
-            if config.cwd not in (SANDBOX_HOME_DIR, SANDBOX_WORKSPACE_DIR):
-                return config.cwd
-            if config.workspace_path:
-                return config.workspace_path
-            return f"{settings.get_host_sandbox_base_dir()}/{config.sandbox_id}"
+            host_base = f"{settings.get_host_sandbox_base_dir()}/{config.sandbox_id}"
+            # Rewrite virtual sandbox paths (and sub-paths like worktrees)
+            # to real host paths. Check workspace first — its prefix is
+            # longer so it must win over the home-dir prefix.
+            if config.workspace_path and AcpSession._is_virtual_prefix(
+                config.cwd, SANDBOX_WORKSPACE_DIR
+            ):
+                return config.cwd.replace(
+                    SANDBOX_WORKSPACE_DIR, config.workspace_path, 1
+                )
+            if AcpSession._is_virtual_prefix(config.cwd, SANDBOX_HOME_DIR):
+                return config.cwd.replace(SANDBOX_HOME_DIR, host_base, 1)
+            return config.cwd
         return config.cwd
 
     @staticmethod

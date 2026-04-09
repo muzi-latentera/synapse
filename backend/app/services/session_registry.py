@@ -140,20 +140,16 @@ class SessionRegistry:
 
     @staticmethod
     def _compute_fingerprint(config: AcpSessionConfig) -> str:
+        # cwd is excluded: it drifts during a session when the agent
+        # reports sub-paths via SessionInfoUpdate.
         fingerprint_dict: dict[str, Any] = {
             "agent_kind": config.agent_kind.value,
             "env": config.env,
             "mcp_servers": config.mcp_servers,
             "system_prompt": config.system_prompt,
-            "worktree": config.worktree,
             "reasoning_effort": config.reasoning_effort,
             "launch_approval_policy": config.launch_approval_policy,
         }
-        # cwd changes dynamically in worktree mode (workspace → worktree path
-        # after session init), so including it would invalidate the session on
-        # the second turn.
-        if not config.worktree:
-            fingerprint_dict["cwd"] = config.cwd
         data = json.dumps(fingerprint_dict, sort_keys=True, default=str)
         return hashlib.sha256(data.encode()).hexdigest()
 

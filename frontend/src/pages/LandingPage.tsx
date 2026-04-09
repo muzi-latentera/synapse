@@ -33,7 +33,7 @@ export function LandingPage() {
   const location = useLocation();
   const attachedFiles = useChatStore((state) => state.attachedFiles);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const { selectedModelId, selectedModel, selectModel } = useModelSelection({
+  const { selectedModelId, selectModel } = useModelSelection({
     enabled: isAuthenticated,
   });
 
@@ -181,7 +181,7 @@ export function LandingPage() {
                 onWorkspaceChange={setSelectedWorkspaceId}
                 enabled={isAuthenticated}
               />
-              {selectedModel?.agent_kind !== 'codex' && <WorktreeToggle disabled={isLoading} />}
+              <WorktreeToggle disabled={isLoading} />
             </div>
 
             <ChatProvider
