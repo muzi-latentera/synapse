@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from acp.schema import (
     AgentMessageChunk,
@@ -29,7 +29,7 @@ from acp.schema import (
 
 from app.models.types import PermissionMode
 from app.models.db_models.enums import ToolStatus
-from app.services.streaming.types import StreamEvent, ToolPayload
+from app.services.streaming.types import StreamEvent, StreamEventType, ToolPayload
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +95,27 @@ class AcpClientHandler:
             except asyncio.QueueEmpty:
                 break
 
-    def finish(self) -> None:
-        self._active_tools.clear()
+    def finish(self, *, prompt_completed: bool) -> None:
+        if self._active_tools:
+            if prompt_completed:
+                terminal_status: Literal["completed", "failed"] = (
+                    ToolStatus.COMPLETED.value
+                )
+                terminal_event_type: StreamEventType = "tool_completed"
+            else:
+                terminal_status = ToolStatus.FAILED.value
+                terminal_event_type = "tool_failed"
+            for payload in self._active_tools.values():
+                payload["status"] = terminal_status
+                if not prompt_completed and "error" not in payload:
+                    # Codex occasionally ends the turn without a terminal tool
+                    # progress update. Mark the tool as interrupted so the UI
+                    # does not leave it stuck in a perpetual loading state.
+                    payload["error"] = "Tool ended before a terminal ACP update arrived"
+                self.event_queue.put_nowait(
+                    StreamEvent(type=terminal_event_type, tool=payload)
+                )
+            self._active_tools.clear()
         self._resolved_permissions.clear()
         self._permission_option_modes.clear()
         self.event_queue.put_nowait(_SENTINEL)

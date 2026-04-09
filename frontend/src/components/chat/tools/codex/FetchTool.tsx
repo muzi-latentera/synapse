@@ -1,6 +1,8 @@
 import { memo, useMemo } from 'react';
-import { Search } from 'lucide-react';
+import { Globe, Search } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
+import { extractDomain, formatResult } from '@/utils/format';
+import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from '../common/ToolCard';
 import { SourceChip } from '../common/SourceChip';
 import { SearchLoadingDots } from '../common/SearchLoadingDots';
@@ -23,18 +25,16 @@ interface PageSource {
   url: string;
 }
 
+const getActionType = (input: FetchInput | undefined): FetchAction['type'] => {
+  return input?.action?.type ?? 'search';
+};
+
 const extractSources = (input: FetchInput | undefined): PageSource[] => {
   const action = input?.action;
   if (!action) return [];
 
   if (action.type === 'open_page' && action.url) {
-    let domain = action.url;
-    try {
-      domain = new URL(action.url).hostname.replace('www.', '');
-    } catch {
-      // keep raw url
-    }
-    return [{ title: domain, url: action.url }];
+    return [{ title: extractDomain(action.url) || action.url, url: action.url }];
   }
 
   return [];
@@ -42,44 +42,78 @@ const extractSources = (input: FetchInput | undefined): PageSource[] => {
 
 const FetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as FetchInput | undefined;
-  const title = tool.title;
+  const actionType = getActionType(input);
+  const query = input?.action?.query ?? input?.query ?? '';
+  const url = input?.action?.url ?? '';
+  const pattern = input?.action?.pattern ?? '';
+  const domain = extractDomain(url) || 'content';
+  const result = formatResult(tool.result);
+  const isSearch = actionType === 'search';
 
   const sources = useMemo(() => extractSources(input), [input]);
-  const canShowSources = sources.length > 0 && tool.status === 'completed';
+  const hasExpandableContent = isSearch
+    ? sources.length > 0 && tool.status === 'completed'
+    : url.length > 0 || (result.length > 0 && tool.status === 'completed');
 
   return (
     <ToolCard
-      icon={<Search className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />}
+      icon={
+        isSearch ? (
+          <Search className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />
+        ) : (
+          <Globe className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />
+        )
+      }
       status={tool.status}
       title={(status) => {
-        if (title && title !== 'Searching the Web') {
+        if (isSearch) {
           switch (status) {
             case 'completed':
-              return title.replace(/^(Searching for|Opening|Finding):?\s*/, 'Searched: ');
+              return `Searched: ${query}`;
             case 'failed':
-              return `Search failed: ${title}`;
+              return `Search failed: ${query}`;
             default:
-              return title;
+              return `Searching: ${query}`;
           }
         }
+
+        const fetchLabel = pattern || domain;
         switch (status) {
           case 'completed':
-            return 'Web search completed';
+            return `Fetched: ${fetchLabel}`;
           case 'failed':
-            return 'Web search failed';
+            return `Failed to fetch: ${fetchLabel}`;
           default:
-            return 'Searching the web';
+            return `Fetching: ${fetchLabel}`;
         }
       }}
-      loadingContent={<SearchLoadingDots />}
+      loadingContent={isSearch ? <SearchLoadingDots /> : 'Fetching content...'}
       error={tool.error}
-      expandable={canShowSources}
+      expandable={hasExpandableContent}
     >
-      {canShowSources && (
-        <div className="flex flex-wrap gap-1">
-          {sources.map((source, index) => (
-            <SourceChip key={`${index}-${source.url}`} source={source} index={index} />
-          ))}
+      {hasExpandableContent && (
+        <div className={isSearch ? 'flex flex-wrap gap-1' : 'space-y-1.5'}>
+          {isSearch ? (
+            sources.map((source, index) => (
+              <SourceChip key={`${index}-${source.url}`} source={source} index={index} />
+            ))
+          ) : (
+            <>
+              {url && (
+                <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
+                  {url}
+                </div>
+              )}
+              {pattern && (
+                <p className="text-2xs text-text-tertiary dark:text-text-dark-tertiary">
+                  {pattern}
+                </p>
+              )}
+              {result.length > 0 && tool.status === 'completed' && (
+                <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>
+              )}
+            </>
+          )}
         </div>
       )}
     </ToolCard>

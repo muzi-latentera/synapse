@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import time
+from copy import deepcopy
 from collections.abc import AsyncIterator
 from functools import partial
 from typing import Any
@@ -277,8 +278,12 @@ class ChatStreamRuntime:
 
         audit = {"payload": StreamEnvelope.sanitize_payload(payload)}
         if apply_snapshot and kind in SNAPSHOT_EVENT_KINDS:
-            self._event_buffer.append((kind, payload, audit))
-            self.snapshot.add_event(kind, payload)
+            # ACP tool payloads are updated in place as progress arrives, so
+            # buffered history needs its own copy or earlier events get rewritten
+            # to the latest title/status before we flush them.
+            frozen_payload = deepcopy(payload)
+            self._event_buffer.append((kind, frozen_payload, audit))
+            self.snapshot.add_event(kind, frozen_payload)
             self.pending_since_flush += 1
             return 0
 

@@ -10,3 +10,11 @@ export const formatValue = (value: unknown): string => {
 };
 
 export const extractFilename = (path: string): string => path.split('/').pop() ?? path;
+
+export const extractDomain = (url: string): string => {
+  try {
+    return new URL(url).hostname.replace('www.', '');
+  } catch {
+    return url.length > 30 ? `${url.slice(0, 27)}\u2026` : url;
+  }
+};

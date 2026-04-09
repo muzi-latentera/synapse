@@ -260,6 +260,8 @@ const processExistingTool = (
 
   const updatedAggregate: ToolAggregate = {
     ...existingAggregate,
+    name: payload.name || existingAggregate.name,
+    title: payload.title || existingAggregate.title,
     status: toolStatus,
     input: payload.input ? (payload.input as Record<string, unknown>) : existingAggregate.input,
     result: payload.result !== undefined ? payload.result : existingAggregate.result,
