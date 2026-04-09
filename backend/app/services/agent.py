@@ -5,6 +5,9 @@ from collections.abc import AsyncIterator
 from typing import Any, cast
 from uuid import UUID
 
+from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.constants import (
     SANDBOX_GIT_ASKPASS_PATH,
     SANDBOX_HOME_DIR,
@@ -30,6 +33,7 @@ from app.services.acp.client import AcpClientHandler
 from app.services.acp.session import AcpSession, AcpSessionConfig
 from app.services.exceptions import AgentException, ChatException, ErrorCode
 from app.constants import MODELS
+from app.services.git import GitService
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.factory import SandboxProviderFactory
@@ -57,6 +61,20 @@ class AgentService:
             session_factory=self.session_factory
         ).get_user_settings(user_id)
 
+    async def _save_worktree_cwd(self, chat_id: UUID, worktree_cwd: str) -> None:
+        # Best-effort persistence — if it fails the worktree still exists on
+        # disk but won't be reused on session resume (a new one will be created).
+        try:
+            async with self.session_factory() as db:
+                await db.execute(
+                    update(Chat)
+                    .where(Chat.id == chat_id)
+                    .values(worktree_cwd=worktree_cwd)
+                )
+                await db.commit()
+        except (SQLAlchemyError, ValueError) as exc:
+            logger.error("Failed to persist worktree_cwd for chat %s: %s", chat_id, exc)
+
     async def build_session_config(
         self,
         *,
@@ -80,17 +98,31 @@ class AgentService:
             cwd = SANDBOX_WORKSPACE_DIR
 
         agent_kind = MODELS[model_id].agent_kind
-        adapter = AGENT_ADAPTERS[agent_kind]
         stored_agent_kind = getattr(chat, "session_agent_kind", None)
         if stored_agent_kind and stored_agent_kind != agent_kind.value:
             raise ChatException(
                 f"Cannot switch from {stored_agent_kind} to {agent_kind.value} in the same chat",
                 error_code=ErrorCode.VALIDATION_ERROR,
             )
-        if not adapter.supports_worktree:
-            worktree = False
-        elif worktree and session_id and chat.worktree_cwd:
-            cwd = chat.worktree_cwd
+
+        if worktree and sandbox_id:
+            if chat.worktree_cwd:
+                # Reuse the already-persisted worktree path from a prior turn.
+                cwd = chat.worktree_cwd
+            else:
+                provider = SandboxProviderFactory.create(
+                    SandboxProviderType(sandbox_provider)
+                )
+                git_service = GitService(SandboxService(provider))
+                worktree_cwd = await git_service.create_worktree(
+                    sandbox_id,
+                    cwd,
+                    str(chat.id),
+                )
+                if worktree_cwd:
+                    cwd = worktree_cwd
+                    chat.worktree_cwd = worktree_cwd
+                    await self._save_worktree_cwd(chat.id, worktree_cwd)
 
         is_custom_persona = selected_persona_name != DEFAULT_PERSONA_NAME
 
@@ -107,7 +139,6 @@ class AgentService:
             workspace_path=workspace_path,
             system_prompt=system_prompt,
             system_prompt_is_full_replace=is_custom_persona,
-            worktree=worktree,
         )
 
     async def stream_response(
@@ -362,7 +393,6 @@ class AgentService:
         workspace_path: str | None = None,
         system_prompt: str | None = None,
         system_prompt_is_full_replace: bool = False,
-        worktree: bool = False,
     ) -> AcpSessionConfig:
         env: dict[str, str] = {}
 
@@ -381,7 +411,6 @@ class AgentService:
         session_config = adapter.build_session_config(
             system_prompt=system_prompt,
             system_prompt_is_full_replace=system_prompt_is_full_replace,
-            worktree=worktree,
             thinking_mode=thinking_mode,
             permission_mode=permission_mode,
         )
@@ -400,7 +429,6 @@ class AgentService:
             workspace_path=workspace_path,
             system_prompt=system_prompt,
             system_prompt_is_full_replace=system_prompt_is_full_replace,
-            worktree=worktree,
             reasoning_effort=session_config.reasoning_effort,
             session_meta=session_config.meta,
         )
