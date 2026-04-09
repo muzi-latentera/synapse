@@ -99,7 +99,8 @@ export const useGitBranchesQuery = (sandboxId: string, enabled: boolean, cwd?: s
     queryKey: queryKeys.sandbox.gitBranches(sandboxId, cwd),
     queryFn: () => sandboxService.getGitBranches(sandboxId, cwd),
     enabled: !!sandboxId && enabled,
-    staleTime: 30_000,
+    // Branch lists change infrequently, and branch-changing mutations already invalidate this query.
+    staleTime: 300_000,
   });
 };
 

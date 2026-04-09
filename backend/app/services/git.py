@@ -1,4 +1,3 @@
-import asyncio
 import re
 from typing import Literal
 
@@ -96,45 +95,50 @@ class GitService:
         sandbox_id: str,
         cwd: str | None = None,
     ) -> GitBranchesResponse:
+        # Branch selectors call this frequently while the user moves around the
+        # workspace, so keep the request to one sandbox exec and avoid secret
+        # injection, which is only needed for auth-sensitive git commands.
         cd_prefix = git_cd_prefix(cwd)
-        check = await self.sandbox_service.execute_command(
+        result = await self.sandbox_service.provider.execute_command(
             sandbox_id,
-            f"{cd_prefix}git rev-parse --is-inside-work-tree 2>/dev/null",
+            (
+                f"{cd_prefix}git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 2; "
+                "git rev-parse --abbrev-ref HEAD 2>/dev/null; "
+                "printf '__BRANCHES_LOCAL__\\n'; "
+                "git for-each-ref --format='%(refname:short)' refs/heads; "
+                "printf '__BRANCHES_REMOTE__\\n'; "
+                "git for-each-ref --format='%(refname:short)' refs/remotes/origin"
+            ),
         )
-        if check.exit_code != 0:
+        if result.exit_code != 0:
             return GitBranchesResponse(
                 branches=[], current_branch="", is_git_repo=False
             )
 
-        head_result, local_result, remote_result = await asyncio.gather(
-            self.sandbox_service.execute_command(
-                sandbox_id,
-                f"{cd_prefix}git rev-parse --abbrev-ref HEAD 2>/dev/null",
-            ),
-            self.sandbox_service.execute_command(
-                sandbox_id,
-                f"{cd_prefix}git branch --no-color 2>/dev/null",
-            ),
-            self.sandbox_service.execute_command(
-                sandbox_id,
-                f"{cd_prefix}git branch -r --no-color 2>/dev/null",
-            ),
-        )
-        current_branch = head_result.stdout.strip()
+        lines = result.stdout.splitlines()
+        try:
+            local_marker = lines.index("__BRANCHES_LOCAL__")
+            remote_marker = lines.index("__BRANCHES_REMOTE__")
+        except ValueError:
+            # The shell output is segmented with explicit markers so we can
+            # parse one exec result deterministically instead of depending on
+            # `git branch` formatting.
+            raise SandboxException("Failed to parse git branches output")
+        current_branch = "\n".join(lines[:local_marker]).strip()
 
         local_branches: set[str] = set()
-        for line in local_result.stdout.splitlines():
-            name = line.removeprefix("* ").strip()
+        for line in lines[local_marker + 1 : remote_marker]:
+            name = line.strip()
             if name:
                 local_branches.add(name)
 
-        # Merge remote-only branches into the list so the UI shows branches
-        # the user can check out even if they don't exist locally yet.
-        # Skip symref lines like "origin/HEAD -> origin/main".
+        # Include remote-only branches so the UI can offer checkout targets the
+        # user has not created locally yet, but skip the origin/HEAD symref
+        # because it is just the remote default-branch pointer.
         all_branches = set(local_branches)
-        for line in remote_result.stdout.splitlines():
+        for line in lines[remote_marker + 1 :]:
             name = line.strip()
-            if not name or " -> " in name or not name.startswith("origin/"):
+            if not name or name == "origin/HEAD" or not name.startswith("origin/"):
                 continue
             short = name.removeprefix("origin/")
             if short not in all_branches:
