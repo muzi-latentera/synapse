@@ -34,7 +34,7 @@ const toolLoaders: Record<string, ToolModuleLoader> = {
 
   // Codex tools (lowercase kind values from ACP)
   execute: codexShellLoader,
-  search: codexShellLoader,
+  search: () => import('./codex/FetchTool').then((m) => ({ default: m.FetchTool })),
   read: codexShellLoader,
   edit: () => import('./codex/EditTool').then((m) => ({ default: m.EditTool })),
   fetch: () => import('./codex/FetchTool').then((m) => ({ default: m.FetchTool })),

@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Globe } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
-import { formatResult } from '@/utils/format';
+import { extractDomain, formatResult } from '@/utils/format';
 import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from '../common/ToolCard';
 
@@ -9,14 +9,6 @@ interface WebFetchInput {
   url: string;
   prompt: string;
 }
-
-const extractDomain = (url: string): string => {
-  try {
-    return new URL(url).hostname.replace('www.', '');
-  } catch {
-    return url.length > 30 ? `${url.slice(0, 27)}\u2026` : url;
-  }
-};
 
 const WebFetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as WebFetchInput | undefined;

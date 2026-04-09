@@ -115,8 +115,12 @@ class AcpSession:
                 prompt=prompt_blocks,
                 session_id=self.acp_session_id,
             )
+            prompt_completed = True
+        except BaseException:
+            prompt_completed = False
+            raise
         finally:
-            self._handler.finish()
+            self._handler.finish(prompt_completed=prompt_completed)
 
     IMAGE_MIME_BY_EXT: dict[str, str] = {
         ".png": "image/png",
