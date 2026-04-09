@@ -3,14 +3,14 @@ import { AttachmentViewer } from '@/components/ui/AttachmentViewer';
 import type { MessageAttachment } from '@/types/chat.types';
 
 interface MessageAttachmentsProps {
-  attachments?: MessageAttachment[];
+  attachments: MessageAttachment[];
   uploadingAttachmentIds?: string[];
   className?: string;
 }
 
 export const MessageAttachments = memo(
   ({ attachments, uploadingAttachmentIds, className = '' }: MessageAttachmentsProps) => {
-    if (!attachments || attachments.length === 0) {
+    if (attachments.length === 0) {
       return null;
     }
 

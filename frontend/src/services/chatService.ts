@@ -5,7 +5,6 @@ import { validateRequired, validateId } from '@/utils/validation';
 import { chatStorage } from '@/utils/storage';
 import type { ChatRequest, Chat, CreateChatRequest, ContextUsage } from '@/types/chat.types';
 import type { CursorPaginationParams, PaginatedChats, PaginatedMessages } from '@/types/api.types';
-import { CONTEXT_WINDOW_TOKENS } from '@/config/constants';
 
 async function createCompletion(
   request: ChatRequest,
@@ -106,13 +105,7 @@ async function getMessages(
     const endpoint = `/chat/chats/${chatId}/messages${queryString}`;
 
     const response = await apiClient.get<PaginatedMessages>(endpoint);
-    return (
-      response ?? {
-        items: [],
-        next_cursor: null,
-        has_more: false,
-      }
-    );
+    return ensureResponse(response, 'Failed to fetch messages');
   });
 }
 
@@ -127,15 +120,7 @@ async function listChats(params?: {
     const endpoint = `/chat/chats${queryString}`;
 
     const response = await apiClient.get<PaginatedChats>(endpoint);
-    return (
-      response ?? {
-        items: [],
-        page: 1,
-        per_page: 10,
-        total: 0,
-        pages: 0,
-      }
-    );
+    return ensureResponse(response, 'Failed to fetch chats');
   });
 }
 
@@ -183,13 +168,7 @@ async function getContextUsage(chatId: string): Promise<ContextUsage> {
 
   return serviceCall(async () => {
     const response = await apiClient.get<ContextUsage>(`/chat/chats/${chatId}/context-usage`);
-    return (
-      response ?? {
-        tokens_used: 0,
-        context_window: CONTEXT_WINDOW_TOKENS,
-        percentage: 0,
-      }
-    );
+    return ensureResponse(response, 'Failed to fetch context usage');
   });
 }
 
@@ -247,7 +226,7 @@ async function getSubThreads(chatId: string): Promise<Chat[]> {
   validateId(chatId, 'Chat ID');
   return serviceCall(async () => {
     const response = await apiClient.get<Chat[]>(`/chat/chats/${chatId}/sub-threads`);
-    return response ?? [];
+    return ensureResponse(response, 'Failed to fetch sub-threads');
   });
 }
 

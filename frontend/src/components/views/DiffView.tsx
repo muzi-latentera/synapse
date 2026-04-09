@@ -202,7 +202,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
     isFetching,
     isError,
     refetch,
-  } = useGitDiffQuery(sandboxId || '', mode, true, cwd, { enabled: !!sandboxId });
+  } = useGitDiffQuery(sandboxId, mode, true, cwd, { enabled: !!sandboxId });
 
   const diffContent = diffData?.diff ?? '';
   const prevFileNamesRef = useRef<string>('');

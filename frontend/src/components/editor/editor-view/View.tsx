@@ -44,7 +44,7 @@ export const View = memo(function View({
     data: fileContentData,
     isLoading: isLoadingContent,
     error: fileContentError,
-  } = useFileContentQuery(sandboxId || '', selectedFile?.path || '', {
+  } = useFileContentQuery(sandboxId, selectedFile?.path, {
     enabled: !!sandboxId && !!chatId && !!selectedFile?.path,
     retry: 1,
   });

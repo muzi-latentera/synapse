@@ -12,7 +12,7 @@ import { fetchAttachmentBlob, downloadAttachmentFile } from '@/utils/file';
 import { isBrowserObjectUrl } from '@/utils/attachmentUrl';
 
 interface AttachmentViewerProps {
-  attachments?: MessageAttachment[];
+  attachments: MessageAttachment[];
   uploadingAttachmentIds?: string[];
 }
 
@@ -201,7 +201,7 @@ function AttachmentViewerInner({ attachments, uploadingAttachmentIds }: Attachme
   }, []);
 
   const imageAttachments = useMemo(
-    () => (attachments ?? []).filter((a) => a.file_type === 'image'),
+    () => attachments.filter((a) => a.file_type === 'image'),
     [attachments],
   );
   const imageIdKey = useMemo(
@@ -288,7 +288,7 @@ function AttachmentViewerInner({ attachments, uploadingAttachmentIds }: Attachme
     };
   }, []);
 
-  if (!attachments || attachments.length === 0) {
+  if (attachments.length === 0) {
     return null;
   }
 

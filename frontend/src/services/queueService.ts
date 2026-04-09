@@ -55,7 +55,7 @@ async function getQueue(chatId: string): Promise<QueuedMessage[]> {
 
   return serviceCall(async () => {
     const response = await apiClient.get<QueuedMessage[]>(`/chat/chats/${chatId}/queue`);
-    return response ?? [];
+    return ensureResponse(response, 'Failed to fetch queue');
   });
 }
 

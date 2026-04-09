@@ -49,7 +49,7 @@ export const SidebarChatItem = memo(function SidebarChatItem({
   onToggleSubThreads,
 }: SidebarChatItemProps) {
   const isPinned = !!chat.pinned_at;
-  const hasSubThreads = (chat.sub_thread_count ?? 0) > 0;
+  const hasSubThreads = chat.sub_thread_count > 0;
 
   return (
     <div
@@ -94,7 +94,7 @@ export const SidebarChatItem = memo(function SidebarChatItem({
             isHovered || isSelected || isDropdownOpen ? 'opacity-0' : 'opacity-100',
           )}
         >
-          {getRelativeTime(chat.updated_at || chat.created_at)}
+          {getRelativeTime(chat.updated_at)}
         </span>
       </Button>
 

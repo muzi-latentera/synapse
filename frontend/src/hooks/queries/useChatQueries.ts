@@ -61,7 +61,7 @@ export const useInfiniteChatsQuery = (options?: {
   });
 };
 
-export const useInfiniteMessagesQuery = (chatId: string, limit: number = 20) => {
+export const useInfiniteMessagesQuery = (chatId: string | undefined, limit: number = 20) => {
   return useInfiniteQuery({
     queryKey: queryKeys.messages(chatId),
     queryFn: async ({ pageParam }) => {
@@ -77,7 +77,10 @@ export const useInfiniteMessagesQuery = (chatId: string, limit: number = 20) => 
   });
 };
 
-export const useChatQuery = (chatId: string, options?: Partial<UseQueryOptions<Chat>>) => {
+export const useChatQuery = (
+  chatId: string | undefined,
+  options?: Partial<UseQueryOptions<Chat>>,
+) => {
   return useQuery({
     queryKey: queryKeys.chat(chatId),
     queryFn: () => chatService.getChat(chatId),
@@ -87,7 +90,7 @@ export const useChatQuery = (chatId: string, options?: Partial<UseQueryOptions<C
 };
 
 export const useContextUsageQuery = (
-  chatId: string,
+  chatId: string | undefined,
   options?: Partial<UseQueryOptions<ContextUsage>>,
 ) => {
   return useQuery({
@@ -250,7 +253,7 @@ interface EnhancePromptParams {
 
 export const useSubThreadsQuery = (chatId: string | undefined) => {
   return useQuery({
-    queryKey: queryKeys.subThreads(chatId!),
+    queryKey: queryKeys.subThreads(chatId),
     queryFn: () => chatService.getSubThreads(chatId!),
     enabled: !!chatId,
   });

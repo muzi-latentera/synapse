@@ -58,7 +58,7 @@ const parseClaudeSearchResults = (result: string): SearchSource[] => {
 };
 
 export const WebSearch: React.FC<WebSearchProps> = ({ tool }) => {
-  const query = ((tool.input?.query || tool.input?.search_query) as string | undefined) ?? '';
+  const query = (tool.input?.query as string | undefined) ?? '';
   const toolStatus = tool.status;
   const errorMessage = tool.error;
 
@@ -94,7 +94,7 @@ export const WebSearch: React.FC<WebSearchProps> = ({ tool }) => {
             return `Searching: ${query}`;
         }
       }}
-      loadingContent={<SearchLoadingDots />}
+      loadingContent={<SearchLoadingDots label="Searching the web" />}
       error={errorMessage}
       expandable={canShowSources}
     >

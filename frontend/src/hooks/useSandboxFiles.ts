@@ -15,7 +15,7 @@ export function useSandboxFiles(
   currentChat: ChatSummary | undefined,
   chatId: string | undefined,
 ): UseSandboxFilesResult {
-  const sandboxId = currentChat?.sandbox_id || '';
+  const sandboxId = currentChat?.sandbox_id;
 
   const {
     data: filesMetadata = [],

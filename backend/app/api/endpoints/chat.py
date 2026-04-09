@@ -139,7 +139,7 @@ async def send_message(
         return {
             "chat_id": result["chat_id"],
             "message_id": result["message_id"],
-            "last_seq": result.get("last_seq", 0),
+            "last_seq": result["last_seq"],
         }
     except ChatException as e:
         raise HTTPException(
@@ -228,16 +228,19 @@ async def get_chat_context_usage(
             cache_key = REDIS_KEY_CHAT_CONTEXT_USAGE.format(chat_id=str(chat_id))
             cached = await cache.get(cache_key)
             if cached:
+                # Cache entries are written by the backend with all fields
+                # present. If a payload is partial or malformed, raise so this
+                # endpoint falls back to DB data.
                 data = json.loads(cached)
                 return ContextUsage(
-                    tokens_used=data.get("tokens_used", 0),
-                    context_window=data.get("context_window", 0),
-                    percentage=data.get("percentage", 0.0),
+                    tokens_used=int(data["tokens_used"]),
+                    context_window=int(data["context_window"]),
+                    percentage=float(data["percentage"]),
                 )
-    except (CacheError, json.JSONDecodeError) as e:
+    except (CacheError, ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
         logger.warning("Failed to get context usage from cache: %s", e)
 
-    tokens_used = chat.context_token_usage or 0
+    tokens_used = chat.context_token_usage
     context_window = (
         await chat_service.get_model_context_window(chat_id, current_user.id) or 0
     )

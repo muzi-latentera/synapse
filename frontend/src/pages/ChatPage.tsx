@@ -22,7 +22,6 @@ import {
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { findFileByToolPath } from '@/utils/file';
 import { ChatProvider } from '@/contexts/ChatContext';
-import { EMPTY_BUILTIN_COMMANDS } from '@/config/constants';
 import { CreateSubThreadDialog } from '@/components/chat/sub-threads/CreateSubThreadDialog';
 
 const Editor = lazy(() =>
@@ -111,13 +110,6 @@ export function ChatPage() {
   const { data: settings } = useSettingsQuery();
 
   const { data: workspaceResources } = useWorkspaceResourcesQuery(currentChat?.workspace_id);
-
-  const allSkills = useMemo(() => workspaceResources?.skills ?? [], [workspaceResources?.skills]);
-  const builtinSlashCommands = useMemo(
-    () => workspaceResources?.builtin_slash_commands ?? EMPTY_BUILTIN_COMMANDS,
-    [workspaceResources?.builtin_slash_commands],
-  );
-  const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
   const { selectedFile, setSelectedFile, isRefreshing, handleRefresh, handleFileSelect } =
     useEditorState(refetchFilesMetadata);
@@ -266,9 +258,9 @@ export function ChatPage() {
       sandboxId={currentChat?.sandbox_id}
       parentChatId={currentChat?.parent_chat_id ?? undefined}
       fileStructure={fileStructure}
-      customSkills={allSkills}
-      builtinSlashCommands={builtinSlashCommands}
-      personas={personas}
+      customSkills={workspaceResources?.skills}
+      builtinSlashCommands={workspaceResources?.builtin_slash_commands}
+      personas={settings?.personas}
     >
       <ChatSessionOrchestrator
         chatId={chatId}

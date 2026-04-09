@@ -1,20 +1,4 @@
-import { use } from 'react';
 import { ChatContext } from '@/contexts/ChatContextDefinition';
-import { EMPTY_BUILTIN_COMMANDS } from '@/config/constants';
+import { createContextHook } from '@/hooks/createContextHook';
 
-const EMPTY: never[] = [];
-
-export function useChatContext() {
-  const context = use(ChatContext);
-  return (
-    context ?? {
-      chatId: undefined,
-      sandboxId: undefined,
-      parentChatId: undefined,
-      fileStructure: EMPTY,
-      customSkills: EMPTY,
-      builtinSlashCommands: EMPTY_BUILTIN_COMMANDS,
-      personas: EMPTY,
-    }
-  );
-}
+export const useChatContext = createContextHook(ChatContext, 'useChatContext', 'ChatProvider');

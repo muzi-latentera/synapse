@@ -36,7 +36,7 @@ async def terminal_websocket(
 ) -> None:
     await websocket.accept()
 
-    user, user_sandbox_provider = await wait_for_websocket_auth(websocket)
+    user, _ = await wait_for_websocket_auth(websocket)
     if not user:
         await websocket.close(code=WS_CLOSE_AUTH_FAILED, reason="Authentication failed")
         return
@@ -54,7 +54,7 @@ async def terminal_websocket(
                 code=WS_CLOSE_SANDBOX_NOT_FOUND, reason="Sandbox not found"
             )
             return
-        sandbox_provider_type = row.sandbox_provider or user_sandbox_provider
+        sandbox_provider_type = row.sandbox_provider
         workspace_path = row.workspace_path
 
     try:

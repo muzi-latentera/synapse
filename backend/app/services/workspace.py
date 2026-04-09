@@ -165,7 +165,7 @@ class WorkspaceService(BaseDbService[Workspace]):
                 count_query = select(func.count(Workspace.id)).filter(
                     Workspace.user_id == user.id, Workspace.deleted_at.is_(None)
                 )
-                total = (await db.execute(count_query)).scalar() or 0
+                total = (await db.execute(count_query)).scalar()
                 offset = (pagination.page - 1) * pagination.per_page
                 query = query.offset(offset).limit(pagination.per_page)
             else:
@@ -187,7 +187,7 @@ class WorkspaceService(BaseDbService[Workspace]):
                     created_at=workspace.created_at,
                     updated_at=workspace.updated_at,
                 )
-                ws.chat_count = chat_count or 0
+                ws.chat_count = chat_count
                 ws.last_chat_at = last_chat_at
                 workspace_schemas.append(ws)
 

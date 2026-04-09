@@ -323,11 +323,10 @@ export const Chat = memo(function Chat() {
       const messageIsStreaming = streamingMessageIdSet.has(msg.id);
       const isBotMessage = msg.is_bot ?? msg.role === 'assistant';
       const isLastBotMessage = isBotMessage && msg.id === lastBotMessageId;
-      const localAttachmentIds =
-        msg.attachments?.reduce<string[]>((acc, attachment) => {
-          if (isBrowserObjectUrl(attachment.file_url)) acc.push(attachment.id);
-          return acc;
-        }, []) ?? [];
+      const localAttachmentIds = msg.attachments.reduce<string[]>((acc, attachment) => {
+        if (isBrowserObjectUrl(attachment.file_url)) acc.push(attachment.id);
+        return acc;
+      }, []);
       const isLatestUserMessage = !isBotMessage && msg.id === latestUserMessageId;
       const shouldShowUploadingOverlay =
         localAttachmentIds.length > 0 &&

@@ -15,15 +15,15 @@ export interface Message {
   chat_id: string;
   content_text: string;
   content_render: {
-    events?: AssistantStreamEvent[];
+    events: AssistantStreamEvent[];
   };
   last_seq: number;
-  active_stream_id?: string | null;
-  stream_status?: 'in_progress' | 'completed' | 'failed' | 'interrupted';
+  active_stream_id: string | null;
+  stream_status: 'in_progress' | 'completed' | 'failed' | 'interrupted' | null;
   is_bot?: boolean;
   role: 'user' | 'assistant';
-  model_id?: string;
-  attachments?: MessageAttachment[];
+  model_id: string | null;
+  attachments: MessageAttachment[];
   created_at: string;
 }
 
@@ -55,15 +55,15 @@ export interface Chat {
   user_id: string;
   title: string;
   workspace_id: string;
-  sandbox_id?: string;
+  sandbox_id: string | null;
   created_at: string;
   updated_at: string;
   context_token_usage?: number;
-  pinned_at?: string | null;
-  worktree_cwd?: string | null;
-  parent_chat_id?: string | null;
-  sub_thread_count?: number;
-  session_agent_kind?: AgentKind | null;
+  pinned_at: string | null;
+  worktree_cwd: string | null;
+  parent_chat_id: string | null;
+  sub_thread_count: number;
+  session_agent_kind: AgentKind | null;
 }
 
 export interface ChatRequest {

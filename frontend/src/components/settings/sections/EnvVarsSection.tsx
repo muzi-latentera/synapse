@@ -19,7 +19,7 @@ export function EnvVarsSection() {
   const envVarCrud = useCrudForm(localSettings, persistSettings, {
     createDefault: createDefaultEnvVarForm,
     validateForm: (form, editingIndex) =>
-      validateEnvVarForm(form, editingIndex, localSettings.custom_env_vars || []),
+      validateEnvVarForm(form, editingIndex, localSettings.custom_env_vars ?? []),
     getArrayKey: 'custom_env_vars',
     itemName: 'environment variable',
   });
@@ -27,7 +27,7 @@ export function EnvVarsSection() {
   return (
     <>
       <EnvVarsSettingsTab
-        envVars={localSettings.custom_env_vars ?? null}
+        envVars={localSettings.custom_env_vars}
         onAddEnvVar={envVarCrud.handleAdd}
         onEditEnvVar={envVarCrud.handleEdit}
         onDeleteEnvVar={envVarCrud.handleDelete}

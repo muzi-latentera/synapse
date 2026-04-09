@@ -133,10 +133,10 @@ async function getGitDiff(
     const qs = buildQueryString({
       mode,
       full_context: fullContext || undefined,
-      cwd: cwd || undefined,
+      cwd,
     });
     const response = await apiClient.get<GitDiffData>(`/sandbox/${sandboxId}/git/diff${qs}`);
-    return response ?? { diff: '', has_changes: false, is_git_repo: false };
+    return ensureResponse(response, 'Failed to get git diff');
   });
 }
 
@@ -144,11 +144,11 @@ async function getGitBranches(sandboxId: string, cwd?: string): Promise<GitBranc
   validateRequired(sandboxId, 'Sandbox ID');
 
   return serviceCall(async () => {
-    const qs = buildQueryString({ cwd: cwd || undefined });
+    const qs = buildQueryString({ cwd });
     const response = await apiClient.get<GitBranchesData>(
       `/sandbox/${sandboxId}/git/branches${qs}`,
     );
-    return response ?? { branches: [], current_branch: '', is_git_repo: false };
+    return ensureResponse(response, 'Failed to get git branches');
   });
 }
 
@@ -163,7 +163,7 @@ async function checkoutGitBranch(
   return serviceCall(async () => {
     const response = await apiClient.post<GitCheckoutData>(`/sandbox/${sandboxId}/git/checkout`, {
       branch,
-      cwd: cwd || null,
+      cwd: cwd ?? null,
     });
     return ensureResponse(response, 'Checkout failed');
   });
@@ -180,9 +180,9 @@ async function gitCommit(
   return serviceCall(async () => {
     const response = await apiClient.post<GitCommitResult>(`/sandbox/${sandboxId}/git/commit`, {
       message,
-      cwd: cwd || null,
+      cwd: cwd ?? null,
     });
-    return response ?? { success: false, output: '', error: 'No response' };
+    return ensureResponse(response, 'Commit failed');
   });
 }
 
@@ -190,9 +190,9 @@ async function gitPush(sandboxId: string, cwd?: string): Promise<GitPushPullResu
   validateRequired(sandboxId, 'Sandbox ID');
 
   return serviceCall(async () => {
-    const qs = buildQueryString({ cwd: cwd || undefined });
+    const qs = buildQueryString({ cwd });
     const response = await apiClient.post<GitPushPullResult>(`/sandbox/${sandboxId}/git/push${qs}`);
-    return response ?? { success: false, output: '', error: 'No response' };
+    return ensureResponse(response, 'Push failed');
   });
 }
 
@@ -200,9 +200,9 @@ async function gitPull(sandboxId: string, cwd?: string): Promise<GitPushPullResu
   validateRequired(sandboxId, 'Sandbox ID');
 
   return serviceCall(async () => {
-    const qs = buildQueryString({ cwd: cwd || undefined });
+    const qs = buildQueryString({ cwd });
     const response = await apiClient.post<GitPushPullResult>(`/sandbox/${sandboxId}/git/pull${qs}`);
-    return response ?? { success: false, output: '', error: 'No response' };
+    return ensureResponse(response, 'Pull failed');
   });
 }
 
@@ -218,7 +218,7 @@ async function gitCreateBranch(
   return serviceCall(async () => {
     const response = await apiClient.post<GitCreateBranchResult>(
       `/sandbox/${sandboxId}/git/create-branch`,
-      { name, base_branch: baseBranch || null, cwd: cwd || null },
+      { name, base_branch: baseBranch ?? null, cwd: cwd ?? null },
     );
     return ensureResponse(response, 'Failed to create branch');
   });
@@ -228,7 +228,7 @@ async function getGitRemoteUrl(sandboxId: string, cwd?: string): Promise<GitRemo
   validateRequired(sandboxId, 'Sandbox ID');
 
   return serviceCall(async () => {
-    const qs = buildQueryString({ cwd: cwd || undefined });
+    const qs = buildQueryString({ cwd });
     const response = await apiClient.get<GitRemoteUrlData>(
       `/sandbox/${sandboxId}/git/remote-url${qs}`,
     );

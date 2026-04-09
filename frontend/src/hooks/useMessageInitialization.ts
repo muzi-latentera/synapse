@@ -45,7 +45,7 @@ export function useMessageInitialization({
     if (isStreaming && initializedChatRef.current === chatId) return;
 
     const normalizedMessages = fetchedMessages.map((msg: Message) => {
-      const processedAttachments = msg.attachments?.map((attachment) => {
+      const processedAttachments = msg.attachments.map((attachment) => {
         const fileType = detectFileType(
           attachment.filename || '',
           attachment.file_type === 'image' ? 'image/jpeg' : undefined,
@@ -55,13 +55,13 @@ export function useMessageInitialization({
       });
 
       return {
-        id: msg.id || crypto.randomUUID(),
+        id: msg.id,
         chat_id: msg.chat_id,
-        content_text: msg.content_text ?? '',
-        content_render: msg.content_render ?? { events: [] },
-        last_seq: msg.last_seq ?? 0,
-        active_stream_id: msg.active_stream_id ?? null,
-        stream_status: msg.stream_status ?? (msg.role === 'assistant' ? 'completed' : undefined),
+        content_text: msg.content_text,
+        content_render: msg.content_render,
+        last_seq: msg.last_seq,
+        active_stream_id: msg.active_stream_id,
+        stream_status: msg.stream_status,
         role: msg.role,
         is_bot: msg.role === 'assistant',
         attachments: processedAttachments,
@@ -73,7 +73,7 @@ export function useMessageInitialization({
     // Persist the highest seq from fetched messages so stream reconnection
     // (useStreamReconnect) can resume from the correct cursor on page refresh.
     const latestKnownSeq = normalizedMessages.reduce((maxSeq, message) => {
-      const seq = Number(message.last_seq ?? 0);
+      const seq = Number(message.last_seq);
       return Number.isFinite(seq) && seq > maxSeq ? seq : maxSeq;
     }, 0);
     if (latestKnownSeq > 0) {

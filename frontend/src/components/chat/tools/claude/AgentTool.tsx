@@ -1,4 +1,4 @@
-import React, { use, useMemo, useState, useRef, lazy, Suspense } from 'react';
+import React, { useMemo, useState, useRef, lazy, Suspense } from 'react';
 import { Bot, Maximize2 } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
 import { ToolCard } from '../common/ToolCard';
@@ -6,6 +6,7 @@ import { CollapsibleButton } from '../common/CollapsibleButton';
 import { getToolComponent } from '../registry';
 import { AgentToolsContext } from '@/contexts/AgentToolsContext';
 import { extractResultText } from '@/utils/agentTool';
+import { useAgentToolsContext } from '@/hooks/useAgentToolsContext';
 
 const LazyExpandedModal = lazy(() => import('@/components/ui/AgentToolExpandedModal'));
 
@@ -20,7 +21,7 @@ export const AgentTool: React.FC<AgentToolProps> = ({ tool }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const prevToolIdRef = useRef(tool.id);
 
-  const siblingAgents = use(AgentToolsContext);
+  const siblingAgents = useAgentToolsContext();
 
   if (prevToolIdRef.current !== tool.id) {
     prevToolIdRef.current = tool.id;

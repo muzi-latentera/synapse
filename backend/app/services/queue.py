@@ -74,15 +74,15 @@ class QueueService:
             id=UUID(item["id"]),
             content=item["content"],
             model_id=item["model_id"],
-            permission_mode=item.get("permission_mode", "acceptEdits"),
-            thinking_mode=item.get("thinking_mode"),
-            worktree=item.get("worktree", False),
-            plan_mode=item.get("plan_mode", False),
-            selected_persona_name=item.get(
-                "selected_persona_name", DEFAULT_PERSONA_NAME
-            ),
+            # Queue items are backend-owned payloads, so missing keys indicate
+            # corrupted internal state and should fail instead of changing behavior.
+            permission_mode=item["permission_mode"],
+            thinking_mode=item["thinking_mode"],
+            worktree=item["worktree"],
+            plan_mode=item["plan_mode"],
+            selected_persona_name=item["selected_persona_name"],
             queued_at=datetime.fromisoformat(item["queued_at"]),
-            attachments=item.get("attachments"),
+            attachments=item["attachments"],
         )
 
     async def get_queue(self, chat_id: str) -> list[QueuedMessage]:

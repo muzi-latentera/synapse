@@ -37,7 +37,7 @@ export interface UserSettings {
   id: string;
   user_id: string;
   github_personal_access_token: string | null;
-  sandbox_provider: SandboxProviderType | null;
+  sandbox_provider: SandboxProviderType;
   custom_instructions: string | null;
   custom_env_vars: CustomEnvVar[] | null;
   personas: Persona[] | null;

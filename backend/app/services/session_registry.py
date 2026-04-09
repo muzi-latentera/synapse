@@ -69,7 +69,7 @@ class SessionRegistry:
                 chat_id=chat_id,
                 acp_session=acp_session,
                 fingerprint=fingerprint,
-                current_model=config.model or "",
+                current_model=config.model,
             )
             self._sessions[chat_id] = session
 

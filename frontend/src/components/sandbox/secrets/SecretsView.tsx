@@ -36,11 +36,7 @@ export const SecretsView = memo(function SecretsView({ sandboxId }: SecretsViewP
   const [isSaving, setIsSaving] = useState(false);
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
 
-  const {
-    data: secretsData,
-    isLoading,
-    refetch: refetchSecrets,
-  } = useSecretsQuery(sandboxId || '');
+  const { data: secretsData, isLoading, refetch: refetchSecrets } = useSecretsQuery(sandboxId);
   const addSecretMutation = useAddSecretMutation();
   const updateSecretMutation = useUpdateSecretMutation();
   const deleteSecretMutation = useDeleteSecretMutation();

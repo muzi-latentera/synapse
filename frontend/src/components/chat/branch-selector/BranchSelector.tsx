@@ -20,7 +20,7 @@ export const BranchSelector = memo(function BranchSelector({
   const worktreeCwd = useChatStore((s) => s.currentChat?.worktree_cwd) ?? undefined;
   const isSplitMode = useIsSplitMode();
 
-  const { data: branchesData } = useGitBranchesQuery(sandboxId ?? '', !!sandboxId, worktreeCwd);
+  const { data: branchesData } = useGitBranchesQuery(sandboxId, !!sandboxId, worktreeCwd);
   const checkoutBranch = useCheckoutBranchMutation();
 
   if (!sandboxId || !branchesData?.is_git_repo || branchesData.branches.length === 0) {

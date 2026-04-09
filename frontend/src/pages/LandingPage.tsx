@@ -20,7 +20,6 @@ import {
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { ChatProvider } from '@/contexts/ChatContext';
-import { EMPTY_BUILTIN_COMMANDS } from '@/config/constants';
 
 const EXAMPLE_PROMPTS = [
   'Build a REST API with authentication',
@@ -86,13 +85,6 @@ export function LandingPage() {
   const { data: settings } = useSettingsQuery({
     enabled: isAuthenticated,
   });
-
-  const allSkills = useMemo(() => workspaceResources?.skills ?? [], [workspaceResources?.skills]);
-  const builtinSlashCommands = useMemo(
-    () => workspaceResources?.builtin_slash_commands ?? EMPTY_BUILTIN_COMMANDS,
-    [workspaceResources?.builtin_slash_commands],
-  );
-  const personas = useMemo(() => settings?.personas ?? [], [settings?.personas]);
 
   useMountEffect(() => {
     useChatStore.getState().setCurrentChat(null);
@@ -185,9 +177,9 @@ export function LandingPage() {
             </div>
 
             <ChatProvider
-              customSkills={allSkills}
-              builtinSlashCommands={builtinSlashCommands}
-              personas={personas}
+              customSkills={workspaceResources?.skills}
+              builtinSlashCommands={workspaceResources?.builtin_slash_commands}
+              personas={settings?.personas}
             >
               <ChatInput
                 message={message}

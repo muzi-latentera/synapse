@@ -97,7 +97,7 @@ function WorkspaceItem({
   const hasSandbox = !!ws.sandbox_id;
 
   const { data: branchesData, isLoading: branchesLoading } = useGitBranchesQuery(
-    ws.sandbox_id ?? '',
+    ws.sandbox_id,
     isModalOpen && hasSandbox,
   );
   const checkoutBranch = useCheckoutBranchMutation();
@@ -346,7 +346,7 @@ export function WorkspaceSelector({
   const { data: settings } = useSettingsQuery({ enabled });
   const createWorkspace = useCreateWorkspaceMutation();
 
-  const defaultProvider = settings?.sandbox_provider ?? 'docker';
+  const defaultProvider = settings?.sandbox_provider;
   const hasGitHubToken = Boolean(settings?.github_personal_access_token);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -354,12 +354,14 @@ export function WorkspaceSelector({
   const [creationMode, setCreationMode] = useState<CreationMode>('none');
   const [emptyName, setEmptyName] = useState('');
   const [gitUrl, setGitUrl] = useState('');
-  const [sandboxProvider, setSandboxProvider] = useState<'docker' | 'host'>(defaultProvider);
+  const [sandboxProvider, setSandboxProvider] = useState<'docker' | 'host'>('docker');
   const [repoSearchQuery, setRepoSearchQuery] = useState('');
   const [debouncedRepoQuery, setDebouncedRepoQuery] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
   useEffect(() => {
-    setSandboxProvider(defaultProvider);
+    if (defaultProvider) {
+      setSandboxProvider(defaultProvider);
+    }
   }, [defaultProvider]);
 
   useEffect(() => {
@@ -388,7 +390,7 @@ export function WorkspaceSelector({
     setCreationMode('none');
     setEmptyName('');
     setGitUrl('');
-    setSandboxProvider(defaultProvider);
+    setSandboxProvider(defaultProvider ?? 'docker');
     setRepoSearchQuery('');
     setDebouncedRepoQuery('');
     setShowUrlInput(false);

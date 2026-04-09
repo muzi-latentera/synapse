@@ -51,15 +51,13 @@ export function useStreamRestoration({
         }
       };
 
-      const chatCheckPromises = chatsToCheck
-        .filter((chat) => chat?.id)
-        .map((chat) => checkAndRegister(chat.id));
+      const chatCheckPromises = chatsToCheck.map((chat) => checkAndRegister(chat.id));
 
       // Fetch sub-threads for parents that have them and check each for active
       // streams. This fans out into N additional requests per parent — acceptable
       // for a single-user app. A bulk active-streams endpoint would reduce this.
       const subThreadPromises = chatsToCheck
-        .filter((chat) => chat?.id && (chat.sub_thread_count ?? 0) > 0)
+        .filter((chat) => chat.sub_thread_count > 0)
         .map(async (chat) => {
           try {
             const subThreads = await chatService.getSubThreads(chat.id);

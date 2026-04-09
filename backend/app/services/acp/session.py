@@ -443,12 +443,12 @@ class AcpSession:
             # host sandbox directory so helpers like GIT_ASKPASS resolve.
             for key, val in config.env.items():
                 env[key] = val.replace(SANDBOX_HOME_DIR, host_home)
-            # Web mode: override HOME so the agent uses the sandbox dir.
-            # Desktop mode: keep real HOME so existing ~/.claude / ~/.codex
-            # login credentials are discovered (sync_cli_auth is Docker-only).
+            # Web mode: override HOME and CODEX_HOME so the agent uses the
+            # sandbox dir. Desktop mode keeps the real host locations so the
+            # user's existing Codex auth continues to resolve.
             if not settings.DESKTOP_MODE:
                 env["HOME"] = host_home
-            env["CODEX_HOME"] = f"{host_home}/.codex"
+                env["CODEX_HOME"] = f"{host_home}/.codex"
         else:
             env.update(config.env)
         env.setdefault("TERM", TERMINAL_TYPE)

@@ -24,7 +24,7 @@ from app.db.session import SessionLocal
 from app.models.db_models.chat import Chat
 from app.models.db_models.enums import MessageRole, MessageStreamStatus
 from app.models.db_models.user import User, UserSettings
-from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
+from app.prompts.system_prompt import build_system_prompt_for_chat
 from app.services.acp.session import AcpSessionConfig
 from app.services.agent import (
     AgentService,
@@ -564,7 +564,7 @@ class ChatStreamRuntime:
         if not usage or not self.cache:
             return
 
-        token_usage: int = usage.get("input_tokens", 0) or 0
+        token_usage: int = usage["input_tokens"]
         context_window: int = usage.get("context_window") or self.context_window or 0
         if token_usage <= 0 or (
             token_usage == self._last_emitted_tokens
@@ -753,9 +753,9 @@ class ChatStreamRuntime:
         assistant_message_id: str,
         session_id_override: str | None = None,
     ) -> ChatStreamRequest:
-        selected_persona_name = queued_msg.get(
-            "selected_persona_name", DEFAULT_PERSONA_NAME
-        )
+        # Queue items come from QueueService.add_message, so all behavioral
+        # fields must already exist here.
+        selected_persona_name = queued_msg["selected_persona_name"]
         system_prompt = build_system_prompt_for_chat(
             user_settings,
             selected_persona_name=selected_persona_name,
@@ -771,22 +771,22 @@ class ChatStreamRuntime:
                 "user_id": str(chat.user_id),
                 "title": chat.title,
                 "workspace_id": str(chat.workspace_id),
-                "sandbox_id": chat.sandbox_id or "",
-                "workspace_path": chat.workspace_path or "",
+                "sandbox_id": chat.sandbox_id,
+                "workspace_path": chat.workspace_path,
                 "sandbox_provider": chat.sandbox_provider,
                 "session_id": resolved_session_id,
                 "session_agent_kind": chat.session_agent_kind,
                 "worktree_cwd": chat.worktree_cwd,
             },
-            permission_mode=queued_msg.get("permission_mode", "acceptEdits"),
+            permission_mode=queued_msg["permission_mode"],
             model_id=queued_msg["model_id"],
             context_window=context_window,
             session_id=resolved_session_id,
             assistant_message_id=assistant_message_id,
-            thinking_mode=queued_msg.get("thinking_mode"),
-            worktree=queued_msg.get("worktree", False),
-            plan_mode=queued_msg.get("plan_mode", False),
-            attachments=queued_msg.get("attachments"),
+            thinking_mode=queued_msg["thinking_mode"],
+            worktree=queued_msg["worktree"],
+            plan_mode=queued_msg["plan_mode"],
+            attachments=queued_msg["attachments"],
             selected_persona_name=selected_persona_name,
         )
 
@@ -888,9 +888,9 @@ class ChatStreamRuntime:
                 return
             await message_service.update_message_snapshot(
                 message_uuid,
-                content_text=message.content_text or "",
-                content_render=message.content_render or {"events": []},
-                last_seq=int(message.last_seq or 0),
+                content_text=message.content_text,
+                content_render=message.content_render,
+                last_seq=message.last_seq,
                 active_stream_id=None,
                 stream_status=stream_status,
             )
@@ -937,12 +937,12 @@ class ChatStreamRuntime:
                     payload=payload,
                 )
                 await cache.publish(channel, envelope)
-            existing_render = message.content_render or {"events": []}
+            existing_render = message.content_render
             render_events = list(existing_render.get("events", []))
             render_events.append(
                 {"type": "assistant_text", "text": f"\n\nError: {error_message}"}
             )
-            content_text = message.content_text or ""
+            content_text = message.content_text
             if not content_text:
                 content_text = error_message
             await message_service.update_message_snapshot(

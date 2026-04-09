@@ -196,7 +196,7 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
                     onMouseLeave={handleMouseLeave}
                     onToggleSubThreads={onToggleSubThreads}
                   />
-                  {(chat.sub_thread_count ?? 0) > 0 && expandedSubThreads.has(chat.id) && (
+                  {chat.sub_thread_count > 0 && expandedSubThreads.has(chat.id) && (
                     <SubThreadList
                       parentChatId={chat.id}
                       selectedChatId={selectedChatId}
@@ -618,7 +618,7 @@ export function Sidebar({
                           onMouseLeave={handlePinnedMouseLeave}
                           onToggleSubThreads={toggleSubThreads}
                         />
-                        {(chat.sub_thread_count ?? 0) > 0 && expandedSubThreads.has(chat.id) && (
+                        {chat.sub_thread_count > 0 && expandedSubThreads.has(chat.id) && (
                           <SubThreadList
                             parentChatId={chat.id}
                             selectedChatId={selectedChatId}

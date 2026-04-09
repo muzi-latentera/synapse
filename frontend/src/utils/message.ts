@@ -32,7 +32,7 @@ export function createInitialMessage(
               created_at: new Date().toISOString(),
             };
           })
-        : undefined,
+        : [],
     created_at: new Date().toISOString(),
     model_id: modelId,
   };

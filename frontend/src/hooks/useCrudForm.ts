@@ -24,7 +24,7 @@ export const useCrudForm = <S, T, K extends keyof S>(
   const [formError, setFormError] = useState<string | null>(null);
 
   const getItems = useCallback(() => {
-    return (settings[options.getArrayKey] as T[] | null | undefined) || [];
+    return (settings[options.getArrayKey] as T[] | null | undefined) ?? [];
   }, [settings, options.getArrayKey]);
 
   const resetForm = useCallback(() => {
@@ -64,7 +64,7 @@ export const useCrudForm = <S, T, K extends keyof S>(
       try {
         await persistSettings(
           (prev: S) => {
-            const arr = [...((prev[options.getArrayKey] as T[] | null | undefined) || [])];
+            const arr = [...((prev[options.getArrayKey] as T[] | null | undefined) ?? [])];
             arr.splice(index, 1);
             return {
               ...prev,
@@ -103,7 +103,7 @@ export const useCrudForm = <S, T, K extends keyof S>(
       const isUpdate = editingIndex !== null;
       await persistSettings(
         (prev: S) => {
-          const nextItems = [...((prev[options.getArrayKey] as T[] | null | undefined) || [])];
+          const nextItems = [...((prev[options.getArrayKey] as T[] | null | undefined) ?? [])];
           if (editingIndex !== null) {
             nextItems[editingIndex] = form;
           } else {
