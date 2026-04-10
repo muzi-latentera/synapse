@@ -120,7 +120,6 @@ export const useXterm = ({
         scrollback: 1000,
         fontSize: 12,
         fontFamily: 'monospace',
-        convertEol: true,
         theme: buildTerminalTheme(modeRef.current),
         disableStdin,
       });

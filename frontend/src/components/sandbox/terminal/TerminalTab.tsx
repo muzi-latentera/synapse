@@ -38,6 +38,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
   const wsRef = useRef<WebSocket | null>(null);
   const isClosingRef = useRef(false);
   const shouldCloseRef = useRef(shouldClose);
+  const lastSessionKeyRef = useRef<string | null>(null);
 
   const backgroundClass = getTerminalBackgroundClass(theme);
 
@@ -83,6 +84,14 @@ export const TerminalTab: FC<TerminalTabProps> = ({
 
   useEffect(() => {
     if (!sandboxId || !isReady) return;
+
+    const sessionKey = sandboxId + ':' + (terminalId ?? '');
+    if (lastSessionKeyRef.current !== sessionKey) {
+      // Reset the terminal when rebinding to a different session so stale
+      // screen contents and cursor position do not leak into the next PTY.
+      terminalRef.current?.reset();
+      lastSessionKeyRef.current = sessionKey;
+    }
 
     const token = authService.getToken();
     if (!token) return;
@@ -181,6 +190,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
       }
       ws.close();
       resetWsRefs();
+      lastSessionKeyRef.current = null;
       setSessionState('idle');
     };
   }, [sandboxId, terminalId, isReady, fitTerminal, terminalRef, resetWsRefs]);
