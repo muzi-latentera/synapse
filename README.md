@@ -1,6 +1,6 @@
 # Agentrove
 
-Self-hosted AI coding workspace with Claude and Codex agents, isolated sandboxes, and a full web IDE.
+Self-hosted AI coding workspace for Claude Code and Codex, using ACP adapters to run agents inside per-workspace sandboxes with chat, editor, terminal, and git tooling.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
@@ -22,6 +22,7 @@ Join the [Discord server](https://discord.gg/HvkJU8dcBA).
 ## Why Agentrove
 
 - Run Claude Code and Codex from one self-hosted interface
+- Launch both agent runtimes through ACP adapters
 - Keep each project in its own Docker or host sandbox
 - Work in chat, editor, terminal, diff, secrets, and PR review views side by side
 - Organize work by workspace, then branch into sub-threads when a task needs its own track
@@ -47,6 +48,7 @@ Agentrove launches agents through ACP adapters:
 ## Key Features
 
 - Claude and Codex in the same UI with per-chat model selection
+- ACP-based agent runtime integration for both Claude and Codex
 - Agent-specific permission modes and reasoning/thinking controls
 - Workspace-based project organization with per-workspace sandboxes
 - Docker and host sandbox providers
