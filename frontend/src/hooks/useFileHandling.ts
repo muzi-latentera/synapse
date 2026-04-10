@@ -9,11 +9,11 @@ interface UseFileHandlingOptions {
 }
 
 export function useFileHandling({ initialFiles = null, onChange }: UseFileHandlingOptions = {}) {
-  const [files, setFiles] = useState<File[]>(initialFiles || []);
+  const [files, setFiles] = useState<File[]>(initialFiles ?? []);
   const urlsToCleanupRef = useRef<string[]>([]);
 
   useEffect(() => {
-    setFiles(initialFiles || []);
+    setFiles(initialFiles ?? []);
   }, [initialFiles]);
 
   const previewUrls = useMemo(() => {

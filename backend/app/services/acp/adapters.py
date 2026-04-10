@@ -34,7 +34,7 @@ CODEX_APPROVAL_POLICIES: dict[str, str] = {
 CODEX_AUTO_SANDBOX_PERMISSIONS = (
     '["disk-full-read-access","disk-write-access","network-full-access"]'
 )
-# Valid Codex ACP session modes. Unknown values fall back to "auto".
+# Valid Codex ACP session modes.
 CODEX_SESSION_MODES = frozenset({"auto", "read-only", "full-access"})
 
 
@@ -177,13 +177,21 @@ class CodexAgentAdapter(AgentAdapter):
         permission_mode: str | None,
         launch_approval_policy: str | None,
     ) -> LaunchConfig:
-        # Codex uses CLI -c flags for all customization (system prompt,
+        # Codex uses CLI -c flags for all customization (instructions,
         # reasoning effort, sandbox permissions, approval policy).
         args: list[str] = []
         # Required for Codex to expose ACP session modes (auto/read-only/full-access).
         args.extend(["-c", "features.collaboration_modes=true"])
         if system_prompt:
-            args.extend(["-c", "developer_instructions=" + json.dumps(system_prompt)])
+            # Codex has separate base vs developer instruction channels.
+            # Personas replace the base instructions entirely, while normal
+            # app-level additions should append as developer instructions.
+            instruction_key = (
+                "base_instructions"
+                if system_prompt_is_full_replace
+                else "developer_instructions"
+            )
+            args.extend(["-c", instruction_key + "=" + json.dumps(system_prompt)])
         if reasoning_effort:
             args.extend(["-c", f'model_reasoning_effort="{reasoning_effort}"'])
         if launch_approval_policy == "never":
@@ -224,7 +232,11 @@ class CodexAgentAdapter(AgentAdapter):
         )
 
     def map_session_mode(self, permission_mode: str) -> str:
-        return permission_mode if permission_mode in CODEX_SESSION_MODES else "auto"
+        # Invalid modes indicate a caller bug; fail here so the session
+        # doesn't silently start with broader or different permissions.
+        if permission_mode not in CODEX_SESSION_MODES:
+            raise ValueError("Invalid Codex session mode: " + permission_mode)
+        return permission_mode
 
 
 AGENT_ADAPTERS: dict[AgentKind, AgentAdapter] = {

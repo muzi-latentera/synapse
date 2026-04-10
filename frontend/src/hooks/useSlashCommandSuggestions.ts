@@ -3,25 +3,24 @@ import { useSuggestionBase } from './useSuggestionBase';
 import type { SlashCommand } from '@/types/ui.types';
 import type { CustomSkill } from '@/types/user.types';
 import type { AgentKind } from '@/types/chat.types';
-import { EMPTY_BUILTIN_COMMANDS } from '@/config/constants';
 
 interface UseSlashCommandOptions {
   message: string;
   onSelect: (command: SlashCommand) => void;
-  customSkills?: CustomSkill[];
-  builtinSlashCommands?: Record<AgentKind, SlashCommand[]>;
-  agentKind?: AgentKind;
+  customSkills: CustomSkill[];
+  builtinSlashCommands: Record<AgentKind, SlashCommand[]>;
+  agentKind: AgentKind;
 }
 
 export const useSlashCommandSuggestions = ({
   message,
   onSelect,
-  customSkills = [],
-  builtinSlashCommands = EMPTY_BUILTIN_COMMANDS,
-  agentKind = 'claude',
+  customSkills,
+  builtinSlashCommands,
+  agentKind,
 }: UseSlashCommandOptions) => {
   const allCommands = useMemo(() => {
-    const builtins = builtinSlashCommands[agentKind] ?? [];
+    const builtins = builtinSlashCommands[agentKind];
 
     // Custom skills filtered to match the active agent kind
     const skillCommands: SlashCommand[] = customSkills
@@ -36,7 +35,7 @@ export const useSlashCommandSuggestions = ({
   }, [builtinSlashCommands, agentKind, customSkills]);
 
   const { isActive, query } = useMemo(() => {
-    const firstLine = message.split('\n', 1)[0] ?? '';
+    const firstLine = message.split('\n', 1)[0];
     const trimmedFirstLine = firstLine.trimStart();
 
     if (trimmedFirstLine.startsWith('/') && !trimmedFirstLine.includes(' ')) {

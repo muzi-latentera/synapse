@@ -18,7 +18,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base, PG_GEN_UUID
 from app.db.types import GUID, enum_values
-from app.services.sandbox_providers.types import SandboxProviderType
 
 from .enums import AttachmentType, MessageRole, MessageStreamStatus
 
@@ -103,7 +102,7 @@ class Chat(Base):
         if self.workspace:
             sp: str = self.workspace.sandbox_provider
             return sp
-        val: str = getattr(self, "_sandbox_provider", SandboxProviderType.DOCKER.value)
+        val: str = self._sandbox_provider
         return val
 
     @classmethod
@@ -119,9 +118,12 @@ class Chat(Base):
         # Stash sandbox fields for streaming runtime (workspace not loaded from DB)
         chat._sandbox_id = data.get("sandbox_id")
         chat._workspace_path = data.get("workspace_path")
-        chat._sandbox_provider = str(
-            data.get("sandbox_provider", SandboxProviderType.DOCKER.value)
-        )
+        sandbox_provider = data.get("sandbox_provider")
+        if sandbox_provider is None:
+            # Stream resumes must preserve the original provider instead of
+            # silently switching to Docker when the serialized chat is invalid.
+            raise ValueError("Missing sandbox_provider in chat data")
+        chat._sandbox_provider = sandbox_provider
         chat.worktree_cwd = data.get("worktree_cwd")
         return chat
 

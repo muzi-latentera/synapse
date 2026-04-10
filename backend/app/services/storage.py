@@ -1,4 +1,3 @@
-import logging
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -12,7 +11,6 @@ from app.services.sandbox import SandboxService
 from app.utils.attachment_urls import AttachmentURL
 
 settings = get_settings()
-logger = logging.getLogger(__name__)
 
 
 class StorageService:
@@ -85,14 +83,12 @@ class StorageService:
             file_url = AttachmentURL.build_temp_preview_url(relative_file_path)
 
         if sandbox_id:
-            try:
-                sandbox_file_path = f"/home/user/{unique_filename}"
-                await self.sandbox_service.provider.write_file(
-                    sandbox_id=sandbox_id, path=sandbox_file_path, content=contents
-                )
-
-            except Exception as e:
-                logger.warning("Failed to upload file to sandbox %s: %s", sandbox_id, e)
+            # Attachments are advertised to the agent as readable from the
+            # sandbox, so fail the upload if the sandbox copy is unavailable.
+            sandbox_file_path = f"/home/user/{unique_filename}"
+            await self.sandbox_service.provider.write_file(
+                sandbox_id=sandbox_id, path=sandbox_file_path, content=contents
+            )
 
         return {
             "file_url": file_url,

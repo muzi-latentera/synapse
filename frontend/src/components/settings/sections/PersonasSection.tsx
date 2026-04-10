@@ -19,7 +19,7 @@ export function PersonasSection() {
   const personaCrud = useCrudForm(localSettings, persistSettings, {
     createDefault: createDefaultPersonaForm,
     validateForm: (form, editingIndex) =>
-      validatePersonaForm(form, editingIndex, localSettings.personas || []),
+      validatePersonaForm(form, editingIndex, localSettings.personas ?? []),
     getArrayKey: 'personas',
     itemName: 'persona',
   });
@@ -27,7 +27,7 @@ export function PersonasSection() {
   return (
     <>
       <PersonasSettingsTab
-        personas={localSettings.personas ?? null}
+        personas={localSettings.personas}
         onAddPersona={personaCrud.handleAdd}
         onEditPersona={personaCrud.handleEdit}
         onDeletePersona={personaCrud.handleDelete}

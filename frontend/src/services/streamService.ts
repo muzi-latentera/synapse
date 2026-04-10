@@ -113,7 +113,7 @@ class StreamService {
       user_message_id?: string;
       assistant_message_id?: string;
       content?: string;
-      model_id?: string;
+      model_id: string;
       attachments?: Array<{
         id: string;
         message_id: string;
@@ -141,7 +141,7 @@ class StreamService {
         userMessageId: payload.user_message_id,
         assistantMessageId: payload.assistant_message_id,
         content: payload.content,
-        modelId: payload.model_id ?? '',
+        modelId: payload.model_id,
         attachments: payload.attachments,
       });
     }
@@ -156,7 +156,7 @@ class StreamService {
     const parsed = this.parseStreamEvent<StreamEnvelope>(event.data);
     if (!parsed) return;
 
-    const seq = Number(parsed.seq || 0);
+    const seq = Number(parsed.seq);
     if (!Number.isFinite(seq) || seq <= 0) {
       return;
     }

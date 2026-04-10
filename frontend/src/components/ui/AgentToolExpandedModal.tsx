@@ -17,18 +17,24 @@ interface AgentToolExpandedModalProps {
 function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolExpandedModalProps) {
   const [selectedId, setSelectedId] = useState(initialAgentId);
 
-  const selectedAgent = agents.find((a) => a.id === selectedId) ?? agents[0];
+  const selectedAgent = agents.find((a) => a.id === selectedId);
 
-  const childAgentTools = useMemo(
-    () => selectedAgent?.children.filter((c) => c.name === 'Agent') ?? [],
-    [selectedAgent?.children],
-  );
+  const childAgentTools = useMemo(() => {
+    if (!selectedAgent) {
+      throw new Error('AgentToolExpandedModal requires a selected agent');
+    }
 
-  if (!selectedAgent) return null;
+    return selectedAgent.children.filter((c) => c.name === 'Agent');
+  }, [selectedAgent]);
+
+  if (!selectedAgent) {
+    throw new Error('AgentToolExpandedModal requires a selected agent');
+  }
 
   const prompt = selectedAgent.input?.prompt as string | undefined;
   const description = selectedAgent.input?.description as string | undefined;
-  const subagentType = (selectedAgent.input?.subagent_type as string) || 'general-purpose';
+  const subagentType =
+    (selectedAgent.input?.subagent_type as string | undefined) ?? 'general-purpose';
   const result = extractResultText(selectedAgent.result);
 
   const hasSidebar = agents.length > 1;
@@ -40,7 +46,7 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
         {hasSidebar && (
           <div className="w-56 flex-shrink-0 overflow-y-auto border-r border-border/50 p-2 dark:border-border-dark/50">
             {agents.map((agent) => {
-              const type = (agent.input?.subagent_type as string) || 'general-purpose';
+              const type = (agent.input?.subagent_type as string | undefined) ?? 'general-purpose';
               const desc = agent.input?.description as string | undefined;
               const isSelected = agent.id === selectedAgent.id;
               return (

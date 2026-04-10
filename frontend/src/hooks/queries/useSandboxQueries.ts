@@ -16,8 +16,8 @@ import { createMutation } from './createMutation';
 import { queryKeys } from './queryKeys';
 
 export const useFileContentQuery = (
-  sandboxId: string,
-  filePath: string,
+  sandboxId: string | undefined,
+  filePath: string | undefined,
   options?: Partial<UseQueryOptions<FileContent>>,
 ) => {
   return useQuery({
@@ -29,7 +29,7 @@ export const useFileContentQuery = (
 };
 
 export const useFilesMetadataQuery = (
-  sandboxId: string,
+  sandboxId: string | undefined,
   options?: Partial<UseQueryOptions<FileMetadata[]>>,
 ) => {
   return useQuery({
@@ -41,7 +41,7 @@ export const useFilesMetadataQuery = (
 };
 
 export const useSecretsQuery = (
-  sandboxId: string,
+  sandboxId: string | undefined,
   options?: Partial<UseQueryOptions<Secret[]>>,
 ) => {
   return useQuery({
@@ -94,7 +94,11 @@ export const useDeleteSecretMutation = createSecretMutation<{ sandboxId: string;
   ({ sandboxId, key }) => sandboxService.deleteSecret(sandboxId, key),
 );
 
-export const useGitBranchesQuery = (sandboxId: string, enabled: boolean, cwd?: string) => {
+export const useGitBranchesQuery = (
+  sandboxId: string | undefined,
+  enabled: boolean,
+  cwd?: string,
+) => {
   return useQuery({
     queryKey: queryKeys.sandbox.gitBranches(sandboxId, cwd),
     queryFn: () => sandboxService.getGitBranches(sandboxId, cwd),
@@ -127,7 +131,7 @@ export const useCheckoutBranchMutation = () => {
 };
 
 export const useGitDiffQuery = (
-  sandboxId: string,
+  sandboxId: string | undefined,
   mode: DiffMode = 'all',
   fullContext: boolean = false,
   cwd?: string,

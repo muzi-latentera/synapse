@@ -9,10 +9,10 @@ import { useChatContext } from '@/hooks/useChatContext';
 import { useChatInputMessageContext } from '@/hooks/useChatInputMessageContext';
 
 interface SharedContentProps {
-  contentRender?: {
-    events?: AssistantStreamEvent[];
+  contentRender: {
+    events: AssistantStreamEvent[];
   };
-  attachments?: MessageAttachment[];
+  attachments: MessageAttachment[];
   isStreaming: boolean;
 }
 

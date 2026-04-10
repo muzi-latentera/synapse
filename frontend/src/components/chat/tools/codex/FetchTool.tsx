@@ -1,22 +1,18 @@
 import { memo, useMemo } from 'react';
-import { Globe, Search } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
 import { extractDomain, formatResult } from '@/utils/format';
 import { TOOL_OUTPUT_PRE_CLASS } from '@/utils/toolStyles';
 import { ToolCard } from '../common/ToolCard';
 import { SourceChip } from '../common/SourceChip';
-import { SearchLoadingDots } from '../common/SearchLoadingDots';
 
 interface FetchAction {
-  type: 'search' | 'open_page' | 'find_in_page';
-  query?: string;
-  queries?: string[];
+  type: 'open_page' | 'find_in_page';
   url?: string;
   pattern?: string;
 }
 
 interface FetchInput {
-  query?: string;
   action?: FetchAction;
 }
 
@@ -24,10 +20,6 @@ interface PageSource {
   title: string;
   url: string;
 }
-
-const getActionType = (input: FetchInput | undefined): FetchAction['type'] => {
-  return input?.action?.type ?? 'search';
-};
 
 const extractSources = (input: FetchInput | undefined): PageSource[] => {
   const action = input?.action;
@@ -42,41 +34,20 @@ const extractSources = (input: FetchInput | undefined): PageSource[] => {
 
 const FetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const input = tool.input as FetchInput | undefined;
-  const actionType = getActionType(input);
-  const query = input?.action?.query ?? input?.query ?? '';
   const url = input?.action?.url ?? '';
   const pattern = input?.action?.pattern ?? '';
   const domain = extractDomain(url) || 'content';
   const result = formatResult(tool.result);
-  const isSearch = actionType === 'search';
 
   const sources = useMemo(() => extractSources(input), [input]);
-  const hasExpandableContent = isSearch
-    ? sources.length > 0 && tool.status === 'completed'
-    : url.length > 0 || (result.length > 0 && tool.status === 'completed');
+  const hasExpandableContent =
+    sources.length > 0 || url.length > 0 || pattern.length > 0 || result.length > 0;
 
   return (
     <ToolCard
-      icon={
-        isSearch ? (
-          <Search className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />
-        ) : (
-          <Globe className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />
-        )
-      }
+      icon={<Globe className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />}
       status={tool.status}
       title={(status) => {
-        if (isSearch) {
-          switch (status) {
-            case 'completed':
-              return `Searched: ${query}`;
-            case 'failed':
-              return `Search failed: ${query}`;
-            default:
-              return `Searching: ${query}`;
-          }
-        }
-
         const fetchLabel = pattern || domain;
         switch (status) {
           case 'completed':
@@ -87,13 +58,13 @@ const FetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             return `Fetching: ${fetchLabel}`;
         }
       }}
-      loadingContent={isSearch ? <SearchLoadingDots /> : 'Fetching content...'}
+      loadingContent="Fetching content..."
       error={tool.error}
       expandable={hasExpandableContent}
     >
       {hasExpandableContent && (
-        <div className={isSearch ? 'flex flex-wrap gap-1' : 'space-y-1.5'}>
-          {isSearch ? (
+        <div className={sources.length > 0 ? 'flex flex-wrap gap-1' : 'space-y-1.5'}>
+          {sources.length > 0 ? (
             sources.map((source, index) => (
               <SourceChip key={`${index}-${source.url}`} source={source} index={index} />
             ))

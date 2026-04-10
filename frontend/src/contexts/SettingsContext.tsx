@@ -6,7 +6,7 @@ interface SettingsProviderProps {
   localSettings: UserSettings;
   setLocalSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
   persistSettings: SettingsContextValue['persistSettings'];
-  settings: UserSettings | undefined;
+  settings: UserSettings;
   children: ReactNode;
 }
 

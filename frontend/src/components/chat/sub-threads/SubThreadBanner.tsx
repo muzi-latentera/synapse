@@ -8,7 +8,7 @@ export function SubThreadBanner() {
   const navigate = useNavigate();
   const { chatId, parentChatId } = useChatContext();
 
-  const { data: parentChat, isError } = useChatQuery(parentChatId ?? '', {
+  const { data: parentChat, isError } = useChatQuery(parentChatId, {
     enabled: !!parentChatId,
   });
 

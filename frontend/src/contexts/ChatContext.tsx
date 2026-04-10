@@ -14,10 +14,10 @@ interface ChatProviderProps {
   chatId?: string;
   sandboxId?: string;
   parentChatId?: string;
-  fileStructure?: FileStructure[];
-  customSkills?: CustomSkill[];
-  builtinSlashCommands?: Record<AgentKind, SlashCommand[]>;
-  personas?: Persona[];
+  fileStructure?: FileStructure[] | null;
+  customSkills?: CustomSkill[] | null;
+  builtinSlashCommands?: Record<AgentKind, SlashCommand[]> | null;
+  personas?: Persona[] | null;
   children: ReactNode;
 }
 
@@ -25,23 +25,36 @@ export function ChatProvider({
   chatId,
   sandboxId,
   parentChatId,
-  fileStructure = EMPTY_FILES,
-  customSkills = EMPTY_SKILLS,
-  builtinSlashCommands = EMPTY_BUILTIN_COMMANDS,
-  personas = EMPTY_PERSONAS,
+  fileStructure,
+  customSkills,
+  builtinSlashCommands,
+  personas,
   children,
 }: ChatProviderProps) {
+  const resolvedFileStructure = fileStructure ?? EMPTY_FILES;
+  const resolvedCustomSkills = customSkills ?? EMPTY_SKILLS;
+  const resolvedBuiltinSlashCommands = builtinSlashCommands ?? EMPTY_BUILTIN_COMMANDS;
+  const resolvedPersonas = personas ?? EMPTY_PERSONAS;
+
   const value = useMemo(
     () => ({
       chatId,
       sandboxId,
       parentChatId,
-      fileStructure,
-      customSkills,
-      builtinSlashCommands,
-      personas,
+      fileStructure: resolvedFileStructure,
+      customSkills: resolvedCustomSkills,
+      builtinSlashCommands: resolvedBuiltinSlashCommands,
+      personas: resolvedPersonas,
     }),
-    [chatId, sandboxId, parentChatId, fileStructure, customSkills, builtinSlashCommands, personas],
+    [
+      chatId,
+      sandboxId,
+      parentChatId,
+      resolvedFileStructure,
+      resolvedCustomSkills,
+      resolvedBuiltinSlashCommands,
+      resolvedPersonas,
+    ],
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

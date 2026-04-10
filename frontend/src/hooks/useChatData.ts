@@ -10,8 +10,8 @@ interface UseChatDataResult {
 }
 
 export function useChatData(chatId: string | undefined): UseChatDataResult {
-  const chatQuery = useChatQuery(chatId || '', { enabled: !!chatId });
-  const messagesQuery = useInfiniteMessagesQuery(chatId || '');
+  const chatQuery = useChatQuery(chatId, { enabled: !!chatId });
+  const messagesQuery = useInfiniteMessagesQuery(chatId);
 
   const fetchedMessages = useMemo(() => {
     if (!messagesQuery.data?.pages) return [];

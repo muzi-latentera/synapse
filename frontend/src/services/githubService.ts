@@ -85,7 +85,7 @@ async function getCollaborators(
     const response = await apiClient.get<Array<{ login: string; avatar_url: string }>>(
       `/github/collaborators${qs}`,
     );
-    return response ?? [];
+    return ensureResponse(response, 'Failed to fetch collaborators');
   });
 }
 

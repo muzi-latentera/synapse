@@ -50,11 +50,11 @@ export function useContextUsageState(
     }
   }, [chatId, currentChat?.context_token_usage, currentChat?.id]);
 
-  const { data: contextUsageData } = useContextUsageQuery(chatId || '', { enabled: !!chatId });
+  const { data: contextUsageData } = useContextUsageQuery(chatId, { enabled: !!chatId });
 
   useEffect(() => {
     if (!chatId || !contextUsageData) return;
-    setTokensUsed(contextUsageData.tokens_used ?? 0);
+    setTokensUsed(contextUsageData.tokens_used);
   }, [chatId, contextUsageData]);
 
   // Called from SSE system envelopes during streaming. Ignores updates for
@@ -63,7 +63,7 @@ export function useContextUsageState(
     if (incomingChatId && incomingChatId !== currentChatIdRef.current) {
       return;
     }
-    setTokensUsed(data.tokens_used ?? 0);
+    setTokensUsed(data.tokens_used);
   }, []);
 
   const contextUsage = useMemo<ContextUsageState>(

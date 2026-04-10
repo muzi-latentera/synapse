@@ -1,0 +1,74 @@
+import { memo } from 'react';
+import { FileSearch } from 'lucide-react';
+import type { ToolAggregate } from '@/types/tools.types';
+import { extractFilename } from '@/utils/format';
+import { ToolCard } from '../common/ToolCard';
+import { OpenInEditorButton } from '../common/OpenInEditorButton';
+import {
+  type ShellLikeInput,
+  type ShellLikeOutput,
+  extractCommand,
+  extractOutput,
+  renderCommand,
+} from './codexShellPayload';
+
+const ReadToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
+  const input = tool.input as ShellLikeInput | undefined;
+  const result = tool.result as ShellLikeOutput | undefined;
+  const filePath = input?.parsed_cmd?.[0]?.path ?? '';
+  const fileLabel = filePath ? extractFilename(filePath) : 'file';
+  const content = extractOutput(result);
+  const command = extractCommand(input);
+  const hasExpandableContent =
+    command.length > 50 ||
+    filePath.length > 0 ||
+    (content.length > 0 && tool.status === 'completed');
+
+  return (
+    <ToolCard
+      icon={<FileSearch className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />}
+      status={tool.status}
+      title={(status) => {
+        switch (status) {
+          case 'completed':
+            return `Read ${fileLabel}`;
+          case 'failed':
+            return `Failed to read ${fileLabel}`;
+          default:
+            return `Reading ${fileLabel}`;
+        }
+      }}
+      loadingContent="Loading file content..."
+      error={tool.error}
+      expandable={hasExpandableContent}
+      actions={filePath ? <OpenInEditorButton filePath={filePath} /> : null}
+    >
+      {hasExpandableContent && (
+        <div className="space-y-1.5">
+          {filePath && (
+            <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
+              {filePath}
+            </div>
+          )}
+          {renderCommand(command)}
+          {content.length > 0 && tool.status === 'completed' && (
+            <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed">
+              {content.split('\n').map((line, idx) => (
+                <div key={idx} className="flex">
+                  <span className="w-8 flex-shrink-0 select-none pr-2 text-right text-text-quaternary dark:text-text-dark-quaternary">
+                    {idx + 1}
+                  </span>
+                  <span className="whitespace-pre text-text-tertiary dark:text-text-dark-tertiary">
+                    {line || '\u00A0'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </ToolCard>
+  );
+};
+
+export const ReadTool = memo(ReadToolInner);

@@ -2,31 +2,35 @@ import type { DiffMode } from '@/types/sandbox.types';
 
 export const queryKeys = {
   chats: 'chats',
-  chat: (chatId: string) => ['chat', chatId] as const,
-  messages: (chatId: string) => ['messages', chatId] as const,
-  contextUsage: (chatId: string) => ['chat', chatId, 'context-usage'] as const,
-  subThreads: (chatId: string) => ['chat', chatId, 'sub-threads'] as const,
+  chat: (chatId?: string) => ['chat', chatId] as const,
+  messages: (chatId?: string) => ['messages', chatId] as const,
+  contextUsage: (chatId?: string) => ['chat', chatId, 'context-usage'] as const,
+  subThreads: (chatId?: string) => ['chat', chatId, 'sub-threads'] as const,
   auth: {
     user: 'auth-user',
   },
   settings: 'settings',
   skills: 'skills',
   sandbox: {
-    fileContent: (sandboxId: string, filePath: string) =>
+    fileContent: (sandboxId?: string, filePath?: string) =>
       ['sandbox', sandboxId, 'file-content', filePath] as const,
-    filesMetadata: (sandboxId: string) => ['sandbox', sandboxId, 'files-metadata'] as const,
-    secrets: (sandboxId: string) => ['sandbox', sandboxId, 'secrets'] as const,
-    gitDiff: (sandboxId: string, mode: DiffMode, fullContext: boolean = false, cwd?: string) =>
-      ['sandbox', sandboxId, 'git-diff', mode, fullContext, cwd] as const,
-    gitDiffAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-diff'] as const,
-    gitBranches: (sandboxId: string, cwd?: string) =>
+    filesMetadata: (sandboxId?: string) => ['sandbox', sandboxId, 'files-metadata'] as const,
+    secrets: (sandboxId?: string) => ['sandbox', sandboxId, 'secrets'] as const,
+    gitDiff: (
+      sandboxId: string | undefined,
+      mode: DiffMode,
+      fullContext: boolean = false,
+      cwd?: string,
+    ) => ['sandbox', sandboxId, 'git-diff', mode, fullContext, cwd] as const,
+    gitDiffAll: (sandboxId?: string) => ['sandbox', sandboxId, 'git-diff'] as const,
+    gitBranches: (sandboxId?: string, cwd?: string) =>
       ['sandbox', sandboxId, 'git-branches', cwd] as const,
-    gitBranchesAll: (sandboxId: string) => ['sandbox', sandboxId, 'git-branches'] as const,
-    gitRemoteUrl: (sandboxId: string, cwd?: string) =>
+    gitBranchesAll: (sandboxId?: string) => ['sandbox', sandboxId, 'git-branches'] as const,
+    gitRemoteUrl: (sandboxId?: string, cwd?: string) =>
       ['sandbox', sandboxId, 'git-remote-url', cwd] as const,
   },
   workspaces: ['workspaces'] as const,
-  workspaceResources: (workspaceId: string) => ['workspaces', workspaceId, 'resources'] as const,
+  workspaceResources: (workspaceId?: string) => ['workspaces', workspaceId, 'resources'] as const,
   models: 'models',
   github: {
     repos: (query: string) => ['github-repos', query] as const,

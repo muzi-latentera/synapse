@@ -10,7 +10,7 @@ export interface SettingsContextValue {
   localSettings: UserSettings;
   setLocalSettings: React.Dispatch<React.SetStateAction<UserSettings>>;
   persistSettings: PersistSettingsFn;
-  settings: UserSettings | undefined;
+  settings: UserSettings;
 }
 
 export const SettingsContext = createContext<SettingsContextValue | null>(null);

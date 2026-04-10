@@ -14,6 +14,7 @@ import {
 import {
   MODES_BY_AGENT,
   coercePermissionModeForAgent,
+  getPermissionModeOption,
 } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
 import type { PermissionMode } from '@/store/chatSettingsStore';
 import { useModelsQuery } from '@/hooks/queries/useModelQueries';
@@ -52,8 +53,7 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
   const permissionModes = MODES_BY_AGENT[agentKind];
   const thinkingModes = agentKind === 'codex' ? CODEX_THINKING_MODES : CLAUDE_THINKING_MODES;
   const effectivePermissionMode = coercePermissionModeForAgent(permissionMode, agentKind);
-  const selectedPermissionOption =
-    permissionModes.find((m) => m.value === effectivePermissionMode) ?? permissionModes[0];
+  const selectedPermissionOption = getPermissionModeOption(permissionMode, agentKind);
 
   useEffect(() => {
     if (!selectedModelId && models.length > 0) {

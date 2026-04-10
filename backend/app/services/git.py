@@ -1,4 +1,3 @@
-import logging
 import re
 from typing import Literal
 
@@ -13,8 +12,6 @@ from app.models.schemas.sandbox import (
 from app.services.exceptions import SandboxException
 from app.services.sandbox import SandboxService
 from app.utils.sandbox import BRANCH_NAME_RE, git_cd_prefix
-
-logger = logging.getLogger(__name__)
 
 GITHUB_REMOTE_RE = re.compile(
     r"(?:https?://github\.com/|git@github\.com:)([^/]+)/([^/]+?)(?:\.git)?$"
@@ -306,10 +303,10 @@ class GitService:
         sandbox_id: str,
         base_cwd: str,
         chat_id: str,
-    ) -> str | None:
-        # Graceful fallback: if the sandbox has no git repo or the worktree
-        # command fails, return None so the caller uses the original cwd.
-        # This lets non-git workspaces work without worktree isolation.
+    ) -> str:
+        # The caller only opts into this path when it explicitly requested
+        # worktree isolation, so setup failures must surface instead of
+        # silently reusing the shared workspace.
         short_id = chat_id[:8]
         worktree_dir = f"{base_cwd}/.worktrees/{short_id}"
         branch_name = f"worktree-{short_id}"
@@ -324,26 +321,18 @@ class GitService:
             f"mkdir -p '{base_cwd}/.worktrees' && "
             f"git worktree add '{worktree_dir}' -b '{branch_name}' 2>&1"
         )
-        try:
-            # Local git operation — no user secrets needed, so bypass
-            # SandboxService.execute_command and call the provider directly.
-            result = await self.sandbox_service.provider.execute_command(
-                sandbox_id,
-                cmd,
-            )
-        except SandboxException:
-            logger.warning(
-                "Failed to create worktree in sandbox %s", sandbox_id, exc_info=True
-            )
-            return None
+        # Local git operation — no user secrets needed, so bypass
+        # SandboxService.execute_command and call the provider directly.
+        result = await self.sandbox_service.provider.execute_command(
+            sandbox_id,
+            cmd,
+        )
         if result.exit_code == 0:
             return worktree_dir
-        logger.warning(
-            "git worktree add failed (exit %d): %s",
-            result.exit_code,
-            result.stdout or result.stderr,
-        )
-        return None
+        error_output = (result.stdout or result.stderr).strip()
+        if not error_output:
+            error_output = "Worktree mode requires a git workspace"
+        raise SandboxException(error_output)
 
     @staticmethod
     def _validate_branch_name(name: str, label: str = "branch") -> None:

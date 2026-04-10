@@ -19,7 +19,7 @@ export const SaveButton = memo(function SaveButton({
   return (
     <Button
       onClick={onClick}
-      disabled={disabled ?? isSaving}
+      disabled={disabled || isSaving}
       variant="unstyled"
       className={cn(
         'flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-medium transition-colors duration-200',

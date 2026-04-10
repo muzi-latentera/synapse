@@ -90,7 +90,7 @@ class AgentService:
     ) -> AcpSessionConfig:
         user_settings = await self._get_user_settings(user.id)
 
-        sandbox_provider = chat.sandbox_provider or SandboxProviderType.DOCKER.value
+        sandbox_provider = chat.sandbox_provider
         sandbox_id: str = chat.sandbox_id or ""
         workspace_path = chat.workspace_path
         cwd = SANDBOX_HOME_DIR
@@ -119,10 +119,9 @@ class AgentService:
                     cwd,
                     str(chat.id),
                 )
-                if worktree_cwd:
-                    cwd = worktree_cwd
-                    chat.worktree_cwd = worktree_cwd
-                    await self._save_worktree_cwd(chat.id, worktree_cwd)
+                cwd = worktree_cwd
+                chat.worktree_cwd = worktree_cwd
+                await self._save_worktree_cwd(chat.id, worktree_cwd)
 
         is_custom_persona = selected_persona_name != DEFAULT_PERSONA_NAME
 
@@ -314,7 +313,7 @@ class AgentService:
 
         if chat and chat.sandbox_id:
             sandbox_id = chat.sandbox_id
-            sandbox_provider = chat.sandbox_provider or SandboxProviderType.DOCKER.value
+            sandbox_provider = chat.sandbox_provider
             workspace_path = chat.workspace_path
             cwd = SANDBOX_WORKSPACE_DIR if workspace_path else SANDBOX_HOME_DIR
         else:

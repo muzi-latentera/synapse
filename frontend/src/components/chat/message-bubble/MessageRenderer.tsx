@@ -10,7 +10,7 @@ import type { ToolAggregate } from '@/types/tools.types';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 
 interface MessageRendererProps {
-  events?: AssistantStreamEvent[];
+  events: AssistantStreamEvent[];
   className?: string;
   isStreaming?: boolean;
   chatId?: string;
@@ -27,15 +27,14 @@ const MessageRendererInner: React.FC<MessageRendererProps> = ({
   onSuggestionSelect,
 }) => {
   const { segments, activeThinkingIndex } = React.useMemo(() => {
-    const resolvedEvents = events ?? [];
-    const builtSegments = buildSegments(resolvedEvents);
+    const builtSegments = buildSegments(events);
 
     let thinkingIndex = -1;
-    if (isStreaming && resolvedEvents.length > 0) {
-      const lastEvent = resolvedEvents[resolvedEvents.length - 1];
+    if (isStreaming && events.length > 0) {
+      const lastEvent = events[events.length - 1];
       if (lastEvent.type === 'assistant_thinking') {
-        for (let i = resolvedEvents.length - 1; i >= 0; i--) {
-          if (resolvedEvents[i].type === 'assistant_thinking') {
+        for (let i = events.length - 1; i >= 0; i--) {
+          if (events[i].type === 'assistant_thinking') {
             thinkingIndex = i;
             break;
           }

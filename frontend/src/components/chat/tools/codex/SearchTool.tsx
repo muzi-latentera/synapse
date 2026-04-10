@@ -1,0 +1,86 @@
+import { memo, useMemo } from 'react';
+import { FileSearch } from 'lucide-react';
+import type { ToolAggregate } from '@/types/tools.types';
+import { extractFilename } from '@/utils/format';
+import { ToolCard } from '../common/ToolCard';
+import { SearchLoadingDots } from '../common/SearchLoadingDots';
+import { OpenInEditorButton } from '../common/OpenInEditorButton';
+import {
+  type ShellLikeInput,
+  type ShellLikeOutput,
+  extractCommand,
+  extractOutput,
+  renderCommand,
+  renderOutput,
+} from './codexShellPayload';
+
+const buildSearchLabel = (input: ShellLikeInput | undefined): string => {
+  const parsed = input?.parsed_cmd?.[0];
+  const query = parsed?.query?.trim() ?? '';
+  const path = parsed?.path?.trim() ?? '';
+
+  if (query && path) {
+    return `"${query}" in ${extractFilename(path)}`;
+  }
+  if (query) {
+    return `"${query}"`;
+  }
+  if (path) {
+    return extractFilename(path);
+  }
+
+  // Codex can stream a generic title like "Searching the web" before parsed_cmd
+  // is attached, so fall back to a neutral local-search label here.
+  return 'files';
+};
+
+const SearchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
+  const input = tool.input as ShellLikeInput | undefined;
+  const result = tool.result as ShellLikeOutput | undefined;
+  const searchLabel = buildSearchLabel(input);
+  const output = extractOutput(result);
+  const command = extractCommand(input);
+  const filePath = input?.parsed_cmd?.[0]?.path ?? '';
+  const hasExpandableContent = useMemo(
+    () => command.length > 50 || filePath.length > 0 || output.length > 0,
+    [command, filePath, output],
+  );
+
+  return (
+    <ToolCard
+      icon={<FileSearch className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />}
+      status={tool.status}
+      title={(status) => {
+        switch (status) {
+          case 'completed':
+            return `Searched: ${searchLabel}`;
+          case 'failed':
+            return `Search failed: ${searchLabel}`;
+          default:
+            return `Searching: ${searchLabel}`;
+        }
+      }}
+      loadingContent={
+        // Codex search is a local file search, so its loading copy should not inherit web-specific text.
+        <SearchLoadingDots label="Searching files" />
+      }
+      error={tool.error}
+      expandable={hasExpandableContent}
+      actions={filePath ? <OpenInEditorButton filePath={filePath} /> : null}
+    >
+      {hasExpandableContent && (
+        <div className="space-y-1.5">
+          {filePath && (
+            <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
+              {filePath}
+            </div>
+          )}
+          {renderCommand(command)}
+          {tool.status === 'completed' && renderOutput(output)}
+        </div>
+      )}
+    </ToolCard>
+  );
+};
+
+export const SearchTool = memo(SearchToolInner);

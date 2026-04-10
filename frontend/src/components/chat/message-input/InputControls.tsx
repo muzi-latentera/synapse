@@ -13,7 +13,7 @@ export function InputControls() {
   const actions = useInputActions();
   const modelMap = useModelMap();
   const agentKind = modelMap.get(state.selectedModelId)?.agent_kind;
-  const { data: chat } = useChatQuery(state.chatId ?? '', { enabled: !!state.chatId });
+  const { data: chat } = useChatQuery(state.chatId, { enabled: !!state.chatId });
   const lockedAgentKind = chat?.session_agent_kind ?? null;
 
   return (

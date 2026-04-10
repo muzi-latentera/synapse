@@ -17,7 +17,7 @@ export const useWorkspaceResourcesQuery = (
   options?: Partial<UseQueryOptions<WorkspaceResources>>,
 ) => {
   return useQuery({
-    queryKey: queryKeys.workspaceResources(workspaceId ?? ''),
+    queryKey: queryKeys.workspaceResources(workspaceId),
     queryFn: () => workspaceService.getWorkspaceResources(workspaceId!),
     enabled: !!workspaceId,
     staleTime: 30_000,

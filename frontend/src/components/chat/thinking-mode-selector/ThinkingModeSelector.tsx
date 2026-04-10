@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { Brain } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import {
@@ -44,6 +44,18 @@ export function coerceThinkingModeForAgent(thinkingMode: string, agentKind: Agen
   return modes.find((mode) => mode.value === thinkingMode)?.value ?? defaultMode;
 }
 
+function getThinkingModeOption(thinkingMode: string, agentKind: AgentKind): ThinkingModeOption {
+  const modes = MODES_BY_AGENT[agentKind];
+  const effectiveMode = coerceThinkingModeForAgent(thinkingMode, agentKind);
+  const selectedMode = modes.find((mode) => mode.value === effectiveMode);
+
+  if (!selectedMode) {
+    throw new Error(`Missing thinking mode option for ${agentKind}: ${effectiveMode}`);
+  }
+
+  return selectedMode;
+}
+
 export interface ThinkingModeSelectorProps {
   chatId?: string;
   agentKind?: AgentKind;
@@ -59,21 +71,13 @@ export const ThinkingModeSelector = memo(function ThinkingModeSelector({
 }: ThinkingModeSelectorProps) {
   const key = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
   const resolvedAgentKind = agentKind ?? 'claude';
-  const syncFallback = agentKind !== undefined;
   const thinkingMode = useChatSettingsStore(
     (state) => state.thinkingModeByChat[key] ?? DEFAULT_THINKING_MODE,
   );
   const isSplitMode = useIsSplitMode();
 
   const modes = MODES_BY_AGENT[resolvedAgentKind];
-  const selectedMode =
-    modes.find((m) => m.value === coerceThinkingModeForAgent(thinkingMode, resolvedAgentKind)) ??
-    modes[0];
-
-  useEffect(() => {
-    if (!syncFallback || selectedMode.value === thinkingMode) return;
-    useChatSettingsStore.getState().setThinkingMode(key, selectedMode.value);
-  }, [key, selectedMode.value, syncFallback, thinkingMode]);
+  const selectedMode = getThinkingModeOption(thinkingMode, resolvedAgentKind);
 
   return (
     <Dropdown

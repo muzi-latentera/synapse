@@ -105,13 +105,10 @@ async def get_sandbox_service(
     db: AsyncSession = Depends(get_db),
     user_service: UserService = Depends(get_user_service),
 ) -> AsyncIterator[SandboxService]:
-    # Resolve the correct provider (Docker or Host) for this request: if a
-    # sandbox_id is in the URL, look up which provider the workspace uses;
-    # otherwise fall back to the user's configured default.
-    provider_type = SandboxProviderType.DOCKER
-
     sandbox_id = request.path_params.get("sandbox_id")
     if sandbox_id:
+        # Sandbox-scoped routes must use the provider persisted with that
+        # workspace so requests never hit the wrong backend.
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -132,19 +129,18 @@ async def get_sandbox_service(
         sandbox_provider = row.sandbox_provider
         sandbox_workspace_path = row.workspace_path
     else:
-        sandbox_provider = None
+        # Workspace creation has no sandbox_id yet, so it must use the user's
+        # saved preference instead of silently defaulting to Docker.
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required",
+            )
+        user_settings = await user_service.get_user_settings(user.id, db=db)
+        sandbox_provider = user_settings.sandbox_provider
         sandbox_workspace_path = None
 
-    if user:
-        try:
-            user_settings = await user_service.get_user_settings(user.id, db=db)
-            if user_settings.sandbox_provider:
-                provider_type = SandboxProviderType(user_settings.sandbox_provider)
-        except UserException as e:
-            logger.warning("Failed to load user settings for sandbox: %s", e)
-
-    if sandbox_provider:
-        provider_type = SandboxProviderType(sandbox_provider)
+    provider_type = SandboxProviderType(sandbox_provider)
 
     provider = SandboxProviderFactory.create_bound(
         provider_type=provider_type,

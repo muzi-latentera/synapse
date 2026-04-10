@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { Check, ChevronDown, ClipboardList, Shield } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import { Button } from '@/components/ui/primitives/Button';
@@ -64,6 +64,21 @@ export function coercePermissionModeForAgent(
   return modes.find((mode) => mode.value === permissionMode) ? permissionMode : defaultMode;
 }
 
+export function getPermissionModeOption(
+  permissionMode: PermissionMode,
+  agentKind: AgentKind,
+): PermissionModeOption {
+  const modes = MODES_BY_AGENT[agentKind];
+  const effectiveMode = coercePermissionModeForAgent(permissionMode, agentKind);
+  const selectedMode = modes.find((mode) => mode.value === effectiveMode);
+
+  if (!selectedMode) {
+    throw new Error(`Missing permission mode option for ${agentKind}: ${effectiveMode}`);
+  }
+
+  return selectedMode;
+}
+
 export interface PermissionModeSelectorProps {
   chatId?: string;
   agentKind?: AgentKind;
@@ -75,8 +90,7 @@ const ClaudePermissionModeSelector = memo(function ClaudePermissionModeSelector(
   chatId,
   dropdownPosition = 'bottom',
   disabled = false,
-  syncFallback = false,
-}: Omit<PermissionModeSelectorProps, 'agentKind'> & { syncFallback?: boolean }) {
+}: Omit<PermissionModeSelectorProps, 'agentKind'>) {
   const key = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
   const permissionMode = useChatSettingsStore(
     (state) => state.permissionModeByChat[key] ?? DEFAULT_PERMISSION_MODE,
@@ -84,13 +98,7 @@ const ClaudePermissionModeSelector = memo(function ClaudePermissionModeSelector(
   const isSplitMode = useIsSplitMode();
 
   const modes = CLAUDE_PERMISSION_MODES;
-  const effectiveMode = coercePermissionModeForAgent(permissionMode, 'claude');
-  const selectedMode = modes.find((m) => m.value === effectiveMode) ?? modes[0];
-
-  useEffect(() => {
-    if (!syncFallback || effectiveMode === permissionMode) return;
-    useChatSettingsStore.getState().setPermissionMode(key, effectiveMode);
-  }, [effectiveMode, key, permissionMode, syncFallback]);
+  const selectedMode = getPermissionModeOption(permissionMode, 'claude');
 
   return (
     <Dropdown
@@ -126,8 +134,7 @@ const CodexPermissionModeSelector = memo(function CodexPermissionModeSelector({
   chatId,
   dropdownPosition = 'bottom',
   disabled = false,
-  syncFallback = false,
-}: Omit<PermissionModeSelectorProps, 'agentKind'> & { syncFallback?: boolean }) {
+}: Omit<PermissionModeSelectorProps, 'agentKind'>) {
   const key = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
   const permissionMode = useChatSettingsStore(
     (state) => state.permissionModeByChat[key] ?? DEFAULT_PERMISSION_MODE,
@@ -137,13 +144,8 @@ const CodexPermissionModeSelector = memo(function CodexPermissionModeSelector({
   const { isOpen, dropdownRef, setIsOpen } = useDropdown();
 
   const modes = CODEX_PERMISSION_MODES;
-  const effectiveMode = coercePermissionModeForAgent(permissionMode, 'codex');
-  const selectedMode = modes.find((m) => m.value === effectiveMode) ?? modes[0];
-
-  useEffect(() => {
-    if (!syncFallback || effectiveMode === permissionMode) return;
-    useChatSettingsStore.getState().setPermissionMode(key, effectiveMode);
-  }, [effectiveMode, key, permissionMode, syncFallback]);
+  const selectedMode = getPermissionModeOption(permissionMode, 'codex');
+  const effectiveMode = selectedMode.value;
 
   const triggerLabel = planMode ? `${selectedMode.label} (Plan)` : selectedMode.label;
 
@@ -250,10 +252,9 @@ export const PermissionModeSelector = memo(function PermissionModeSelector({
   ...props
 }: PermissionModeSelectorProps) {
   const resolvedAgentKind = agentKind ?? 'claude';
-  const syncFallback = agentKind !== undefined;
 
   if (resolvedAgentKind === 'codex') {
-    return <CodexPermissionModeSelector {...props} syncFallback={syncFallback} />;
+    return <CodexPermissionModeSelector {...props} />;
   }
-  return <ClaudePermissionModeSelector {...props} syncFallback={syncFallback} />;
+  return <ClaudePermissionModeSelector {...props} />;
 });

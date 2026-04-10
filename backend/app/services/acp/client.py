@@ -377,9 +377,11 @@ class AcpClientHandler:
         if tc.title and tc.title != existing.get("title"):
             existing["title"] = tc.title
             changed = True
-        if tc.raw_input is not None and existing.get("input") is None:
-            existing["input"] = self._extract_raw_input(tc.raw_input)
-            changed = True
+        if tc.raw_input is not None:
+            parsed_input = self._extract_raw_input(tc.raw_input)
+            if parsed_input != existing.get("input"):
+                existing["input"] = parsed_input
+                changed = True
 
         if status == "completed":
             self._active_tools.pop(tc.tool_call_id, None)

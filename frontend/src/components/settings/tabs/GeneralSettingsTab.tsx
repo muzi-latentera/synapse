@@ -103,7 +103,7 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
           Select the sandbox environment for code execution.
         </p>
         <SegmentedControl
-          value={settings.sandbox_provider ?? 'docker'}
+          value={settings.sandbox_provider}
           onChange={(val) => onSandboxProviderChange(val as SandboxProviderType)}
           options={[
             { value: 'host', label: 'Host (Local)', disabled: false },

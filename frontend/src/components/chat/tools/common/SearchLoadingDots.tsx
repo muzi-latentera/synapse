@@ -4,9 +4,11 @@ const DELAY_0: CSSProperties = { animationDelay: '0ms' };
 const DELAY_150: CSSProperties = { animationDelay: '150ms' };
 const DELAY_300: CSSProperties = { animationDelay: '300ms' };
 
-export const SearchLoadingDots: React.FC<{ label?: string }> = ({
-  label = 'Searching the web',
-}) => (
+interface SearchLoadingDotsProps {
+  label: string;
+}
+
+export const SearchLoadingDots: React.FC<SearchLoadingDotsProps> = ({ label }) => (
   <div className="mt-0.5 flex items-center gap-1.5">
     <div className="flex space-x-1">
       <div

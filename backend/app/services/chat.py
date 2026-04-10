@@ -323,7 +323,7 @@ class ChatService(BaseDbService[Chat]):
                     Chat.deleted_at.is_(None),
                 )
             )
-            chat.sub_thread_count = sub_count_result.scalar() or 0
+            chat.sub_thread_count = sub_count_result.scalar()
 
             return chat
 
@@ -843,7 +843,7 @@ class ChatService(BaseDbService[Chat]):
         return {
             "message_id": str(assistant_message.id),
             "chat_id": str(chat_id),
-            "last_seq": int(chat.last_event_seq or 0),
+            "last_seq": chat.last_event_seq,
         }
 
     async def _enqueue_chat_task(

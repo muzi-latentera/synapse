@@ -38,21 +38,6 @@ type TabKey = 'general' | 'skills' | 'personas' | 'env_vars' | 'instructions';
 const getErrorMessage = (error: unknown): string | undefined =>
   error instanceof Error ? error.message : undefined;
 
-const createFallbackSettings = (): UserSettings => ({
-  id: '',
-  user_id: '',
-  github_personal_access_token: null,
-  sandbox_provider: null,
-  custom_instructions: null,
-  custom_env_vars: null,
-  personas: null,
-  notifications_enabled: true,
-  auto_compact_disabled: false,
-  attribution_disabled: false,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-});
-
 const TAB_FIELDS: Record<TabKey, (keyof UserSettings)[]> = {
   general: ['github_personal_access_token'],
   skills: [],
@@ -97,10 +82,8 @@ const SettingsPage: React.FC = () => {
   const { data: skills, refetch: refetchSkills } = useSkillsQuery();
   const deleteAllChats = useDeleteAllChatsMutation();
 
-  const [localSettings, setLocalSettings] = useState<UserSettings>(
-    () => settings ?? createFallbackSettings(),
-  );
-  const localSettingsRef = useRef<UserSettings>(localSettings);
+  const [localSettings, setLocalSettings] = useState<UserSettings | null>(settings ?? null);
+  const localSettingsRef = useRef<UserSettings | null>(localSettings);
 
   const manualUpdateMutation = useUpdateSettingsMutation({
     onSuccess: (data) => {
@@ -147,7 +130,11 @@ const SettingsPage: React.FC = () => {
       updater: (previous: UserSettings) => UserSettings,
       options: { successMessage?: string; errorMessage?: string } = {},
     ) => {
-      const previousSettings = localSettingsRef.current ?? createFallbackSettings();
+      if (!localSettingsRef.current) {
+        throw new Error('Settings data is required before persisting changes');
+      }
+
+      const previousSettings = localSettingsRef.current;
       const updatedSettings = updater(previousSettings);
 
       setLocalSettings(updatedSettings);
@@ -195,7 +182,11 @@ const SettingsPage: React.FC = () => {
   };
 
   const handleSave = () => {
-    const payload = buildChangedPayload(localSettings, settings ?? createFallbackSettings());
+    if (!settings) {
+      throw new Error('Settings data is required before saving changes');
+    }
+
+    const payload = buildChangedPayload(localSettings, settings);
     if (Object.keys(payload).length === 0) {
       toast.success('No changes to save');
       return;
@@ -274,6 +265,10 @@ const SettingsPage: React.FC = () => {
         <div className="text-text-primary dark:text-text-dark-primary">Failed to load settings</div>
       </div>
     );
+  }
+
+  if (!settings || !localSettings) {
+    throw new Error('Settings data is required after the loading gate');
   }
 
   return (
