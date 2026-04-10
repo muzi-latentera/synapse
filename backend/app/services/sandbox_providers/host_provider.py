@@ -74,6 +74,9 @@ class LocalHostProvider(SandboxProvider):
 
     def _init_home_dir(self, sandbox_id: str, home_dir: Path) -> None:
         home_dir.mkdir(parents=True, exist_ok=True)
+        # CLI tools abort if their home dirs are configured but missing.
+        (home_dir / ".codex").mkdir(exist_ok=True)
+        (home_dir / ".claude").mkdir(exist_ok=True)
         bashrc_content = f'export PS1="user@{sandbox_id}:\\w$ "\n'
         bashrc = home_dir / ".bashrc"
         if not bashrc.exists():
@@ -498,6 +501,12 @@ class LocalHostProvider(SandboxProvider):
         # Desktop mode: keep real HOME so CLI tools find existing credentials.
         if not settings.DESKTOP_MODE:
             env["HOME"] = str(home_dir)
+            # Keep CLI config paths inside the sandbox home in web mode because
+            # the inherited container defaults point at /app/storage, which does
+            # not exist in host-backed terminal sessions.
+            env["CODEX_HOME"] = str(home_dir / ".codex")
+            env["CLAUDE_HOME"] = str(home_dir / ".claude")
+            env["CLAUDE_CONFIG_DIR"] = str(home_dir / ".claude")
         env["SHELL"] = "/bin/bash"
         env["TERM"] = TERMINAL_TYPE
         env["GIT_CONFIG_GLOBAL"] = settings.GIT_CONFIG_GLOBAL
