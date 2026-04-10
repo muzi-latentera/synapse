@@ -24,8 +24,8 @@ Join the [Discord server](https://discord.gg/HvkJU8dcBA).
 - Run Claude Code and Codex from one self-hosted interface
 - Keep each project in its own Docker or host sandbox
 - Work in chat, editor, terminal, diff, secrets, and PR review views side by side
-- Reuse the same workspace context across chats and sub-threads
-- Manage MCP servers, agents, skills, commands, personas, env vars, and marketplace plugins from the app
+- Organize work by workspace, then branch into sub-threads when a task needs its own track
+- Reuse local auth and config inside sandboxes for a smoother local-agent workflow
 
 ## Core Architecture
 
@@ -39,22 +39,24 @@ React/Vite Frontend
   -> Claude Code CLI / Codex CLI
 ```
 
-The app can launch either:
+Agentrove launches agents through ACP adapters:
 
 - **Claude** via `claude-agent-acp` + Claude Code
 - **Codex** via `codex-acp` + Codex CLI
 
 ## Key Features
 
-- Claude and Codex model selection in the same UI
-- Agent-specific permission modes and reasoning/thinking modes
+- Claude and Codex in the same UI with per-chat model selection
+- Agent-specific permission modes and reasoning/thinking controls
 - Workspace-based project organization with per-workspace sandboxes
 - Docker and host sandbox providers
 - Built-in editor, terminal, diff, secrets, and PR review panels
-- Git helpers for branches, commits, push/pull, and PR creation
+- Git helpers for branches, pull, push, commit generation, PR description generation, and PR creation
 - Streaming chat sessions with resumable SSE events and explicit cancellation
 - Sub-threads for branching work from an existing chat
-- Extension management for MCP servers, custom agents, skills, slash commands, personas, env vars, and marketplace plugins
+- Optional git worktree mode for isolated implementation per chat
+- Workspace resources for custom skills and built-in slash commands
+- User-configurable personas, custom instructions, custom env vars, notifications, and sandbox defaults
 - Web app and macOS desktop app
 
 ## Workspaces
@@ -64,8 +66,8 @@ Workspaces are the top-level project unit. Each workspace owns a sandbox and gro
 ### Source types
 
 - **Empty**: create a new empty directory
-- **Git clone**: clone a repository into a fresh sandbox
-- **Local folder**: mount an existing host directory when using the host sandbox
+- **Git clone**: clone a repository into a fresh workspace
+- **Local folder**: use an existing directory, typically with the host sandbox provider
 
 ### Sandbox isolation
 
@@ -78,11 +80,15 @@ You can choose a sandbox provider per workspace:
 - **Docker**: isolated local container
 - **Host**: runs directly on the host machine
 
+### Worktree mode
+
+For git-backed workspaces, chats can opt into worktree isolation. Agentrove creates a dedicated worktree under `.worktrees/<chat-id-prefix>` and reuses it for later turns in that chat.
+
 ## Models And Agents
 
-The app currently exposes two agent families:
+Current model families exposed by the backend:
 
-- **Claude**: `default`, `opus`, `haiku`
+- **Claude**: `sonnet[1m]`, `opus[1m]`, `haiku`
 - **Codex**: `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex`, `gpt-5.2-codex`, `gpt-5.2`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`
 
 Agent-specific controls:
@@ -94,24 +100,19 @@ Agent-specific controls:
 
 ## Settings Surface
 
-Current settings are organized around:
+Current settings in the app cover:
 
-- General account settings
-- Marketplace plugins
-- MCP servers
-- Custom agents
+- General settings
 - Skills
-- Slash commands
 - Personas
 - Environment variables
 - Custom instructions
 
-General settings also include:
+General settings include:
 
 - GitHub personal access token
 - Default sandbox provider
-- Timezone
-- Notification preferences
+- Notification toggle
 - Auto-compact toggle
 - Attribution toggle
 
@@ -139,7 +140,7 @@ openssl rand -hex 32
 Start the stack:
 
 ```bash
-docker compose -p agentrove-web -f docker-compose.yml up -d
+docker compose up -d
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -147,9 +148,16 @@ Open [http://localhost:3000](http://localhost:3000).
 ### Stop and logs
 
 ```bash
-docker compose -p agentrove-web -f docker-compose.yml down
-docker compose -p agentrove-web -f docker-compose.yml logs -f
+docker compose down
+docker compose logs -f
 ```
+
+### Default web ports
+
+- Frontend: `3000`
+- Backend API: `8080`
+- PostgreSQL: `5432`
+- Redis: `6379`
 
 ## Desktop (macOS)
 
@@ -204,24 +212,13 @@ The backend and sandbox images install the tooling Agentrove needs to run coding
 - `claude-agent-acp`
 - `codex-acp`
 - GitHub CLI
-- Playwright MCP
 
 Agentrove also syncs local Claude and Codex auth/config files into sandboxes when available.
 
-## Services and Ports (Web)
-
-- Frontend: `3000`
-- Backend API: `8080`
-- PostgreSQL: `5432`
-- Redis: `6379`
-
-## API and Admin
+## API and Operations
 
 - API docs: [http://localhost:8080/api/v1/docs](http://localhost:8080/api/v1/docs)
 - Admin panel: [http://localhost:8080/admin](http://localhost:8080/admin)
-
-## Health and Ops
-
 - Liveness endpoint: `GET /health`
 - Readiness endpoint: `GET /api/v1/readyz`
   - web mode checks database and Redis
