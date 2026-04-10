@@ -129,11 +129,11 @@ async def terminal_websocket(
                 )
 
                 if is_reattach and session.pty_id is not None:
-                    # Send space + Ctrl-L to force a terminal redraw after
-                    # reattaching to an existing tmux session so the user
-                    # sees current content instead of a blank screen.
+                    # Force a redraw after reattaching to an existing tmux
+                    # session so the terminal repaints without injecting a
+                    # literal space into the active shell buffer.
                     await session.sandbox_service.send_pty_input(
-                        session.sandbox_id, session.pty_id, b" \x0c"
+                        session.sandbox_id, session.pty_id, b"\x0c"
                     )
 
             elif data_type == WS_MSG_RESIZE:
