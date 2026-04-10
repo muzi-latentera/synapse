@@ -56,8 +56,6 @@ interface UseChatStreamingResult {
   ) => Promise<void>;
   isLoading: boolean;
   isStreaming: boolean;
-  error: Error | null;
-  handleDismissError: () => void;
   wasAborted: boolean;
   setWasAborted: Dispatch<SetStateAction<boolean>>;
   currentMessageId: string | null;
@@ -97,7 +95,6 @@ export function useChatStreaming({
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamState, setStreamState] = useState<StreamState>('idle');
   const [currentMessageId, setCurrentMessageId] = useState<string | null>(null);
-  const [error, setError] = useState<Error | null>(null);
   const [wasAborted, setWasAborted] = useState(false);
   const [pendingUserMessageId, setPendingUserMessageIdState] = useState<string | null>(null);
   const pendingStopRef = useRef<Set<string>>(new Set());
@@ -154,7 +151,6 @@ export function useChatStreaming({
     setMessages,
     setStreamState,
     setCurrentMessageId,
-    setError,
     pendingStopRef,
     onPendingUserMessageIdChange: setPendingUserMessageIdState,
   });
@@ -193,7 +189,6 @@ export function useChatStreaming({
     prevChatIdRef.current = chatId;
     setStreamState('idle');
     setCurrentMessageId(null);
-    setError(null);
     setWasAborted(false);
     setPendingUserMessageIdState(null);
     setMessages([]);
@@ -243,7 +238,6 @@ export function useChatStreaming({
     planMode,
     setStreamState,
     setCurrentMessageId,
-    setError,
     setWasAborted,
     setMessages,
     addMessageToCache,
@@ -314,10 +308,6 @@ export function useChatStreaming({
     [chatId, setPendingUserMessageId, stopStream],
   );
 
-  const handleDismissError = useCallback(() => {
-    setError(null);
-  }, []);
-
   useEffect(() => {
     currentMessageIdRef.current = currentMessageId;
   }, [currentMessageId]);
@@ -360,8 +350,6 @@ export function useChatStreaming({
     sendMessage,
     isLoading,
     isStreaming,
-    error,
-    handleDismissError,
     wasAborted,
     setWasAborted,
     currentMessageId,

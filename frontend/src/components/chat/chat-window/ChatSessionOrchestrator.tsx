@@ -116,8 +116,7 @@ export function ChatSessionOrchestrator({
     onPermissionRequest: handlePermissionRequest,
   });
 
-  const { messages, sendMessage, isLoading, isStreaming, error, wasAborted, setMessages } =
-    streamingState;
+  const { messages, sendMessage, isLoading, isStreaming, wasAborted, setMessages } = streamingState;
 
   useMessageInitialization({
     fetchedMessages,
@@ -155,7 +154,6 @@ export function ChatSessionOrchestrator({
       !isLoading &&
       !isStreaming &&
       !initialPromptSent &&
-      !error &&
       !messagesQuery.isLoading &&
       !hasFetchedMessages
     ) {
@@ -177,7 +175,6 @@ export function ChatSessionOrchestrator({
     isLoading,
     isStreaming,
     initialPromptSent,
-    error,
     messagesQuery.isLoading,
     hasFetchedMessages,
   ]);
@@ -194,7 +191,6 @@ export function ChatSessionOrchestrator({
       isLoading,
       isStreaming,
       isInitialLoading: messagesQuery.isLoading || (hasFetchedMessages && messages.length === 0),
-      error,
       copiedMessageId: streamingState.copiedMessageId,
       pendingUserMessageId: streamingState.pendingUserMessageId,
       attachedFiles: streamingState.inputFiles,
@@ -217,7 +213,6 @@ export function ChatSessionOrchestrator({
       hasFetchedMessages,
       messagesQuery.hasNextPage,
       messagesQuery.isFetchingNextPage,
-      error,
       selectedModelId,
       contextUsage,
       pendingRequest,
@@ -233,7 +228,6 @@ export function ChatSessionOrchestrator({
       onCopy: streamingState.handleCopy,
       onAttach: streamingState.setInputFiles,
       onModelChange: selectModel,
-      onDismissError: streamingState.handleDismissError,
       fetchNextPage: messagesQuery.fetchNextPage,
       onPermissionApprove: handleApprove,
       onPermissionReject: handleReject,
@@ -243,7 +237,6 @@ export function ChatSessionOrchestrator({
       streamingState.handleStop,
       streamingState.handleCopy,
       streamingState.setInputFiles,
-      streamingState.handleDismissError,
       selectModel,
       messagesQuery.fetchNextPage,
       handleApprove,

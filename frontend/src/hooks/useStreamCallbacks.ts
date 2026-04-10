@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { QueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { StreamContentBuffer, type ContentRenderSnapshot } from '@/utils/stream';
 import { notifyStreamComplete } from '@/utils/notifications';
 import { queryKeys } from '@/hooks/queries/queryKeys';
@@ -15,7 +16,12 @@ import type {
 } from '@/types/chat.types';
 import type { PaginatedChats } from '@/types/api.types';
 import type { ToolEventPayload } from '@/types/tools.types';
-import type { QueueProcessingData, StreamEnvelope, StreamState } from '@/types/stream.types';
+import {
+  StreamProcessingError,
+  type QueueProcessingData,
+  type StreamEnvelope,
+  type StreamState,
+} from '@/types/stream.types';
 import { useMessageCache } from '@/hooks/useMessageCache';
 import { streamService } from '@/services/streamService';
 import type { StreamOptions } from '@/services/streamService';
@@ -68,6 +74,36 @@ function findMessageInCache(
 
 function createEmptyRenderSnapshot(): ContentRenderSnapshot {
   return { events: [] };
+}
+
+function getStreamErrorMessage(streamError: Error): string {
+  if (streamError instanceof StreamProcessingError) {
+    const originalMessage = streamError.originalError?.message;
+    if (originalMessage?.trim()) return originalMessage;
+  }
+  return streamError.message || 'An error occurred';
+}
+
+function buildFailedMessageUpdate(streamError: Error): (msg: Message) => Message {
+  const errorMessage = getStreamErrorMessage(streamError);
+
+  return (msg: Message): Message => {
+    const existingEvents = Array.isArray(msg.content_render?.events)
+      ? msg.content_render.events
+      : [];
+    const nextEvents = [
+      ...existingEvents,
+      { type: 'assistant_text', text: '\n\nError: ' + errorMessage },
+    ];
+
+    return {
+      ...msg,
+      content_text: msg.content_text || errorMessage,
+      content_render: { events: nextEvents },
+      active_stream_id: null,
+      stream_status: 'failed',
+    };
+  };
 }
 
 function buildContentFlushUpdate(
@@ -144,7 +180,6 @@ interface UseStreamCallbacksParams {
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setStreamState: Dispatch<SetStateAction<StreamState>>;
   setCurrentMessageId: Dispatch<SetStateAction<string | null>>;
-  setError: Dispatch<SetStateAction<Error | null>>;
   pendingStopRef: React.MutableRefObject<Set<string>>;
   onPendingUserMessageIdChange?: (id: string | null) => void;
 }
@@ -188,7 +223,6 @@ export function useStreamCallbacks({
   setMessages,
   setStreamState,
   setCurrentMessageId,
-  setError,
   pendingStopRef,
   onPendingUserMessageIdChange,
 }: UseStreamCallbacksParams): UseStreamCallbacksResult {
@@ -616,13 +650,10 @@ export function useStreamCallbacks({
 
       // Mark the assistant message as failed instead of removing it —
       // the user message and assistant message are already persisted in
-      // the DB by the time the SSE error event arrives.
+      // the DB by the time the SSE error event arrives. Mirror the backend's
+      // persisted snapshot update here so the live UI matches a refreshed chat.
       if (assistantMessageId) {
-        const markFailed = (msg: Message): Message => ({
-          ...msg,
-          active_stream_id: null,
-          stream_status: 'failed',
-        });
+        const markFailed = buildFailedMessageUpdate(streamError);
         const targetChatId = sessionChatId ?? chatId;
         if (targetChatId) {
           updateMessageInCacheForChat(queryClient, targetChatId, assistantMessageId, markFailed);
@@ -636,8 +667,10 @@ export function useStreamCallbacks({
 
       if (!isCurrentChat) return;
 
-      setError(streamError);
-      setStreamState('error');
+      if (!assistantMessageId) {
+        toast.error(getStreamErrorMessage(streamError));
+      }
+      setStreamState('idle');
       setCurrentMessageId(null);
       setPendingUserMessageId(null);
     },
@@ -648,7 +681,6 @@ export function useStreamCallbacks({
       queryClient,
       findStreamIdByMessage,
       setCurrentMessageId,
-      setError,
       setMessages,
       setPendingUserMessageId,
       setStreamState,

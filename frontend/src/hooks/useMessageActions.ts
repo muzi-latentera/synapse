@@ -28,7 +28,6 @@ interface UseMessageActionsParams {
   planMode: boolean;
   setStreamState: (state: StreamState) => void;
   setCurrentMessageId: (id: string | null) => void;
-  setError: (error: Error | null) => void;
   setWasAborted: (aborted: boolean) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   addMessageToCache: (message: Message, userMessage?: Message) => void;
@@ -59,7 +58,6 @@ export function useMessageActions({
   planMode,
   setStreamState,
   setCurrentMessageId,
-  setError,
   setWasAborted,
   setMessages,
   addMessageToCache,
@@ -83,14 +81,13 @@ export function useMessageActions({
       if (!normalizedPrompt) return;
 
       if (!selectedModelId?.trim()) {
-        setError(new Error('Please select an AI model'));
-        setStreamState('error');
+        toast.error('Please select an AI model');
+        setStreamState('idle');
         return;
       }
 
       setStreamState('loading');
       setCurrentMessageId(null);
-      setError(null);
       setWasAborted(false);
       if (filesToSend && filesToSend.length > 0 && userMessage?.id) {
         setPendingUserMessageId(userMessage.id);
@@ -152,12 +149,12 @@ export function useMessageActions({
         addMessageToCache(initialMessage, userMessage);
       } catch (streamStartError) {
         setPendingUserMessageId(null);
-        setStreamState('error');
+        setStreamState('idle');
         const error =
           streamStartError instanceof Error
             ? streamStartError
             : new Error('Failed to start stream');
-        setError(error);
+        toast.error(error.message);
         throw error;
       }
     },
@@ -174,7 +171,6 @@ export function useMessageActions({
       worktree,
       setStreamState,
       setCurrentMessageId,
-      setError,
       setWasAborted,
       setMessages,
       setPendingUserMessageId,
@@ -188,7 +184,7 @@ export function useMessageActions({
       if (!hasContent || isLoading || isStreaming) return;
 
       if (!selectedModelId?.trim()) {
-        setError(new Error('Please select an AI model'));
+        toast.error('Please select an AI model');
         return;
       }
 
@@ -215,7 +211,7 @@ export function useMessageActions({
         is_bot: false,
         model_id: selectedModelId,
         created_at: new Date().toISOString(),
-        attachments: createAttachmentsFromFiles(inputFiles, storeBlobUrl),
+        attachments: createAttachmentsFromFiles(inputFiles, storeBlobUrl) ?? [],
       };
 
       setMessages((prev) => [...prev, newMessage]);
@@ -239,7 +235,6 @@ export function useMessageActions({
       sendMessage,
       storeBlobUrl,
       setPendingUserMessageId,
-      setError,
       setMessages,
     ],
   );

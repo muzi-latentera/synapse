@@ -7,7 +7,6 @@ export interface ChatSessionState {
   isLoading: boolean;
   isStreaming: boolean;
   isInitialLoading: boolean;
-  error: Error | null;
   copiedMessageId: string | null;
   pendingUserMessageId: string | null;
   attachedFiles: File[] | null;
@@ -26,7 +25,6 @@ export interface ChatSessionActions {
   onCopy: (content: string, id: string) => void;
   onAttach: (files: File[]) => void;
   onModelChange: (modelId: string) => void;
-  onDismissError: () => void;
   fetchNextPage: () => void;
   onPermissionApprove: (optionId: string) => void;
   onPermissionReject: (optionId: string) => void;

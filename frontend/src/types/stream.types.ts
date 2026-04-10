@@ -1,6 +1,6 @@
 import type { MessageAttachment } from './chat.types';
 
-export type StreamState = 'idle' | 'loading' | 'streaming' | 'error';
+export type StreamState = 'idle' | 'loading' | 'streaming';
 export type StreamKind =
   | 'stream_started'
   | 'assistant_text'

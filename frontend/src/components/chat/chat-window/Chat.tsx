@@ -16,7 +16,6 @@ import { Input } from '@/components/chat/message-input/Input';
 import { ChatSkeleton } from './ChatSkeleton';
 import { ScrollButton } from './ScrollButton';
 import { ThinkingIndicator } from './ThinkingIndicator';
-import { ErrorMessage } from './ErrorMessage';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 import { useStreamStore } from '@/store/streamStore';
 import { useMessageQueueStore, EMPTY_QUEUE } from '@/store/messageQueueStore';
@@ -71,7 +70,6 @@ export const Chat = memo(function Chat() {
     isLoading,
     isStreaming,
     isInitialLoading,
-    error,
     attachedFiles,
     selectedModelId,
     contextUsage,
@@ -80,8 +78,7 @@ export const Chat = memo(function Chat() {
     pendingPermissionRequest,
   } = state;
 
-  const { onSubmit, onStopStream, onAttach, onModelChange, onDismissError, fetchNextPage } =
-    actions;
+  const { onSubmit, onStopStream, onAttach, onModelChange, fetchNextPage } = actions;
 
   const { inputMessage, setInputMessage } = useChatInputMessageContext();
 
@@ -323,7 +320,8 @@ export const Chat = memo(function Chat() {
       const messageIsStreaming = streamingMessageIdSet.has(msg.id);
       const isBotMessage = msg.is_bot ?? msg.role === 'assistant';
       const isLastBotMessage = isBotMessage && msg.id === lastBotMessageId;
-      const localAttachmentIds = msg.attachments.reduce<string[]>((acc, attachment) => {
+      const attachments = msg.attachments ?? [];
+      const localAttachmentIds = attachments.reduce<string[]>((acc, attachment) => {
         if (isBrowserObjectUrl(attachment.file_url)) acc.push(attachment.id);
         return acc;
       }, []);
@@ -341,7 +339,7 @@ export const Chat = memo(function Chat() {
               id={msg.id}
               contentText={msg.content_text}
               contentRender={msg.content_render}
-              attachments={msg.attachments}
+              attachments={attachments}
               isStreaming={messageIsStreaming}
               createdAt={msg.created_at}
               modelId={msg.model_id}
@@ -352,7 +350,7 @@ export const Chat = memo(function Chat() {
               id={msg.id}
               contentText={msg.content_text}
               contentRender={msg.content_render}
-              attachments={msg.attachments}
+              attachments={attachments}
               uploadingAttachmentIds={uploadingAttachmentIds}
               isStreaming={messageIsStreaming}
             />
@@ -386,7 +384,7 @@ export const Chat = memo(function Chat() {
   const showThinking = isLoading || (isStreaming && !lastBotHasContent);
 
   const listFooter = useMemo(() => {
-    if (!showThinking && !showPermissionAtEnd && !error) {
+    if (!showThinking && !showPermissionAtEnd) {
       return null;
     }
 
@@ -394,10 +392,9 @@ export const Chat = memo(function Chat() {
       <div className="w-full lg:mx-auto lg:max-w-3xl">
         {showThinking && <ThinkingIndicator />}
         {showPermissionAtEnd && <MessageInlinePermission />}
-        {error && <ErrorMessage error={error} onDismiss={onDismissError} />}
       </div>
     );
-  }, [error, onDismissError, showPermissionAtEnd, showThinking]);
+  }, [showPermissionAtEnd, showThinking]);
 
   return (
     <div className="relative flex min-w-0 flex-1 flex-col">
