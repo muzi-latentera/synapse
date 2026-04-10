@@ -137,6 +137,7 @@ export const PRReviewView = memo(function PRReviewView() {
     data: pullsData,
     isLoading,
     isError,
+    error: pullsError,
   } = useGitHubPullsQuery(owner, repo, !!owner && !!repo);
 
   const [expandedPR, setExpandedPR] = useState<number | null>(null);
@@ -194,7 +195,7 @@ export const PRReviewView = memo(function PRReviewView() {
               Failed to load pull requests
             </p>
             <p className="mt-1 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              Check that your GitHub token is valid
+              {pullsError?.message}
             </p>
           </div>
         ) : !pullsData?.items.length ? (
