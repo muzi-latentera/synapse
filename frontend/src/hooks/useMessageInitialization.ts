@@ -45,7 +45,8 @@ export function useMessageInitialization({
     if (isStreaming && initializedChatRef.current === chatId) return;
 
     const normalizedMessages = fetchedMessages.map((msg: Message) => {
-      const processedAttachments = msg.attachments.map((attachment) => {
+      const attachments = Array.isArray(msg.attachments) ? msg.attachments : [];
+      const processedAttachments = attachments.map((attachment) => {
         const fileType = detectFileType(
           attachment.filename || '',
           attachment.file_type === 'image' ? 'image/jpeg' : undefined,
