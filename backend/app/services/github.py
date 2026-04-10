@@ -31,10 +31,12 @@ class GitHubService:
 
     def _check_auth(self, response: httpx.Response) -> None:
         if response.status_code == 401:
+            # Reserve HTTP 401 for this app's own auth/session failures so the frontend
+            # does not treat an invalid GitHub PAT as a reason to log the user out.
             raise GitHubException(
                 "GitHub token is invalid or expired",
                 error_code=ErrorCode.GITHUB_TOKEN_INVALID,
-                status_code=401,
+                status_code=400,
             )
 
     def _check_response(self, response: httpx.Response) -> None:
