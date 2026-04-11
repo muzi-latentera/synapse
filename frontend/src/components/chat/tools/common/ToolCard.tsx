@@ -1,6 +1,7 @@
 import React, { JSX, memo, useState } from 'react';
 import { Check, ChevronRight, Circle, X } from 'lucide-react';
 import type { ToolEventStatus } from '@/types/tools.types';
+import { TOOL_ERROR_PRE_CLASS } from '@/utils/toolStyles';
 
 export const statusIndicator: Record<ToolEventStatus, JSX.Element> = {
   completed: <Check className="h-3 w-3 text-success-600 dark:text-success-400" />,
@@ -24,7 +25,6 @@ interface ToolCardProps {
   statusDetail?: Content;
   children?: React.ReactNode;
   className?: string;
-  expandable?: boolean;
   defaultExpanded?: boolean;
 }
 
@@ -38,14 +38,27 @@ const ToolCardInner: React.FC<ToolCardProps> = ({
   statusDetail,
   children,
   className = '',
-  expandable = false,
   defaultExpanded = false,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const resolvedTitle = typeof title === 'function' ? title(status) : title;
 
-  const hasExpandableContent = expandable && children;
-  const showChildren = !expandable || expanded;
+  const hasDetailsError = status === 'failed' && error;
+  const hasExpandableContent = Boolean(children) || Boolean(hasDetailsError);
+  const showChildren = !hasExpandableContent || expanded;
+  const details =
+    children || hasDetailsError ? (
+      <div className="mt-1.5 space-y-1.5 border-l border-border pl-3 dark:border-border-dark">
+        {children}
+        {hasDetailsError &&
+          (React.isValidElement(error) ? (
+            error
+          ) : (
+            // Multiline error output belongs inside the collapsible body alongside normal results
+            <pre className={TOOL_ERROR_PRE_CLASS}>{error}</pre>
+          ))}
+      </div>
+    ) : null;
 
   const header = (
     <div className="flex items-center gap-1.5">
@@ -78,13 +91,6 @@ const ToolCardInner: React.FC<ToolCardProps> = ({
             {loadingContent}
           </p>
         ))}
-      {status === 'failed' &&
-        error &&
-        (React.isValidElement(error) ? (
-          error
-        ) : (
-          <p className="mt-0.5 pl-5 text-2xs text-error-600 dark:text-error-500">{error}</p>
-        ))}
       {statusDetail &&
         (React.isValidElement(statusDetail) ? (
           statusDetail
@@ -114,9 +120,7 @@ const ToolCardInner: React.FC<ToolCardProps> = ({
         {actions}
       </div>
       {meta}
-      {showChildren && children && (
-        <div className="mt-1.5 border-l border-border pl-3 dark:border-border-dark">{children}</div>
-      )}
+      {showChildren && details}
     </div>
   );
 };

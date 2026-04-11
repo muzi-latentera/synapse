@@ -38,7 +38,7 @@ export const extractOutput = (result: ShellLikeOutput | undefined): string => {
 };
 
 export const renderCommand = (command: string): React.ReactNode => {
-  if (command.length <= 50) {
+  if (!command) {
     return null;
   }
 

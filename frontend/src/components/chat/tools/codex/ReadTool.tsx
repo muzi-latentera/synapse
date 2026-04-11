@@ -19,10 +19,6 @@ const ReadToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const fileLabel = filePath ? extractFilename(filePath) : 'file';
   const content = extractOutput(result);
   const command = extractCommand(input);
-  const hasExpandableContent =
-    command.length > 50 ||
-    filePath.length > 0 ||
-    (content.length > 0 && tool.status === 'completed');
 
   return (
     <ToolCard
@@ -40,10 +36,9 @@ const ReadToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Loading file content..."
       error={tool.error}
-      expandable={hasExpandableContent}
       actions={filePath ? <OpenInEditorButton filePath={filePath} /> : null}
     >
-      {hasExpandableContent && (
+      {(filePath || command || content) && (
         <div className="space-y-1.5">
           {filePath && (
             <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
@@ -51,7 +46,7 @@ const ReadToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </div>
           )}
           {renderCommand(command)}
-          {content.length > 0 && tool.status === 'completed' && (
+          {content && (
             <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed">
               {content.split('\n').map((line, idx) => (
                 <div key={idx} className="flex">

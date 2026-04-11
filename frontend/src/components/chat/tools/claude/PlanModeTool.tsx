@@ -131,7 +131,6 @@ const ExitPlanModeInner: React.FC<PlanModeToolProps> = ({ tool, chatId }) => {
       }}
       loadingContent="Waiting for plan approval\u2026"
       error={tool.error}
-      expandable={hasContent}
     >
       {hasContent && (
         <div className="space-y-2">

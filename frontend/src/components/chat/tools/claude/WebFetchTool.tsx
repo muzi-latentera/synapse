@@ -17,7 +17,6 @@ const WebFetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
 
   const domain = extractDomain(url) || 'content';
   const result = formatResult(tool.result);
-  const hasExpandableContent = url.length > 0 || (result.length > 0 && tool.status === 'completed');
 
   return (
     <ToolCard
@@ -35,9 +34,8 @@ const WebFetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Fetching content\u2026"
       error={tool.error}
-      expandable={hasExpandableContent}
     >
-      {hasExpandableContent && (
+      {(url || prompt || result) && (
         <div className="space-y-1.5">
           {url && (
             <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
@@ -47,9 +45,7 @@ const WebFetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
           {prompt && (
             <p className="text-2xs text-text-tertiary dark:text-text-dark-tertiary">{prompt}</p>
           )}
-          {result.length > 0 && tool.status === 'completed' && (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>
-          )}
+          {result && <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>}
         </div>
       )}
     </ToolCard>

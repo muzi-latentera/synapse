@@ -40,8 +40,6 @@ const FetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const result = formatResult(tool.result);
 
   const sources = useMemo(() => extractSources(input), [input]);
-  const hasExpandableContent =
-    sources.length > 0 || url.length > 0 || pattern.length > 0 || result.length > 0;
 
   return (
     <ToolCard
@@ -60,9 +58,8 @@ const FetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Fetching content..."
       error={tool.error}
-      expandable={hasExpandableContent}
     >
-      {hasExpandableContent && (
+      {(sources.length > 0 || url || pattern || result) && (
         <div className={sources.length > 0 ? 'flex flex-wrap gap-1' : 'space-y-1.5'}>
           {sources.length > 0 ? (
             sources.map((source, index) => (
@@ -80,9 +77,7 @@ const FetchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
                   {pattern}
                 </p>
               )}
-              {result.length > 0 && tool.status === 'completed' && (
-                <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>
-              )}
+              {result && <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>}
             </>
           )}
         </div>

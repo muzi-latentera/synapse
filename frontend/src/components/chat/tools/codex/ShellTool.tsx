@@ -31,8 +31,6 @@ const ShellToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const toolKindLabel = toolType === 'unknown' ? 'Execute' : `Execute (${toolType})`;
 
   const output = extractOutput(result);
-  const hasExpandableContent =
-    command.length > 50 || (output.length > 0 && tool.status === 'completed');
 
   return (
     <ToolCard
@@ -61,12 +59,11 @@ const ShellToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Running command..."
       error={tool.error}
-      expandable={hasExpandableContent}
     >
-      {hasExpandableContent && (
+      {(command || output) && (
         <div className="space-y-1">
           {renderCommand(command)}
-          {tool.status === 'completed' && renderOutput(output)}
+          {renderOutput(output)}
         </div>
       )}
     </ToolCard>

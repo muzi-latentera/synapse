@@ -50,7 +50,7 @@ const MCPToolInner: React.FC<MCPToolProps> = ({ tool }) => {
         ? Object.keys(tool.result as object).length > 0
         : true),
   );
-  const hasDetails = hasInput || (hasResult && toolStatus === 'completed');
+  const hasDetails = hasInput || hasResult;
   const title = description ? `${formattedToolName}: ${description}` : formattedToolName;
 
   return (
@@ -60,7 +60,6 @@ const MCPToolInner: React.FC<MCPToolProps> = ({ tool }) => {
       title={title}
       loadingContent="Processing..."
       error={errorMessage}
-      expandable={hasDetails}
     >
       {hasDetails ? (
         <div className="space-y-1.5">
@@ -76,7 +75,7 @@ const MCPToolInner: React.FC<MCPToolProps> = ({ tool }) => {
                 </div>
               ))
             : null}
-          {hasResult && toolStatus === 'completed' ? (
+          {hasResult ? (
             <pre className={TOOL_OUTPUT_PRE_CLASS}>{formatResult(tool.result)}</pre>
           ) : null}
         </div>

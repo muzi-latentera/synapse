@@ -35,8 +35,6 @@ const NotebookEditToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
     delete: 'Deleted cell in',
   };
 
-  const hasExpandableContent = notebookPath.length > 0 || newSource.length > 0 || cellId;
-
   return (
     <ToolCard
       icon={<BookOpen className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />}
@@ -54,9 +52,8 @@ const NotebookEditToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Editing notebook..."
       error={tool.error}
-      expandable={Boolean(hasExpandableContent)}
     >
-      {hasExpandableContent && (
+      {(notebookPath || newSource || cellId || cellType) && (
         <div className="space-y-1.5">
           {notebookPath && (
             <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">

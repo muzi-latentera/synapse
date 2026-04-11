@@ -104,7 +104,6 @@ const EditToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
 
   const Icon = isNewFile ? FilePlus : FileEdit;
 
-  const hasExpandableContent = changedFiles.length > 0 && tool.status === 'completed';
   const target = fileCount > 1 ? `${fileCount} files` : firstFileName;
 
   return (
@@ -125,10 +124,9 @@ const EditToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent={isNewFile ? 'Creating file...' : 'Applying changes...'}
       error={tool.error}
-      expandable={hasExpandableContent}
       actions={firstFilePath ? <OpenInEditorButton filePath={firstFilePath} /> : null}
     >
-      {hasExpandableContent && (
+      {changedFiles.length > 0 && (
         <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed">
           {changedFiles.map(([filePath, change]) => (
             <div key={filePath} className="mb-2 last:mb-0">

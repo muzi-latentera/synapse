@@ -77,9 +77,6 @@ export const WebSearch: React.FC<WebSearchProps> = ({ tool }) => {
 
     return [];
   }, [tool.result]);
-
-  const canShowSources = sources.length > 0;
-
   return (
     <ToolCard
       icon={<Search className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />}
@@ -96,9 +93,8 @@ export const WebSearch: React.FC<WebSearchProps> = ({ tool }) => {
       }}
       loadingContent={<SearchLoadingDots label="Searching the web" />}
       error={errorMessage}
-      expandable={canShowSources}
     >
-      {canShowSources && (
+      {sources.length > 0 && (
         <div>
           <div className="flex flex-wrap gap-1">
             {sources.map((source, index) => (

@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { FileSearch } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
 import { extractFilename } from '@/utils/format';
@@ -41,10 +41,6 @@ const SearchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const output = extractOutput(result);
   const command = extractCommand(input);
   const filePath = input?.parsed_cmd?.[0]?.path ?? '';
-  const hasExpandableContent = useMemo(
-    () => command.length > 50 || filePath.length > 0 || output.length > 0,
-    [command, filePath, output],
-  );
 
   return (
     <ToolCard
@@ -65,10 +61,9 @@ const SearchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
         <SearchLoadingDots label="Searching files" />
       }
       error={tool.error}
-      expandable={hasExpandableContent}
       actions={filePath ? <OpenInEditorButton filePath={filePath} /> : null}
     >
-      {hasExpandableContent && (
+      {(filePath || command || output) && (
         <div className="space-y-1.5">
           {filePath && (
             <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
@@ -76,7 +71,7 @@ const SearchToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </div>
           )}
           {renderCommand(command)}
-          {tool.status === 'completed' && renderOutput(output)}
+          {renderOutput(output)}
         </div>
       )}
     </ToolCard>

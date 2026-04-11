@@ -27,7 +27,6 @@ const GrepToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const outputMode = input?.output_mode ?? 'files_with_matches';
 
   const result = formatResult(tool.result);
-  const hasResult = result.length > 0 && tool.status === 'completed';
   const modeLabel = MODE_LABELS[outputMode];
 
   return (
@@ -46,9 +45,8 @@ const GrepToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Searching..."
       error={tool.error}
-      expandable={hasResult}
     >
-      {hasResult && <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>}
+      {result && <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>}
     </ToolCard>
   );
 };
