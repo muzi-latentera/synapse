@@ -1,9 +1,7 @@
 import { memo } from 'react';
-import { Check, ChevronDown, ClipboardList, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import { Button } from '@/components/ui/primitives/Button';
-import { SelectItem } from '@/components/ui/primitives/SelectItem';
-import { useDropdown } from '@/hooks/useDropdown';
 import { useIsSplitMode } from '@/hooks/useIsSplitMode';
 import {
   useChatSettingsStore,
@@ -86,19 +84,45 @@ export interface PermissionModeSelectorProps {
   disabled?: boolean;
 }
 
-const ClaudePermissionModeSelector = memo(function ClaudePermissionModeSelector({
+function renderPermissionItem(mode: PermissionModeOption, isSelected: boolean) {
+  return (
+    <>
+      <span
+        className={`text-2xs font-medium text-text-primary ${isSelected ? 'dark:text-text-dark-primary' : 'dark:text-text-dark-secondary'}`}
+      >
+        {mode.label}
+      </span>
+      <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+        {mode.description}
+      </span>
+    </>
+  );
+}
+
+export const PermissionModeSelector = memo(function PermissionModeSelector({
   chatId,
+  agentKind,
   dropdownPosition = 'bottom',
   disabled = false,
-}: Omit<PermissionModeSelectorProps, 'agentKind'>) {
+}: PermissionModeSelectorProps) {
+  const resolvedAgentKind = agentKind ?? 'claude';
+  const showPlanMode = resolvedAgentKind === 'codex';
   const key = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
   const permissionMode = useChatSettingsStore(
     (state) => state.permissionModeByChat[key] ?? DEFAULT_PERMISSION_MODE,
   );
+  // Only subscribe to planMode changes for Codex — Claude never uses it
+  const planMode = useChatSettingsStore((state) =>
+    showPlanMode ? (state.planModeByChat[key] ?? DEFAULT_PLAN_MODE) : false,
+  );
   const isSplitMode = useIsSplitMode();
 
-  const modes = CLAUDE_PERMISSION_MODES;
-  const selectedMode = getPermissionModeOption(permissionMode, 'claude');
+  const modes = MODES_BY_AGENT[resolvedAgentKind];
+  const selectedMode = getPermissionModeOption(permissionMode, resolvedAgentKind);
+
+  const shortLabelFn = showPlanMode
+    ? (mode: PermissionModeOption) => (planMode ? `${mode.label} (Plan)` : mode.label)
+    : undefined;
 
   return (
     <Dropdown
@@ -106,6 +130,7 @@ const ClaudePermissionModeSelector = memo(function ClaudePermissionModeSelector(
       items={modes}
       getItemKey={(mode) => mode.value}
       getItemLabel={(mode) => mode.label}
+      getItemShortLabel={shortLabelFn}
       onSelect={(mode) => useChatSettingsStore.getState().setPermissionMode(key, mode.value)}
       leftIcon={Shield}
       width="w-52"
@@ -114,147 +139,42 @@ const ClaudePermissionModeSelector = memo(function ClaudePermissionModeSelector(
       disabled={disabled}
       compactOnMobile
       forceCompact={isSplitMode}
-      renderItem={(mode, isSelected) => (
-        <>
-          <span
-            className={`text-2xs font-medium text-text-primary ${isSelected ? 'dark:text-text-dark-primary' : 'dark:text-text-dark-secondary'}`}
-          >
-            {mode.label}
-          </span>
-          <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-            {mode.description}
-          </span>
-        </>
-      )}
-    />
-  );
-});
-
-const CodexPermissionModeSelector = memo(function CodexPermissionModeSelector({
-  chatId,
-  dropdownPosition = 'bottom',
-  disabled = false,
-}: Omit<PermissionModeSelectorProps, 'agentKind'>) {
-  const key = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
-  const permissionMode = useChatSettingsStore(
-    (state) => state.permissionModeByChat[key] ?? DEFAULT_PERMISSION_MODE,
-  );
-  const planMode = useChatSettingsStore((state) => state.planModeByChat[key] ?? DEFAULT_PLAN_MODE);
-  const isSplitMode = useIsSplitMode();
-  const { isOpen, dropdownRef, setIsOpen } = useDropdown();
-
-  const modes = CODEX_PERMISSION_MODES;
-  const selectedMode = getPermissionModeOption(permissionMode, 'codex');
-  const effectiveMode = selectedMode.value;
-
-  const triggerLabel = planMode ? `${selectedMode.label} (Plan)` : selectedMode.label;
-
-  const showIconOnly = isSplitMode;
-  const labelClasses = `${showIconOnly ? 'hidden ' : ''}truncate text-2xs font-medium text-text-primary dark:text-text-dark-secondary`;
-  const chevronClasses = showIconOnly
-    ? 'hidden'
-    : 'h-3 w-3 flex-shrink-0 text-text-quaternary dark:text-text-dark-quaternary transition-transform duration-200';
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <Button
-        type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
-        variant="unstyled"
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        className={`flex min-w-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors duration-200 ${isOpen && !disabled ? 'bg-surface-hover dark:bg-surface-dark-hover' : 'hover:bg-surface-hover/60 dark:hover:bg-surface-dark-hover/60'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-      >
-        <Shield
-          className={`h-3 w-3 flex-shrink-0 text-text-tertiary dark:text-text-dark-tertiary ${!isSplitMode ? 'sm:hidden' : ''}`}
-        />
-        <span className={labelClasses}>{triggerLabel}</span>
-        {!disabled && <ChevronDown className={`${chevronClasses} ${isOpen ? 'rotate-180' : ''}`} />}
-      </Button>
-
-      {isOpen && !disabled && (
-        <div
-          role="listbox"
-          className={`absolute left-0 z-[60] w-52 rounded-xl border border-border bg-surface-secondary/95 shadow-medium backdrop-blur-xl backdrop-saturate-150 dark:border-border-dark dark:bg-surface-dark-secondary/95 dark:shadow-black/40 ${dropdownPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
-        >
-          <div className="space-y-px p-1">
-            {modes.map((mode) => {
-              const isSelected = mode.value === effectiveMode;
-              return (
-                <SelectItem
-                  key={mode.value}
-                  isSelected={isSelected}
-                  role="option"
-                  onSelect={() => {
-                    useChatSettingsStore.getState().setPermissionMode(key, mode.value);
-                    setIsOpen(false);
+      renderItem={renderPermissionItem}
+      renderFooter={
+        showPlanMode
+          ? () => (
+              <div className="border-t border-border/50 px-1 py-1 dark:border-border-dark/50">
+                <Button
+                  type="button"
+                  variant="unstyled"
+                  onClick={() => {
+                    useChatSettingsStore.getState().setPlanMode(key, !planMode);
                   }}
-                  className="flex items-center gap-2"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-surface-hover/50 dark:hover:bg-surface-dark-hover/50"
                 >
-                  <Check
-                    className={`h-3 w-3 flex-shrink-0 transition-opacity duration-150 ${isSelected ? 'text-text-primary opacity-100 dark:text-text-dark-primary' : 'opacity-0'}`}
-                  />
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="h-3 w-3 flex-shrink-0" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
                     <span
-                      className={`text-2xs font-medium text-text-primary ${isSelected ? 'dark:text-text-dark-primary' : 'dark:text-text-dark-secondary'}`}
+                      className={`text-2xs font-medium ${planMode ? 'text-text-primary dark:text-text-dark-primary' : 'text-text-secondary dark:text-text-dark-secondary'}`}
                     >
-                      {mode.label}
+                      Plan Mode
                     </span>
                     <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-                      {mode.description}
+                      Review steps before executing
                     </span>
                   </div>
-                </SelectItem>
-              );
-            })}
-          </div>
-
-          <div className="border-t border-border/50 px-1 py-1 dark:border-border-dark/50">
-            <Button
-              type="button"
-              variant="unstyled"
-              onClick={() => {
-                useChatSettingsStore.getState().setPlanMode(key, !planMode);
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition-colors duration-150 hover:bg-surface-hover/50 dark:hover:bg-surface-dark-hover/50"
-            >
-              <ClipboardList
-                className={`h-3 w-3 flex-shrink-0 ${planMode ? 'text-text-primary dark:text-text-dark-primary' : 'text-text-tertiary dark:text-text-dark-tertiary'}`}
-              />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-                <span
-                  className={`text-2xs font-medium ${planMode ? 'text-text-primary dark:text-text-dark-primary' : 'text-text-secondary dark:text-text-dark-secondary'}`}
-                >
-                  Plan Mode
-                </span>
-                <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-                  Review steps before executing
-                </span>
+                  <div
+                    className={`h-3.5 w-6 rounded-full transition-colors duration-200 ${planMode ? 'bg-text-primary dark:bg-text-dark-primary' : 'bg-text-quaternary/40 dark:bg-text-dark-quaternary/40'}`}
+                  >
+                    <div
+                      className={`h-2.5 w-2.5 translate-y-0.5 rounded-full transition-transform duration-200 ${planMode ? 'translate-x-3 bg-surface dark:bg-surface-dark' : 'translate-x-0.5 bg-white dark:bg-text-dark-tertiary'}`}
+                    />
+                  </div>
+                </Button>
               </div>
-              <div
-                className={`h-3.5 w-6 rounded-full transition-colors duration-200 ${planMode ? 'bg-text-primary dark:bg-text-dark-primary' : 'bg-text-quaternary/40 dark:bg-text-dark-quaternary/40'}`}
-              >
-                <div
-                  className={`h-2.5 w-2.5 translate-y-0.5 rounded-full transition-transform duration-200 ${planMode ? 'translate-x-3 bg-surface dark:bg-surface-dark' : 'translate-x-0.5 bg-white dark:bg-text-dark-tertiary'}`}
-                />
-              </div>
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+            )
+          : undefined
+      }
+    />
   );
-});
-
-export const PermissionModeSelector = memo(function PermissionModeSelector({
-  agentKind,
-  ...props
-}: PermissionModeSelectorProps) {
-  const resolvedAgentKind = agentKind ?? 'claude';
-
-  if (resolvedAgentKind === 'codex') {
-    return <CodexPermissionModeSelector {...props} />;
-  }
-  return <ClaudePermissionModeSelector {...props} />;
 });

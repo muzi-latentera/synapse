@@ -1,13 +1,12 @@
+import { formatNumberCompact } from '@/utils/format';
+
 export interface ContextUsageInfo {
   tokensUsed: number;
   contextWindow: number;
 }
 
-const formatNumberCompact = (num: number): string => {
-  if (num < 1000) return num.toString();
-  if (num < 1000000) return Math.round(num / 1000) + 'k';
-  return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-};
+const RADIUS = 9;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 export const ContextUsageIndicator = ({ usage }: { usage: ContextUsageInfo }) => {
   const percentage =
@@ -21,10 +20,7 @@ export const ContextUsageIndicator = ({ usage }: { usage: ContextUsageInfo }) =>
         : percentage >= 1
           ? percentage.toFixed(1)
           : percentage.toFixed(2);
-
-  const radius = 9;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference * (1 - percentage / 100);
+  const dashOffset = CIRCUMFERENCE * (1 - percentage / 100);
 
   const progressClass =
     percentage >= 95
@@ -45,7 +41,7 @@ export const ContextUsageIndicator = ({ usage }: { usage: ContextUsageInfo }) =>
         <circle
           cx="12"
           cy="12"
-          r={radius}
+          r={RADIUS}
           strokeWidth="2"
           stroke="currentColor"
           className="text-border dark:text-border-dark"
@@ -54,12 +50,12 @@ export const ContextUsageIndicator = ({ usage }: { usage: ContextUsageInfo }) =>
         <circle
           cx="12"
           cy="12"
-          r={radius}
+          r={RADIUS}
           strokeWidth="2"
           stroke="currentColor"
           className={progressClass}
           fill="none"
-          strokeDasharray={circumference}
+          strokeDasharray={CIRCUMFERENCE}
           strokeDashoffset={dashOffset}
           strokeLinecap="round"
           transform="rotate(-90 12 12)"

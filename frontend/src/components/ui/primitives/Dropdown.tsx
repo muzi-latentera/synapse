@@ -1,5 +1,5 @@
-import { memo, ReactNode, useState, useRef, KeyboardEvent } from 'react';
-import { Check, ChevronDown, LucideIcon, Search, X } from 'lucide-react';
+import { memo, ReactNode, useState, useRef, KeyboardEvent, ComponentType, SVGProps } from 'react';
+import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { useDropdown } from '@/hooks/useDropdown';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Button } from '@/components/ui/primitives/Button';
@@ -17,7 +17,7 @@ export interface DropdownProps<T> {
   getItemShortLabel?: (item: T) => string;
   onSelect: (item: T) => void;
   renderItem?: (item: T, isSelected: boolean) => ReactNode;
-  leftIcon?: LucideIcon;
+  leftIcon?: ComponentType<SVGProps<SVGSVGElement>>;
   width?: string;
   itemClassName?: string;
   dropdownPosition?: 'top' | 'bottom';
@@ -26,6 +26,9 @@ export interface DropdownProps<T> {
   forceCompact?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
+  searchVariant?: 'boxed' | 'underline';
+  selectionStyle?: 'check' | 'accent';
+  renderFooter?: () => ReactNode;
 }
 
 const isGroupedItems = <T,>(
@@ -35,6 +38,64 @@ const isGroupedItems = <T,>(
     items.length > 0 && typeof items[0] === 'object' && items[0] !== null && 'type' in items[0]
   );
 };
+
+function filterItems<T>(itemsToFilter: readonly T[], searchQuery: string): T[] {
+  if (!searchQuery.trim()) return itemsToFilter as T[];
+  const isStringItems = itemsToFilter.length > 0 && typeof itemsToFilter[0] === 'string';
+  return fuzzySearch(searchQuery, [...itemsToFilter], {
+    keys: isStringItems ? undefined : ['name', 'label'],
+    limit: 50,
+  });
+}
+
+function getFilteredGroupedItems<T>(
+  items: readonly DropdownItemType<T>[],
+  searchQuery: string,
+): DropdownItemType<T>[] {
+  if (!searchQuery.trim()) return [...items];
+
+  const result: DropdownItemType<T>[] = [];
+  let currentHeader: string | null = null;
+  const pendingItems: T[] = [];
+
+  for (const item of items) {
+    if (item.type === 'header') {
+      if (pendingItems.length > 0 && currentHeader) {
+        const filtered = filterItems(pendingItems, searchQuery);
+        if (filtered.length > 0) {
+          result.push({ type: 'header', label: currentHeader });
+          filtered.forEach((data) => result.push({ type: 'item', data }));
+        }
+      }
+      currentHeader = item.label;
+      pendingItems.length = 0;
+    } else {
+      pendingItems.push(item.data);
+    }
+  }
+
+  if (pendingItems.length > 0 && currentHeader) {
+    const filtered = filterItems(pendingItems, searchQuery);
+    if (filtered.length > 0) {
+      result.push({ type: 'header', label: currentHeader });
+      filtered.forEach((data) => result.push({ type: 'item', data }));
+    }
+  }
+
+  return result;
+}
+
+// Wraps flat items into the grouped format so both branches share one render path
+function normalizeToGrouped<T>(
+  items: readonly T[] | readonly DropdownItemType<T>[],
+  searchQuery: string,
+): DropdownItemType<T>[] {
+  if (isGroupedItems(items)) {
+    return getFilteredGroupedItems(items, searchQuery);
+  }
+  const filtered = filterItems(items as readonly T[], searchQuery);
+  return filtered.map((data) => ({ type: 'item', data }));
+}
 
 function DropdownInner<T>({
   value,
@@ -53,6 +114,9 @@ function DropdownInner<T>({
   forceCompact = false,
   searchable = false,
   searchPlaceholder = 'Search...',
+  searchVariant = 'boxed',
+  selectionStyle = 'check',
+  renderFooter,
 }: DropdownProps<T>) {
   const { isOpen, dropdownRef, setIsOpen } = useDropdown();
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,50 +130,6 @@ function DropdownInner<T>({
     }
   }
 
-  const filterItems = (itemsToFilter: readonly T[]): T[] => {
-    if (!searchQuery.trim()) return itemsToFilter as T[];
-    const isStringItems = itemsToFilter.length > 0 && typeof itemsToFilter[0] === 'string';
-    return fuzzySearch(searchQuery, [...itemsToFilter], {
-      keys: isStringItems ? undefined : ['name', 'label'],
-      limit: 50,
-    });
-  };
-
-  const getFilteredGroupedItems = (): DropdownItemType<T>[] => {
-    if (!isGroupedItems(items)) return [];
-    if (!searchQuery.trim()) return [...items];
-
-    const result: DropdownItemType<T>[] = [];
-    let currentHeader: string | null = null;
-    const pendingItems: T[] = [];
-
-    for (const item of items) {
-      if (item.type === 'header') {
-        if (pendingItems.length > 0 && currentHeader) {
-          const filtered = filterItems(pendingItems);
-          if (filtered.length > 0) {
-            result.push({ type: 'header', label: currentHeader });
-            filtered.forEach((data) => result.push({ type: 'item', data }));
-          }
-        }
-        currentHeader = item.label;
-        pendingItems.length = 0;
-      } else {
-        pendingItems.push(item.data);
-      }
-    }
-
-    if (pendingItems.length > 0 && currentHeader) {
-      const filtered = filterItems(pendingItems);
-      if (filtered.length > 0) {
-        result.push({ type: 'header', label: currentHeader });
-        filtered.forEach((data) => result.push({ type: 'item', data }));
-      }
-    }
-
-    return result;
-  };
-
   const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -121,9 +141,7 @@ function DropdownInner<T>({
     }
   };
 
-  const displayItems = isGroupedItems(items)
-    ? getFilteredGroupedItems()
-    : filterItems(items as readonly T[]);
+  const displayItems = normalizeToGrouped(items, searchQuery);
 
   const showIconOnly = (compactOnMobile || forceCompact) && LeftIcon;
   const labelClasses = showIconOnly
@@ -167,7 +185,7 @@ function DropdownInner<T>({
           role="listbox"
           className={`absolute left-0 ${width} z-[60] rounded-xl border border-border bg-surface-secondary/95 shadow-medium backdrop-blur-xl backdrop-saturate-150 dark:border-border-dark dark:bg-surface-dark-secondary/95 dark:shadow-black/40 ${dropdownPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
         >
-          {searchable && (
+          {searchable && searchVariant === 'boxed' && (
             <div className="border-b border-border p-1.5 dark:border-border-dark">
               <div className="relative flex items-center">
                 <Search className="pointer-events-none absolute left-2 h-3 w-3 text-text-quaternary dark:text-text-dark-quaternary" />
@@ -193,88 +211,87 @@ function DropdownInner<T>({
               </div>
             </div>
           )}
+          {searchable && searchVariant === 'underline' && (
+            <div className="flex items-center gap-1.5 border-b border-border/50 px-2.5 py-1.5 dark:border-border-dark/50">
+              <Search className="h-3 w-3 flex-shrink-0 text-text-quaternary dark:text-text-dark-quaternary" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={searchPlaceholder}
+                autoFocus={!isMobile}
+                className="h-6 w-full bg-transparent text-2xs text-text-primary placeholder:text-text-quaternary focus:outline-none dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary"
+              />
+              {searchQuery && (
+                <Button
+                  onClick={() => setSearchQuery('')}
+                  variant="unstyled"
+                  aria-label="Clear search"
+                  className="rounded-md p-0.5 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:hover:text-text-dark-secondary"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          )}
           <div className="max-h-64 space-y-px overflow-y-auto p-1">
-            {isGroupedItems(items)
-              ? (displayItems as DropdownItemType<T>[]).map((item, index) => {
-                  if (item.type === 'header') {
-                    return (
-                      <div
-                        key={`header-${item.label}`}
-                        className={`px-2 pb-0.5 pt-1.5 text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary ${index === 0 ? '' : 'mt-1 border-t border-border dark:border-border-dark'}`}
-                      >
-                        {item.label}
-                      </div>
-                    );
-                  }
+            {displayItems.map((entry, index) => {
+              if (entry.type === 'header') {
+                return (
+                  <div
+                    key={`header-${entry.label}`}
+                    className={`px-2 pb-0.5 pt-1.5 text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary ${index === 0 ? '' : 'mt-1 border-t border-border dark:border-border-dark'}`}
+                  >
+                    {entry.label}
+                  </div>
+                );
+              }
 
-                  const isSelected = getItemKey(item.data) === getItemKey(value);
-                  return (
-                    <SelectItem
-                      key={getItemKey(item.data)}
-                      isSelected={isSelected}
-                      role="option"
-                      onSelect={() => {
-                        onSelect(item.data);
-                        setIsOpen(false);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <Check
-                        className={`h-3 w-3 flex-shrink-0 transition-opacity duration-150 ${isSelected ? 'text-text-primary opacity-100 dark:text-text-dark-primary' : 'opacity-0'}`}
-                      />
-                      <div className={`min-w-0 flex-1${itemClassName ? ` ${itemClassName}` : ''}`}>
-                        {renderItem ? (
-                          renderItem(item.data, isSelected)
-                        ) : (
-                          <span
-                            className={`text-2xs font-medium ${
-                              isSelected
-                                ? 'text-text-primary dark:text-text-dark-primary'
-                                : 'text-text-secondary dark:text-text-dark-secondary'
-                            }`}
-                          >
-                            {getItemLabel(item.data)}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  );
-                })
-              : (displayItems as T[]).map((item) => {
-                  const isSelected = getItemKey(item) === getItemKey(value);
-                  return (
-                    <SelectItem
-                      key={getItemKey(item)}
-                      isSelected={isSelected}
-                      role="option"
-                      onSelect={() => {
-                        onSelect(item);
-                        setIsOpen(false);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <Check
-                        className={`h-3 w-3 flex-shrink-0 transition-opacity duration-150 ${isSelected ? 'text-text-primary opacity-100 dark:text-text-dark-primary' : 'opacity-0'}`}
-                      />
-                      <div className={`min-w-0 flex-1${itemClassName ? ` ${itemClassName}` : ''}`}>
-                        {renderItem ? (
-                          renderItem(item, isSelected)
-                        ) : (
-                          <span
-                            className={`text-2xs font-medium ${
-                              isSelected
-                                ? 'text-text-primary dark:text-text-dark-primary'
-                                : 'text-text-secondary dark:text-text-dark-secondary'
-                            }`}
-                          >
-                            {getItemLabel(item)}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
+              const item = entry.data;
+              const isSelected = getItemKey(item) === getItemKey(value);
+              return (
+                <SelectItem
+                  key={getItemKey(item)}
+                  isSelected={isSelected}
+                  role="option"
+                  onSelect={() => {
+                    onSelect(item);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    'relative flex items-center gap-2',
+                    selectionStyle === 'accent' && 'pl-2.5',
+                  )}
+                >
+                  {selectionStyle === 'check' && (
+                    <Check
+                      className={`h-3 w-3 flex-shrink-0 transition-opacity duration-150 ${isSelected ? 'text-text-primary opacity-100 dark:text-text-dark-primary' : 'opacity-0'}`}
+                    />
+                  )}
+                  {selectionStyle === 'accent' && isSelected && (
+                    <div className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+                  )}
+                  <div className={`min-w-0 flex-1${itemClassName ? ` ${itemClassName}` : ''}`}>
+                    {renderItem ? (
+                      renderItem(item, isSelected)
+                    ) : (
+                      <span
+                        className={`text-2xs font-medium ${
+                          isSelected
+                            ? 'text-text-primary dark:text-text-dark-primary'
+                            : 'text-text-secondary dark:text-text-dark-secondary'
+                        }`}
+                      >
+                        {getItemLabel(item)}
+                      </span>
+                    )}
+                  </div>
+                </SelectItem>
+              );
+            })}
           </div>
+          {renderFooter?.()}
         </div>
       )}
     </div>

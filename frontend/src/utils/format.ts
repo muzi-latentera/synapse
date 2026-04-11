@@ -11,6 +11,12 @@ export const formatValue = (value: unknown): string => {
 
 export const extractFilename = (path: string): string => path.split('/').pop() ?? path;
 
+export function formatNumberCompact(num: number): string {
+  if (num < 1000) return num.toString();
+  if (num < 1000000) return Math.round(num / 1000) + 'K';
+  return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+}
+
 export const extractDomain = (url: string): string => {
   try {
     return new URL(url).hostname.replace('www.', '');
