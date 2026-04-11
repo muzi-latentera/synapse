@@ -1,15 +1,22 @@
-import { memo, useEffect, useMemo } from 'react';
-import { Cpu } from 'lucide-react';
+import { memo, useEffect, useMemo, ComponentType, SVGProps } from 'react';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import type { DropdownItemType } from '@/components/ui/primitives/Dropdown';
 import { useAuthStore } from '@/store/authStore';
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useIsSplitMode } from '@/hooks/useIsSplitMode';
+import { ClaudeIcon } from '@/components/ui/icons/ClaudeIcon';
+import { CodexIcon } from '@/components/ui/icons/CodexIcon';
+import { formatNumberCompact } from '@/utils/format';
 import type { AgentKind, Model } from '@/types/chat.types';
 
 const AGENT_LABELS: Record<AgentKind, string> = {
   claude: 'Claude',
   codex: 'Codex',
+};
+
+const AGENT_ICONS: Record<AgentKind, ComponentType<SVGProps<SVGSVGElement>>> = {
+  claude: ClaudeIcon,
+  codex: CodexIcon,
 };
 
 export interface ModelSelectorProps {
@@ -82,28 +89,39 @@ export const ModelSelector = memo(function ModelSelector({
     );
   }
 
+  const activeModel = selectedModel || filteredModels[0];
+  const activeIcon = AGENT_ICONS[activeModel.agent_kind];
+
   return (
     <Dropdown
-      value={selectedModel || filteredModels[0]}
+      value={activeModel}
       items={groupedItems}
       getItemKey={(model) => model.model_id}
       getItemLabel={(model) => model.name}
-      getItemShortLabel={(model) => model.name}
       onSelect={(model) => onModelChange(model.model_id)}
-      leftIcon={Cpu}
+      leftIcon={activeIcon}
       width="w-64"
       dropdownPosition={dropdownPosition}
       disabled={disabled}
       compactOnMobile={compact ?? true}
       forceCompact={compact ?? isSplitMode}
       searchable
-      searchPlaceholder="Search models..."
+      searchPlaceholder="Filter..."
+      searchVariant="underline"
+      selectionStyle="accent"
       renderItem={(model, isSelected) => (
-        <span
-          className={`truncate text-2xs font-medium ${isSelected ? 'text-text-primary dark:text-text-dark-primary' : 'text-text-secondary dark:text-text-dark-secondary'}`}
-        >
-          {model.name}
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={`truncate text-2xs font-medium ${isSelected ? 'text-text-primary dark:text-text-dark-primary' : 'text-text-secondary dark:text-text-dark-secondary'}`}
+          >
+            {model.name}
+          </span>
+          {model.context_window != null && model.context_window > 0 && (
+            <span className="flex-shrink-0 rounded-md bg-surface-tertiary px-1.5 py-0.5 text-2xs font-medium text-text-quaternary dark:bg-surface-dark-tertiary dark:text-text-dark-quaternary">
+              {formatNumberCompact(model.context_window)}
+            </span>
+          )}
+        </div>
       )}
     />
   );
