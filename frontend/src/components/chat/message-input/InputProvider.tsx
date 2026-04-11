@@ -41,7 +41,7 @@ export function InputProvider({
   isLoading,
   isStreaming = false,
   onStopStream,
-  placeholder = 'Message Agentrove\u2026',
+  placeholder = 'Message Agentrove... (@ to mention, / for commands)',
   selectedModelId,
   onModelChange,
   dropdownPosition = 'top',
@@ -305,7 +305,7 @@ export function InputProvider({
     enhancePromptMutation.mutate({ prompt: messageRef.current.trim(), modelId: selectedModelId });
   }, [hasMessage, isEnhancing, selectedModelId, enhancePromptMutation]);
 
-  const dynamicPlaceholder = isStreaming ? 'Type to queue message\u2026' : placeholder;
+  const dynamicPlaceholder = isStreaming ? 'Type to queue message...' : placeholder;
 
   const stateValue: InputState = useMemo(
     () => ({

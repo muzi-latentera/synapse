@@ -21,7 +21,7 @@ function renderCommand(command: SlashCommand, isActive: boolean) {
         {command.value}
       </span>
       {command.description && (
-        <span className="min-w-0 text-2xs leading-tight text-text-tertiary dark:text-text-dark-tertiary">
+        <span className="min-w-0 truncate text-2xs leading-tight text-text-tertiary dark:text-text-dark-tertiary">
           {command.description}
         </span>
       )}

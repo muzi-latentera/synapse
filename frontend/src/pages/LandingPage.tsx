@@ -192,7 +192,7 @@ export function LandingPage() {
                 selectedModelId={selectedModelId}
                 onModelChange={selectModel}
                 showTip={false}
-                placeholder="Ask Agentrove to build, fix bugs, explore"
+                placeholder="Message Agentrove... (@ to mention, / for commands)"
               />
             </ChatProvider>
 
