@@ -1,8 +1,10 @@
 import { memo, useState, useCallback } from 'react';
-import { Loader2, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { useSubThreadsQuery } from '@/hooks/queries/useChatQueries';
 import { Button } from '@/components/ui/primitives/Button';
 import { cn } from '@/utils/cn';
+import { stripMarkdownTitle } from '@/utils/format';
+import { getRelativeTime } from '@/utils/date';
 import type { Chat } from '@/types/chat.types';
 
 interface SubThreadListProps {
@@ -30,7 +32,8 @@ export const SubThreadList = memo(function SubThreadList({
 
   if (isError) {
     return (
-      <div className="ml-4 border-l border-border/30 px-2 py-1 dark:border-border-dark/30">
+      <div className="relative ml-[11px] mt-0.5 pl-[22px]">
+        <div className="absolute bottom-2 left-0 top-0 w-px bg-border-secondary dark:bg-border-dark-secondary" />
         <button
           type="button"
           onClick={() => refetch()}
@@ -45,7 +48,9 @@ export const SubThreadList = memo(function SubThreadList({
   if (!subThreads || subThreads.length === 0) return null;
 
   return (
-    <div className="ml-4 border-l border-border/30 dark:border-border-dark/30">
+    <div className="relative ml-[11px] mt-0.5 pl-[22px]">
+      <div className="absolute bottom-[14px] left-0 top-0 w-px bg-border-secondary dark:bg-border-dark-secondary" />
+
       {subThreads.map((thread) => {
         const isSelected = thread.id === selectedChatId;
         const isStreaming = streamingChatIdSet.has(thread.id);
@@ -54,31 +59,56 @@ export const SubThreadList = memo(function SubThreadList({
         return (
           <div
             key={thread.id}
-            className="group relative flex items-center"
+            className={cn(
+              'group relative flex items-center rounded-lg transition-colors duration-200',
+              isSelected
+                ? 'bg-surface-hover/50 dark:bg-surface-dark-hover/50'
+                : 'hover:bg-surface-hover/50 dark:hover:bg-surface-dark-hover/50',
+            )}
             onMouseEnter={() => handleMouseEnter(thread.id)}
             onMouseLeave={handleMouseLeave}
           >
+            <div className="absolute -left-[22px] top-1/2 h-px w-[18px] bg-border-secondary dark:bg-border-dark-secondary" />
+
+            {isSelected && !isStreaming && (
+              <div className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+            )}
+
             <button
               type="button"
               onClick={() => onSelect(thread.id)}
+              title={thread.title}
               className={cn(
-                'flex w-full items-center gap-1.5 rounded-r-md py-1 pl-2 pr-6 transition-colors duration-200',
+                'flex w-full items-center gap-2 px-2 py-1.5 pr-10 transition-colors duration-200',
                 isSelected
-                  ? 'bg-surface-hover text-text-primary dark:bg-surface-dark-hover dark:text-text-dark-primary'
-                  : 'text-text-secondary hover:bg-surface-hover dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover',
+                  ? 'text-text-primary dark:text-text-dark-primary'
+                  : 'text-text-tertiary hover:text-text-secondary dark:text-text-dark-tertiary dark:hover:text-text-dark-secondary',
               )}
             >
               {isStreaming && (
-                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-text-quaternary dark:text-text-dark-quaternary" />
+                <div className="h-[5px] w-[5px] flex-shrink-0 animate-pulse rounded-full bg-warning-500" />
               )}
-              <span className="truncate text-xs">{thread.title}</span>
+              <span className={cn('truncate text-xs', isSelected && 'font-medium')}>
+                {stripMarkdownTitle(thread.title)}
+              </span>
             </button>
+
+            <span
+              className={cn(
+                'absolute right-2 text-[10px] tabular-nums text-text-quaternary dark:text-text-dark-quaternary',
+                'transition-opacity duration-200',
+                isHovered || isSelected ? 'opacity-0' : 'opacity-100',
+              )}
+            >
+              {getRelativeTime(thread.updated_at)}
+            </span>
+
             <Button
               onClick={(e) => onDropdownClick(e, thread)}
               onMouseDown={(e) => e.stopPropagation()}
               variant="unstyled"
               className={cn(
-                'absolute right-1 flex-shrink-0 rounded-md p-1 transition-all duration-200',
+                'absolute right-2 flex-shrink-0 rounded-md p-0.5 transition-all duration-200',
                 'text-text-quaternary dark:text-text-dark-quaternary',
                 'hover:text-text-primary dark:hover:text-text-dark-primary',
                 isHovered || isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',

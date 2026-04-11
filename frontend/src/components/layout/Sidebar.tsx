@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderOpen, ChevronRight, MoreHorizontal, SquarePen } from 'lucide-react';
+import { Plus, MoreHorizontal, SquarePen, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { Chat } from '@/types/chat.types';
 import type { Workspace } from '@/types/workspace.types';
@@ -94,8 +94,7 @@ interface WorkspaceGroupProps {
   onDropdownClick: (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => void;
   onNewThread: (e: React.MouseEvent, workspaceId: string) => void;
   onWorkspaceContextMenu: (e: React.MouseEvent<HTMLButtonElement>, workspaceId: string) => void;
-  expandedSubThreads: Set<string>;
-  onToggleSubThreads: (chatId: string) => void;
+  collapsedSubThreads: Set<string>;
 }
 
 const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
@@ -109,8 +108,7 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
   onDropdownClick,
   onNewThread,
   onWorkspaceContextMenu,
-  expandedSubThreads,
-  onToggleSubThreads,
+  collapsedSubThreads,
 }: WorkspaceGroupProps) {
   const [isChatsExpanded, setIsChatsExpanded] = useState(false);
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
@@ -138,21 +136,14 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
   const showLoadMore = isChatsExpanded && hasNextPage;
 
   return (
-    <div className="mb-1">
-      <div className="group flex items-center gap-0.5 px-1 pb-0.5 pt-2">
+    <div>
+      <div className="group flex items-center gap-1 pb-2 pt-3.5">
         <button
           type="button"
           onClick={() => onToggleCollapse(workspace.id)}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
+          className="min-w-0 flex-1 text-left"
         >
-          <ChevronRight
-            className={cn(
-              'h-3 w-3 shrink-0 text-text-quaternary transition-transform duration-200 dark:text-text-dark-quaternary',
-              !isCollapsed && 'rotate-90',
-            )}
-          />
-          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-          <span className="truncate text-xs font-medium text-text-secondary dark:text-text-dark-secondary">
+          <span className="text-2xs font-medium uppercase tracking-wider text-text-quaternary transition-colors duration-200 group-hover:text-text-tertiary dark:text-text-dark-quaternary dark:group-hover:text-text-dark-tertiary">
             {workspace.name}
           </span>
         </button>
@@ -162,7 +153,7 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
           onClick={(e) => onNewThread(e, workspace.id)}
           className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
         >
-          <SquarePen className="h-3.5 w-3.5" />
+          <SquarePen className="h-3 w-3" />
         </button>
         <button
           type="button"
@@ -170,13 +161,13 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
           onClick={(e) => onWorkspaceContextMenu(e, workspace.id)}
           className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
         >
-          <MoreHorizontal className="h-3.5 w-3.5" />
+          <MoreHorizontal className="h-3 w-3" />
         </button>
       </div>
       {!isCollapsed && (
-        <div className="space-y-px pl-6">
+        <div>
           {isLoading ? null : chats.length === 0 ? (
-            <p className="px-2.5 py-1 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+            <p className="py-1 text-2xs text-text-quaternary dark:text-text-dark-quaternary">
               No threads
             </p>
           ) : (
@@ -189,14 +180,12 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
                     isHovered={hoveredChatId === chat.id}
                     isDropdownOpen={dropdownChatId === chat.id}
                     isChatStreaming={streamingChatIdSet.has(chat.id)}
-                    isSubThreadsExpanded={expandedSubThreads.has(chat.id)}
                     onSelect={onChatSelect}
                     onDropdownClick={onDropdownClick}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
-                    onToggleSubThreads={onToggleSubThreads}
                   />
-                  {chat.sub_thread_count > 0 && expandedSubThreads.has(chat.id) && (
+                  {chat.sub_thread_count > 0 && !collapsedSubThreads.has(chat.id) && (
                     <SubThreadList
                       parentChatId={chat.id}
                       selectedChatId={selectedChatId}
@@ -211,13 +200,14 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
                 <button
                   type="button"
                   onClick={() => setIsChatsExpanded(true)}
-                  className="w-full px-2.5 py-1 text-left text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
+                  className="flex w-full items-center gap-1 py-1.5 text-left text-xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
                 >
                   Show more ({chats.length - CHATS_PER_WORKSPACE})
+                  <ChevronDown className="h-3 w-3" />
                 </button>
               )}
               {(hasMoreLocalChats || showLoadMore) && isChatsExpanded && (
-                <div className="flex items-center gap-2 px-2.5 py-1">
+                <div className="flex items-center gap-2 py-1.5">
                   <button
                     type="button"
                     onClick={() => setIsChatsExpanded(false)}
@@ -292,7 +282,8 @@ export function Sidebar({
     workspaceId: string;
     position: { top: number; left: number };
   } | null>(null);
-  const [expandedSubThreads, toggleSubThreads, setExpandedSubThreads] = useToggleSet<string>();
+  // Tracks which parent chats have their sub-threads collapsed — sub-threads are visible by default
+  const [collapsedSubThreads, , setCollapsedSubThreads] = useToggleSet<string>();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -322,13 +313,16 @@ export function Sidebar({
     });
   }, [selectedChatWorkspaceId, setCollapsedWorkspaces]);
 
+  // Auto-uncollapse parent when navigating to a sub-thread from outside the sidebar
   useEffect(() => {
     if (!selectedChatParentId) return;
-    setExpandedSubThreads((prev) => {
-      if (prev.has(selectedChatParentId)) return prev;
-      return new Set(prev).add(selectedChatParentId);
+    setCollapsedSubThreads((prev) => {
+      if (!prev.has(selectedChatParentId)) return prev;
+      const next = new Set(prev);
+      next.delete(selectedChatParentId);
+      return next;
     });
-  }, [selectedChatParentId, setExpandedSubThreads]);
+  }, [selectedChatParentId, setCollapsedSubThreads]);
 
   useMountEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -564,31 +558,24 @@ export function Sidebar({
       <aside
         aria-label="Chat history"
         className={cn(
-          'absolute left-0 top-0 h-full w-64',
-          'border-r border-border bg-surface-secondary dark:border-border-dark dark:bg-surface-dark-secondary',
+          'absolute left-0 top-0 h-full w-[300px]',
+          'border-r border-border/50 bg-surface-secondary dark:border-border-dark/50 dark:bg-surface-dark-secondary',
           'z-40 flex flex-col transition-transform duration-500 ease-in-out',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="border-b border-border px-3 py-3 dark:border-border-dark">
+        <div className="px-4 pt-2">
           <Button
             onClick={handleNewChat}
             variant="unstyled"
-            className={cn(
-              'w-full px-3 py-2',
-              'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-              'border border-border dark:border-border-dark',
-              'text-text-secondary dark:text-text-dark-secondary',
-              'rounded-lg transition-colors duration-200',
-              'flex items-center justify-center gap-1.5 text-xs font-medium',
-            )}
+            className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-surface-tertiary/50 px-2 py-2 text-[13px] font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-tertiary hover:text-text-primary dark:bg-surface-dark-tertiary/50 dark:text-text-dark-secondary dark:hover:bg-surface-dark-tertiary dark:hover:text-text-dark-primary"
           >
             <Plus className="h-3.5 w-3.5" />
             New thread
           </Button>
         </div>
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-2 pt-1">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6">
           {!hasAnyContent ? (
             <p className="py-8 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
               No chats yet
@@ -597,12 +584,12 @@ export function Sidebar({
             <div>
               {pinnedChats.length > 0 && (
                 <div className="mb-1">
-                  <div className="px-2.5 pb-1 pt-2">
-                    <span className="text-2xs font-medium uppercase tracking-widest text-text-quaternary dark:text-text-dark-quaternary">
+                  <div className="pb-2 pt-2.5">
+                    <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
                       Pinned
                     </span>
                   </div>
-                  <div className="space-y-px">
+                  <div>
                     {pinnedChats.map((chat) => (
                       <div key={chat.id}>
                         <SidebarChatItem
@@ -611,14 +598,12 @@ export function Sidebar({
                           isHovered={pinnedHoveredId === chat.id}
                           isDropdownOpen={dropdown?.chat.id === chat.id}
                           isChatStreaming={streamingChatIdSet.has(chat.id)}
-                          isSubThreadsExpanded={expandedSubThreads.has(chat.id)}
                           onSelect={handleChatSelect}
                           onDropdownClick={handleDropdownClick}
                           onMouseEnter={handlePinnedMouseEnter}
                           onMouseLeave={handlePinnedMouseLeave}
-                          onToggleSubThreads={toggleSubThreads}
                         />
-                        {chat.sub_thread_count > 0 && expandedSubThreads.has(chat.id) && (
+                        {chat.sub_thread_count > 0 && !collapsedSubThreads.has(chat.id) && (
                           <SubThreadList
                             parentChatId={chat.id}
                             selectedChatId={selectedChatId}
@@ -646,8 +631,7 @@ export function Sidebar({
                   onDropdownClick={handleDropdownClick}
                   onNewThread={handleNewWorkspaceThread}
                   onWorkspaceContextMenu={handleWorkspaceContextMenu}
-                  expandedSubThreads={expandedSubThreads}
-                  onToggleSubThreads={toggleSubThreads}
+                  collapsedSubThreads={collapsedSubThreads}
                 />
               ))}
             </div>

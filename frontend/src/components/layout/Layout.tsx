@@ -81,7 +81,7 @@ export function Layout({
             id="main-content"
             className={cn(
               'relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden bg-surface transition-[padding] duration-500 ease-in-out dark:bg-surface-dark',
-              shouldPushContent ? 'pl-64' : 'pl-0',
+              shouldPushContent ? 'pl-[300px]' : 'pl-0',
               contentClassName,
             )}
           >
