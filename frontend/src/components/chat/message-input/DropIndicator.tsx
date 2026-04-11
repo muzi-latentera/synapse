@@ -44,7 +44,7 @@ export function DropIndicator({
             <Upload className="h-5 w-5" />
           )}
         </IconWrapper>
-        <p className="text-sm font-semibold">{message}</p>
+        <p className="text-sm font-medium">{message}</p>
         <div className="max-w-xs text-center text-xs font-medium text-text-tertiary dark:text-text-dark-tertiary">
           {fileType === 'image'
             ? 'PNG • JPEG • GIF • WebP'

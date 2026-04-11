@@ -65,11 +65,6 @@ export function InputProvider({
   const messageRef = useRef(message);
   messageRef.current = message;
 
-  const prevChatId = useRef(chatId);
-  if (prevChatId.current !== chatId) {
-    prevChatId.current = chatId;
-  }
-
   const hasMessage = message.trim().length > 0;
   const hasAttachments = (attachedFiles?.length ?? 0) > 0;
 
@@ -80,8 +75,6 @@ export function InputProvider({
   }
 
   const showPreview = showAttachedFilesPreview && hasAttachments && !previewDismissed;
-
-  const clearAttachedFiles = onAttach;
 
   const { previewUrls } = useFileHandling({
     initialFiles: attachedFiles,
@@ -236,7 +229,7 @@ export function InputProvider({
           attachedFiles ?? undefined,
         );
       setMessage('');
-      clearAttachedFiles?.([]);
+      onAttach?.([]);
       setPreviewDismissed(true);
       return;
     }
@@ -271,9 +264,10 @@ export function InputProvider({
     chatId,
     attachedFiles,
     setMessage,
-    clearAttachedFiles,
+    onAttach,
     agentKind,
     selectedModelId,
+    personas,
   ]);
 
   const handleKeyDown = useCallback(
