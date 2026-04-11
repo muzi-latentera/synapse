@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import re
 import shutil
@@ -7,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from app.constants import (
+    CLAUDE_DIR,
     CLAUDE_SKILLS_DIR,
     CODEX_SKILLS_DIR,
     SANDBOX_CLAUDE_DIR,
@@ -37,7 +39,42 @@ class SkillService:
         return (
             CLAUDE_SKILLS_DIR,
             CODEX_SKILLS_DIR,
+            *SkillService._get_plugin_skill_paths(),
         )
+
+    @staticmethod
+    def _get_plugin_skill_paths() -> list[Path]:
+        # Cross-reference settings.json (enabled flags) with installed_plugins.json
+        # (install paths) to avoid walking the entire plugin cache directory tree.
+        plugins_dir = CLAUDE_DIR / "plugins"
+        settings_path = CLAUDE_DIR / "settings.json"
+        installed_path = plugins_dir / "installed_plugins.json"
+        if not settings_path.is_file() or not installed_path.is_file():
+            return []
+        try:
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            installed = json.loads(installed_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return []
+        enabled_plugins = settings.get("enabledPlugins", {})
+        # Plugin IDs use the format "plugin-name@marketplace"
+        enabled_ids = {
+            pid for pid, enabled in enabled_plugins.items() if enabled is True
+        }
+        if not enabled_ids:
+            return []
+        paths: list[Path] = []
+        for plugin_id, installs in installed.get("plugins", {}).items():
+            if plugin_id not in enabled_ids:
+                continue
+            for entry in installs:
+                install_path = entry.get("installPath")
+                if not install_path:
+                    continue
+                skills_dir = Path(install_path) / "skills"
+                if skills_dir.is_dir():
+                    paths.append(skills_dir)
+        return paths
 
     @staticmethod
     def _get_skill_source(base_path: Path) -> str:
