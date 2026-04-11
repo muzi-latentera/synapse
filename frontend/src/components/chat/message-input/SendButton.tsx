@@ -20,7 +20,7 @@ const PRIMARY_BG =
 
 const VISUAL_COLORS: Record<'spinner' | 'stop' | 'ready' | 'idle', string> = {
   spinner: PRIMARY_BG,
-  stop: 'bg-error-500 hover:bg-error-600',
+  stop: PRIMARY_BG,
   ready: PRIMARY_BG,
   idle: 'bg-surface-tertiary dark:bg-surface-dark-tertiary',
 };
@@ -58,7 +58,7 @@ export function SendButton({
   } else if (showStopIcon) {
     ariaLabel = 'Stop generating';
     icon = (
-      <Pause className="h-3 w-3 animate-pulse text-text-dark-primary motion-reduce:animate-none" />
+      <Pause className="h-3 w-3 animate-pulse text-surface motion-reduce:animate-none dark:text-surface-dark" />
     );
   } else {
     ariaLabel = 'Send message';

@@ -67,7 +67,7 @@ function InputLayout() {
     <form ref={meta.formRef} onSubmit={actions.handleSubmit} className="relative px-4 sm:px-6">
       <div
         {...meta.dragHandlers}
-        className={`relative rounded-2xl border bg-surface-secondary shadow-soft transition-[border-color,box-shadow] duration-300 dark:bg-surface-dark-secondary ${
+        className={`relative rounded-2xl border bg-surface-secondary shadow-sm transition-[border-color,box-shadow] duration-300 dark:bg-surface-dark-secondary ${
           state.isDragging
             ? 'scale-[1.01] border-border-hover dark:border-border-dark-hover'
             : 'border-border dark:border-border-dark'
@@ -105,11 +105,11 @@ function InputLayout() {
           <InputSuggestionsPanel />
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 px-3 py-2 pb-safe">
-          <div className="relative flex items-center justify-between">
+        <div className="absolute bottom-2.5 left-3 right-3 pb-safe">
+          <div className="flex items-center justify-between gap-2">
             <InputControls />
 
-            <div className="absolute bottom-2.5 right-3 flex items-center gap-1">
+            <div className="flex flex-shrink-0 items-center gap-1">
               <AttachButton
                 disabled={state.isDisabled}
                 onAttach={() => {
@@ -147,7 +147,7 @@ function InputLayout() {
         )}
 
       {state.showTip && !state.hasAttachments && (
-        <div className="mt-1 animate-fade-in text-center text-2xs text-text-quaternary dark:text-text-dark-tertiary">
+        <div className="mt-1 animate-fade-in text-center text-2xs text-text-quaternary dark:text-text-dark-quaternary">
           <span className="font-medium">Tip:</span> Drag and drop images, pdfs and xlsx files into
           the input area, type `/` for slash commands, or `@` to mention files and agents
         </div>
