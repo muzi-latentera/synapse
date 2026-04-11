@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GitBranch, Brain, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -6,6 +6,7 @@ import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { Button } from '@/components/ui/primitives/Button';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
 import { ModelSelector } from '@/components/chat/model-selector/ModelSelector';
+import { SlashCommandsPanel } from '@/components/chat/message-input/SlashCommandsPanel';
 import {
   CLAUDE_THINKING_MODES,
   CODEX_THINKING_MODES,
@@ -20,15 +21,13 @@ import type { PermissionMode } from '@/store/chatSettingsStore';
 import { useModelsQuery } from '@/hooks/queries/useModelQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { useCreateSubThreadMutation } from '@/hooks/queries/useChatQueries';
+import { useSlashCommandSuggestions } from '@/hooks/useSlashCommandSuggestions';
+import { useChatContext } from '@/hooks/useChatContext';
 import { useModelStore } from '@/store/modelStore';
 import { useChatSettingsStore, DEFAULT_PERSONA } from '@/store/chatSettingsStore';
 import { useAuthStore } from '@/store/authStore';
 import type { Chat } from '@/types/chat.types';
-
-// Intentional: the primary use case for sub-threads is code review against
-// the current branch. The user can edit this before creating the sub-thread.
-const DEFAULT_MESSAGE =
-  'Review all changes in the current branch — including staged, unstaged, and all commits on this branch. Provide detailed feedback.';
+import type { SlashCommand } from '@/types/ui.types';
 
 interface CreateSubThreadDialogProps {
   parentChat: Chat;
@@ -44,9 +43,11 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
 
   const [selectedModelId, setSelectedModelId] = useState('');
   const [personaName, setPersonaName] = useState(DEFAULT_PERSONA);
-  const [message, setMessage] = useState(DEFAULT_MESSAGE);
+  const [message, setMessage] = useState('');
   const [thinkingMode, setThinkingMode] = useState<ThinkingModeOption>(CLAUDE_THINKING_MODES[1]);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('acceptEdits');
+
+  const { customSkills, builtinSlashCommands } = useChatContext();
 
   const selectedModel = models.find((m) => m.model_id === selectedModelId);
   const agentKind = selectedModel?.agent_kind ?? 'claude';
@@ -54,6 +55,34 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
   const thinkingModes = agentKind === 'codex' ? CODEX_THINKING_MODES : CLAUDE_THINKING_MODES;
   const effectivePermissionMode = coercePermissionModeForAgent(permissionMode, agentKind);
   const selectedPermissionOption = getPermissionModeOption(permissionMode, agentKind);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSlashCommandSelect = useCallback((command: SlashCommand) => {
+    const newMessage = `${command.value} `;
+    setMessage(newMessage);
+    setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(newMessage.length, newMessage.length);
+      }
+    }, 0);
+  }, []);
+
+  const {
+    filteredCommands,
+    highlightedIndex,
+    hasSuggestions,
+    selectCommand,
+    handleKeyDown: handleSlashKeyDown,
+  } = useSlashCommandSuggestions({
+    message,
+    onSelect: handleSlashCommandSelect,
+    customSkills,
+    builtinSlashCommands,
+    agentKind,
+  });
 
   useEffect(() => {
     if (!selectedModelId && models.length > 0) {
@@ -177,12 +206,24 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
             <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
               Initial message
             </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={3}
-              className="w-full resize-none rounded-lg border border-border/50 bg-surface-secondary px-3 py-2 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
-            />
+            <div className="relative">
+              {hasSuggestions && (
+                <SlashCommandsPanel
+                  suggestions={filteredCommands}
+                  highlightedIndex={highlightedIndex}
+                  onSelect={selectCommand}
+                />
+              )}
+              <textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleSlashKeyDown}
+                placeholder="Message Agentrove... (/ for commands)"
+                rows={3}
+                className="w-full resize-none rounded-lg border border-border/50 bg-surface-secondary px-3 py-2 text-xs text-text-primary outline-none transition-colors duration-200 placeholder:text-text-quaternary focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary dark:focus:border-border-dark-hover"
+              />
+            </div>
           </div>
         </div>
       </div>
