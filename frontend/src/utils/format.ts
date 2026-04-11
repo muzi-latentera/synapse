@@ -17,6 +17,18 @@ export function formatNumberCompact(num: number): string {
   return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
 }
 
+// Strips paired markdown delimiters while preserving content between them —
+// uses matched pairs so isolated chars (e.g. underscores in `my_var`) aren't mangled
+export function stripMarkdownTitle(title: string): string {
+  return title
+    .replace(/\*{1,2}(.+?)\*{1,2}/g, '$1')
+    .replace(/_{1,2}(.+?)_{1,2}/g, '$1')
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/~~(.+?)~~/g, '$1')
+    .trim();
+}
+
 export const extractDomain = (url: string): string => {
   try {
     return new URL(url).hostname.replace('www.', '');

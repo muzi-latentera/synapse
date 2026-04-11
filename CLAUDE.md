@@ -81,6 +81,7 @@
 - Do not introduce a new frontend type/interface when an existing one has the same shape — reuse the existing type directly, even across module boundaries
 - When defining an abstract method signature during a refactor, verify every parameter receives a meaningful value from all call sites — do not carry forward parameters from the old design that become dead in the new interface (e.g., always hardcoded to `None`)
 - Do not create inline dict literals for identity mappings (where every key maps to itself) — use a `set`/`frozenset` membership check instead, hoisted to a module-level constant
+- In JSX conditionals with numeric values, use explicit checks (`value != null && value > 0`) instead of truthy checks (`value && ...`) — numeric `0` is falsy but renders as text in React
 
 ## Naming Conventions
 
@@ -137,6 +138,9 @@
 - `LayoutContext` (`components/layout/layoutState.tsx`) — sidebar state
 - `FileTreeProvider` (`components/editor/file-tree/FileTreeProvider.tsx`) — file tree selection and expansion state
 
+### Responsive Awareness
+- Before removing a UI element, check if it serves a responsive or functional role beyond its visual purpose — icons often double as compact-mode fallbacks (`compactOnMobile`), and labels may be the only visible element at certain breakpoints
+
 ### File Placement
 - When extracting non-component code (contexts, utils, hooks) from a component file, place it in the project's canonical folder for that type (`contexts/`, `utils/`, `hooks/`) — do not leave it next to the component it was extracted from
 - The `components/chat/tools/` directory is exclusively for tool components (one per tool type) — helper modals, dialogs, and detail views triggered by tools belong in `components/chat/` or a relevant feature folder, not in `tools/`
@@ -181,6 +185,7 @@
 - Prefer single-pass iteration (`.reduce()`) over chained `.filter().map()` in render paths
 - When reordering a function call to run earlier in a per-event hot path (e.g., stream envelope processing), gate the call with the cheapest possible condition check at the call site — avoid paying function-call overhead for the 99% of events that will just early-return
 - Keep `useEffect` for external system subscriptions and DOM side effects — keyboard shortcuts, resize observers, WebSocket lifecycle, scroll-into-view, and focus management require post-render timing and cleanup; do not convert these to ref-based render checks
+- When unifying components with variant-specific features, gate Zustand selectors to return a stable value for variants that don't use the subscribed state — e.g., `useStore((s) => needsFeature ? s.value : false)` — to avoid unnecessary re-renders
 
 ### Async Patterns
 - Use `Promise.all()` for independent async operations (e.g., multiple `queryClient.invalidateQueries()` calls)
@@ -193,6 +198,7 @@
 - Fully monochrome aesthetic — no brand/blue accent colors in structural UI
 - Clean, minimal, and refined — prefer subtlety over visual weight
 - Every element should feel quiet and intentional
+- When multiple visual approaches are viable for a UI element (connector styles, layout patterns, color choices), present visual mockups to the user for selection before writing implementation code — avoids repeated code iterations
 
 ### Color Palette
 - Always refer to `frontend/tailwind.config.js` for defined colors
@@ -211,6 +217,7 @@
 - Do not use semantic colors (`error-*`, `warning-*`, `success-*`) for interactive button backgrounds — use monochrome surface tokens; semantic colors are for status badges and text indicators only
 - Every `dark:text-*` / `dark:bg-*` class must have a corresponding light-mode class — never rely on browser defaults or inherited color for one mode while explicitly setting the other
 - Use opacity modifiers sparingly for glassmorphism (`/50`, `/30` are common) — white/black only as opacity overlays (`bg-white/5`, `bg-black/50`), never solid
+- Do not use opacity below /30 for structural lines (connectors, tree branches, dividers) — at /20 or lower, lines become invisible against surface backgrounds; use /50 minimum or full opacity for elements that must be clearly visible
 
 ### Typography
 - `text-xs` is the default for most UI, `text-sm` for primary inputs, `text-2xs` for meta-data and section headers, `text-lg` for dialog titles only — avoid `text-base` and larger in dense UI
@@ -233,6 +240,7 @@
 - Icon color is `text-text-tertiary` / `dark:text-text-dark-tertiary` by default, `text-text-primary` on hover/active
 - Toolbar dropdown selectors (model, thinking, permission): text-only labels with chevrons, no left icons
 - Loading spinners: `text-text-quaternary` / `dark:text-text-dark-quaternary` — never brand colors
+- Do not generate SVG path data from memory — fetch official brand icon SVGs from authoritative sources (e.g., Simple Icons, brand asset pages) and use the exact path data
 
 ### Panel Headers
 - Standardized `h-9` height with `px-3` padding
@@ -253,6 +261,7 @@
 
 - Do not use absolute positioning for layout of sibling elements within a container — use flexbox (`flex`, `justify-between`, `gap-*`); reserve `absolute` for overlays, tooltips, dropdowns, and decorative elements only
 - When action buttons have variable-length or long text labels, stack them vertically (`flex-col`) at full width instead of placing them in a horizontal row — horizontal layouts break awkwardly when text wraps or buttons have uneven widths
+- When nesting child items under parent items in lists (e.g., sub-threads), always maintain visible indentation — do not align child text flush with parent text; use connector lines or visual indicators for nesting cues, but indentation is the primary hierarchy signal
 
 ## Code Review Guidelines
 
