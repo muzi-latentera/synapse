@@ -70,9 +70,8 @@ export const TodoWrite: React.FC<TodoWriteProps> = ({ tool }) => {
       }}
       loadingContent="Updating todo list..."
       error={errorMessage}
-      expandable={todoCount > 0 && toolStatus === 'completed'}
     >
-      {todoCount > 0 && toolStatus === 'completed' && (
+      {todoCount > 0 && (
         <div>
           <div className="mb-2 flex gap-3 text-2xs">{summaryMeta}</div>
           <div className="space-y-1">

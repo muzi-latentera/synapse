@@ -18,8 +18,6 @@ const BashToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const description = input?.description;
 
   const output = formatResult(tool.result);
-  const hasExpandableContent =
-    command.length > 50 || (output.length > 0 && tool.status === 'completed');
 
   return (
     <ToolCard
@@ -41,11 +39,10 @@ const BashToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Running command..."
       error={tool.error}
-      expandable={hasExpandableContent}
     >
-      {hasExpandableContent && (
+      {(command || output) && (
         <div className="space-y-1">
-          {command.length > 50 && (
+          {command && (
             <pre className="whitespace-pre-wrap break-all font-mono text-2xs leading-relaxed text-text-secondary dark:text-text-dark-tertiary">
               <span className="select-none text-text-quaternary dark:text-text-dark-quaternary">
                 ${' '}
@@ -53,9 +50,7 @@ const BashToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
               {command}
             </pre>
           )}
-          {output.length > 0 && tool.status === 'completed' && (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>{output}</pre>
-          )}
+          {output.length > 0 && <pre className={TOOL_OUTPUT_PRE_CLASS}>{output}</pre>}
         </div>
       )}
     </ToolCard>

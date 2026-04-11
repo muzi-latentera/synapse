@@ -22,7 +22,6 @@ const OutputToolInner: React.FC<{
   const idSuffix = id ? `: ${truncatedId}` : '';
 
   const output = formatResult(tool.result);
-  const hasOutput = output.length > 0 && tool.status === 'completed';
 
   return (
     <ToolCard
@@ -42,9 +41,8 @@ const OutputToolInner: React.FC<{
       }}
       loadingContent={`Waiting for ${label} output\u2026`}
       error={tool.error}
-      expandable={hasOutput}
     >
-      {hasOutput && (
+      {output && (
         <div className="max-h-48 overflow-auto rounded bg-black/5 px-2 py-1.5 font-mono text-xs text-text-secondary dark:bg-white/5 dark:text-text-dark-secondary">
           <pre className="whitespace-pre-wrap break-all">{output}</pre>
         </div>

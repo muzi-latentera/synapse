@@ -37,7 +37,6 @@ const DeleteToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Deleting file..."
       error={tool.error}
-      expandable={Boolean(filePath)}
     >
       {filePath && (
         <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
@@ -72,7 +71,6 @@ const MoveToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Moving file..."
       error={tool.error}
-      expandable={Boolean(source || destination)}
       actions={destination ? <OpenInEditorButton filePath={destination} /> : null}
     >
       {(source || destination) && (

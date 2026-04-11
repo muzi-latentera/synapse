@@ -183,8 +183,8 @@ const FileOperationToolInner: React.FC<FileOperationToolProps> = ({ tool, varian
     );
   };
 
-  const hasExpandableContent =
-    (variant === 'read' && tool.result && tool.status === 'completed') ||
+  const hasContent =
+    (variant === 'read' && tool.result) ||
     (variant === 'edit' &&
       (typeof tool.input?.old_string === 'string' || typeof tool.input?.new_string === 'string')) ||
     (variant === 'write' && typeof tool.input?.content === 'string' && tool.input.content);
@@ -205,10 +205,9 @@ const FileOperationToolInner: React.FC<FileOperationToolProps> = ({ tool, varian
       }}
       loadingContent={config.loadingContent}
       error={tool.error}
-      expandable={Boolean(hasExpandableContent)}
       actions={filePath ? <OpenInEditorButton filePath={filePath} /> : null}
     >
-      {renderContent()}
+      {hasContent ? renderContent() : null}
     </ToolCard>
   );
 };

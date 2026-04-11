@@ -36,9 +36,6 @@ export const AgentTool: React.FC<AgentToolProps> = ({ tool }) => {
   const subagentType = tool.input?.subagent_type as string | undefined;
 
   const result = extractResultText(tool.result);
-
-  const hasDetails = Boolean(prompt) || Boolean(result) || tool.children.length > 0;
-
   // Scoped context for nested Agent tools so they see their own siblings
   const childAgentTools = useMemo(
     () => tool.children.filter((c) => c.name === 'Agent'),
@@ -85,10 +82,9 @@ export const AgentTool: React.FC<AgentToolProps> = ({ tool }) => {
             </p>
           ) : undefined
         }
-        expandable={hasDetails}
         actions={expandAction}
       >
-        {hasDetails && (
+        {(prompt || result || tool.children.length > 0) && (
           <div className="space-y-2">
             {prompt && (
               <div className="space-y-2">

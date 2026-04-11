@@ -36,8 +36,6 @@ const LSPToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const opLabel = operation ?? 'query';
 
   const result = formatResult(tool.result);
-  const hasExpandableContent =
-    filePath.length > 0 || (result.length > 0 && tool.status === 'completed');
 
   return (
     <ToolCard
@@ -55,9 +53,8 @@ const LSPToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent={`Running ${opLabel}...`}
       error={tool.error}
-      expandable={hasExpandableContent}
     >
-      {hasExpandableContent && (
+      {(filePath || result) && (
         <div className="space-y-1.5">
           {filePath && (
             <div className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-quaternary">
@@ -65,9 +62,7 @@ const LSPToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
               {location}
             </div>
           )}
-          {result.length > 0 && tool.status === 'completed' && (
-            <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>
-          )}
+          {result && <pre className={TOOL_OUTPUT_PRE_CLASS}>{result}</pre>}
         </div>
       )}
     </ToolCard>

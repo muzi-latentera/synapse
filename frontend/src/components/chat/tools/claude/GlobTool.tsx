@@ -20,7 +20,6 @@ const GlobToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
   const path = input?.path;
 
   const files = parseResult(tool.result);
-  const hasFiles = files.length > 0 && tool.status === 'completed';
   const locationSuffix = path ? ` in ${path}` : '';
 
   return (
@@ -41,9 +40,8 @@ const GlobToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
       }}
       loadingContent="Searching for files..."
       error={tool.error}
-      expandable={hasFiles}
     >
-      {hasFiles && (
+      {files.length > 0 && (
         <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed text-text-tertiary dark:text-text-dark-quaternary">
           {files.map((file) => (
             <div key={file} className="truncate">
