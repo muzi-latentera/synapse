@@ -36,6 +36,7 @@ export function TrafficLights() {
     >
       <Button
         type="button"
+        variant="unstyled"
         onClick={handleClose}
         className="group flex h-3 w-3 items-center justify-center rounded-full bg-[#ff5f57] transition-opacity hover:opacity-90"
         aria-label="Close window"
@@ -53,6 +54,7 @@ export function TrafficLights() {
       </Button>
       <Button
         type="button"
+        variant="unstyled"
         onClick={handleMinimize}
         className="group flex h-3 w-3 items-center justify-center rounded-full bg-[#febc2e] transition-opacity hover:opacity-90"
         aria-label="Minimize window"
@@ -65,6 +67,7 @@ export function TrafficLights() {
       </Button>
       <Button
         type="button"
+        variant="unstyled"
         onClick={handleMaximize}
         className="group flex h-3 w-3 items-center justify-center rounded-full bg-[#28c840] transition-opacity hover:opacity-90"
         aria-label="Maximize window"
