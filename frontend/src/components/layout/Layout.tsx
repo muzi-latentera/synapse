@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { Header, type HeaderProps } from './Header';
 import { TitleBar } from './TitleBar';
+import { Link } from '@/components/ui/primitives/Link';
 import { cn } from '@/utils/cn';
 import { LayoutContext, type LayoutContextValue } from './layoutState';
 import { useUIStore } from '@/store/uiStore';
@@ -61,12 +62,13 @@ export function Layout({
   return (
     <LayoutContext.Provider value={contextValue}>
       <div className={cn('h-viewport flex flex-col', className)}>
-        <a
+        <Link
           href="#main-content"
+          variant="unstyled"
           className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[300] focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:text-text-primary focus:shadow-strong dark:focus:bg-surface-dark dark:focus:text-text-dark-primary"
         >
           Skip to main content
-        </a>
+        </Link>
         <TitleBar />
         {showHeader && <Header isAuthPage={isAuthPage} />}
 

@@ -1,6 +1,7 @@
 import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { Input } from '@/components/ui/primitives/Input';
+import { Link } from '@/components/ui/primitives/Link';
 import { cn } from '@/utils/cn';
 import type { HelperTextLink, HelperTextCode } from '@/types/settings.types';
 
@@ -33,14 +34,15 @@ const renderHelperText = (helperText?: HelperTextLink | HelperTextCode) => {
     return (
       <p className="mt-1.5 break-words text-2xs text-text-quaternary dark:text-text-dark-quaternary">
         {helperText.prefix}{' '}
-        <a
+        <Link
           href={helperText.href}
+          variant="unstyled"
           target="_blank"
           rel="noopener noreferrer"
           className="break-all text-text-primary underline hover:text-text-secondary dark:text-text-dark-primary dark:hover:text-text-dark-secondary"
         >
           {helperText.anchorText}
-        </a>
+        </Link>
       </p>
     );
   }

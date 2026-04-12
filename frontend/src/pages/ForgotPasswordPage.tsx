@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/primitives/Button';
 import { FieldMessage } from '@/components/ui/primitives/FieldMessage';
 import { Input } from '@/components/ui/primitives/Input';
 import { Label } from '@/components/ui/primitives/Label';
+import { Link } from '@/components/ui/primitives/Link';
 import { useForgotPasswordMutation } from '@/hooks/queries/useAuthQueries';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidEmail } from '@/utils/validation';
@@ -101,12 +102,13 @@ export function ForgotPasswordPage() {
               {forgotPasswordMutation.error.message.includes('contact@agentrove.pro') ? (
                 <>
                   Email not found. Please check your email or contact support at{' '}
-                  <a
+                  <Link
                     href="mailto:contact@agentrove.pro"
+                    variant="unstyled"
                     className="underline transition-colors hover:text-error-500 dark:hover:text-error-300"
                   >
                     contact@agentrove.pro
-                  </a>
+                  </Link>
                 </>
               ) : (
                 forgotPasswordMutation.error.message

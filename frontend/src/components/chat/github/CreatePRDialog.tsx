@@ -3,6 +3,10 @@ import { ExternalLink, GitPullRequest, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { Button } from '@/components/ui/primitives/Button';
+import { Input } from '@/components/ui/primitives/Input';
+import { Link } from '@/components/ui/primitives/Link';
+import { Select } from '@/components/ui/primitives/Select';
+import { Textarea } from '@/components/ui/primitives/Textarea';
 import { useChatStore } from '@/store/chatStore';
 import { useChatSessionState } from '@/hooks/useChatSessionContext';
 import { sandboxService } from '@/services/sandboxService';
@@ -127,6 +131,9 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
   const diffError = diffData?.error;
   const hasModel = !!selectedModelId.trim();
   const canGenerate = hasDiff && hasModel && !generateDescription.isPending;
+  const titleInputId = 'create-pr-title';
+  const bodyTextareaId = 'create-pr-description';
+  const baseBranchSelectId = 'create-pr-base-branch';
 
   const handleGenerateDescription = async () => {
     if (!diffData?.diff) return;
@@ -185,9 +192,15 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
       toast.success(
         <span>
           Created PR #{result.number}:{' '}
-          <a href={result.html_url} target="_blank" rel="noopener noreferrer" className="underline">
+          <Link
+            href={result.html_url}
+            variant="unstyled"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
             View on GitHub
-          </a>
+          </Link>
         </span>,
         { duration: 6000 },
       );
@@ -259,21 +272,28 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
               </div>
             )}
             <div>
-              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
+              <label
+                htmlFor={titleInputId}
+                className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary"
+              >
                 Title
               </label>
-              <input
+              <Input
+                id={titleInputId}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="PR title"
-                className="w-full rounded-lg border border-border/50 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
+                className="bg-surface-secondary px-3 py-1.5 text-xs dark:bg-surface-dark-secondary"
                 autoFocus
               />
             </div>
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
+                <label
+                  htmlFor={bodyTextareaId}
+                  className="text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary"
+                >
                   Description
                 </label>
                 <Button
@@ -300,33 +320,38 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
                   {generateDescription.isPending ? 'Generating...' : 'Generate with AI'}
                 </Button>
               </div>
-              <textarea
+              <Textarea
+                id={bodyTextareaId}
                 value={body}
                 onChange={(e) => {
                   bodyEditedRef.current = true;
                   setBody(e.target.value);
                 }}
                 rows={5}
-                className="w-full resize-none rounded-lg border border-border/50 bg-surface-secondary px-3 py-2 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
+                className="resize-none bg-surface-secondary px-3 py-2 text-xs dark:bg-surface-dark-secondary"
               />
             </div>
 
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
+                <label
+                  htmlFor={baseBranchSelectId}
+                  className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary"
+                >
                   Base branch
                 </label>
-                <select
+                <Select
+                  id={baseBranchSelectId}
                   value={baseBranch}
                   onChange={(e) => setBaseBranch(e.target.value)}
-                  className="w-full rounded-lg border border-border/50 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
+                  className="bg-surface-secondary px-3 py-1.5 text-xs dark:bg-surface-dark-secondary"
                 >
                   {sortedBranches.map((b) => (
                     <option key={b} value={b}>
                       {b}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               <div className="flex-1">

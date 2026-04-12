@@ -3,6 +3,7 @@ import { GitCommitHorizontal, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { Button } from '@/components/ui/primitives/Button';
+import { Textarea } from '@/components/ui/primitives/Textarea';
 import { useChatStore } from '@/store/chatStore';
 import { useChatSessionState } from '@/hooks/useChatSessionContext';
 import { useGitCommitMutation, useGitDiffQuery } from '@/hooks/queries/useSandboxQueries';
@@ -119,11 +120,12 @@ export function CreateCommitDialog({ onClose }: CreateCommitDialogProps) {
               {generateMessage.isPending ? 'Generating...' : 'Generate with AI'}
             </Button>
           </div>
-          <textarea
+          <Textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Describe your changes..."
             rows={5}
+            variant="unstyled"
             className="w-full resize-none rounded-lg border border-border/50 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {

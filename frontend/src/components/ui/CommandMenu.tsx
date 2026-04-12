@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/primitives/Button';
+import { Input } from '@/components/ui/primitives/Input';
 import { createPortal } from 'react-dom';
 import {
   MessagesSquare,
@@ -453,8 +454,9 @@ export function CommandMenu() {
             </Button>
           )}
           <Search className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-          <input
+          <Input
             ref={inputRef}
+            variant="unstyled"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);

@@ -18,7 +18,18 @@ export function Input({
   ...props
 }: InputProps) {
   if (variant === 'unstyled') {
-    return <input ref={ref} type={type} className={className} disabled={disabled} {...props} />;
+    return (
+      <input
+        ref={ref}
+        type={type}
+        className={cn(
+          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-text-quaternary/30 disabled:cursor-not-allowed disabled:opacity-50',
+          className,
+        )}
+        disabled={disabled}
+        {...props}
+      />
+    );
   }
 
   return (

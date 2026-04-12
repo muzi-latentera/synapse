@@ -14,6 +14,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
+import { Input } from '@/components/ui/primitives/Input';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { ModalHeader } from '@/components/ui/shared/ModalHeader';
 import {
@@ -196,7 +197,8 @@ function WorkspaceItem({
                 <>
                   {branches.length >= 6 && (
                     <div className="border-b border-border/50 px-2 py-1 dark:border-border-dark/50">
-                      <input
+                      <Input
+                        variant="unstyled"
                         type="text"
                         value={branchSearch}
                         onChange={(e) => setBranchSearch(e.target.value)}
@@ -513,7 +515,8 @@ export function WorkspaceSelector({
             <div className="px-4 pt-3">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-quaternary dark:text-text-dark-quaternary" />
-                <input
+                <Input
+                  variant="unstyled"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search workspaces…"
@@ -562,7 +565,8 @@ export function WorkspaceSelector({
                   <Box className="h-3.5 w-3.5 text-text-quaternary dark:text-text-dark-quaternary" />
                   Empty workspace
                 </div>
-                <input
+                <Input
+                  variant="unstyled"
                   value={emptyName}
                   onChange={(e) => setEmptyName(e.target.value)}
                   onKeyDown={(e) => {
@@ -622,7 +626,8 @@ export function WorkspaceSelector({
                   <>
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-quaternary dark:text-text-dark-quaternary" />
-                      <input
+                      <Input
+                        variant="unstyled"
                         value={repoSearchQuery}
                         onChange={(e) => setRepoSearchQuery(e.target.value)}
                         placeholder="Search repositories…"
@@ -660,7 +665,8 @@ export function WorkspaceSelector({
                   </>
                 ) : (
                   <>
-                    <input
+                    <Input
+                      variant="unstyled"
                       value={gitUrl}
                       onChange={(e) => setGitUrl(e.target.value)}
                       onKeyDown={(e) => {

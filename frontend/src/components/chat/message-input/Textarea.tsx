@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { Textarea as PrimitiveTextarea } from '@/components/ui/primitives/Textarea';
 
 const THIN_SCROLLBAR_STYLE: CSSProperties = { scrollbarWidth: 'thin' };
 
@@ -112,8 +113,9 @@ export function Textarea({
   );
 
   return (
-    <textarea
+    <PrimitiveTextarea
       ref={textareaRef}
+      variant="unstyled"
       value={message}
       onChange={handleChange}
       onKeyDown={onKeyDown}
