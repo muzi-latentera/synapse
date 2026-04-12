@@ -34,13 +34,14 @@ export const SubThreadList = memo(function SubThreadList({
     return (
       <div className="relative ml-[11px] mt-0.5 pl-[22px]">
         <div className="absolute bottom-2 left-0 top-0 w-px bg-border-secondary dark:bg-border-dark-secondary" />
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={() => refetch()}
           className="text-2xs text-text-quaternary transition-colors duration-200 hover:text-text-tertiary dark:text-text-dark-quaternary dark:hover:text-text-dark-tertiary"
         >
           Failed to load · Retry
-        </button>
+        </Button>
       </div>
     );
   }
@@ -74,7 +75,8 @@ export const SubThreadList = memo(function SubThreadList({
               <div className="absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
             )}
 
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               onClick={() => onSelect(thread.id)}
               title={thread.title}
@@ -91,7 +93,7 @@ export const SubThreadList = memo(function SubThreadList({
               <span className={cn('truncate text-xs', isSelected && 'font-medium')}>
                 {stripMarkdownTitle(thread.title)}
               </span>
-            </button>
+            </Button>
 
             <span
               className={cn(

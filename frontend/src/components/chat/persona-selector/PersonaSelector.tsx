@@ -20,12 +20,16 @@ export interface PersonaSelectorProps {
   chatId?: string;
   dropdownPosition?: 'top' | 'bottom';
   disabled?: boolean;
+  variant?: 'default' | 'text';
+  dropdownAlign?: 'left' | 'right';
 }
 
 export const PersonaSelector = memo(function PersonaSelector({
   chatId,
   dropdownPosition = 'bottom',
+  dropdownAlign,
   disabled = false,
+  variant = 'default',
 }: PersonaSelectorProps) {
   const { personas } = useChatContext();
   const key = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
@@ -56,6 +60,8 @@ export const PersonaSelector = memo(function PersonaSelector({
       disabled={disabled}
       compactOnMobile
       forceCompact={isSplitMode}
+      triggerVariant={variant}
+      dropdownAlign={dropdownAlign}
     />
   );
 });

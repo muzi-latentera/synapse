@@ -82,6 +82,8 @@ export interface PermissionModeSelectorProps {
   agentKind?: AgentKind;
   dropdownPosition?: 'top' | 'bottom';
   disabled?: boolean;
+  variant?: 'default' | 'text';
+  dropdownAlign?: 'left' | 'right';
 }
 
 function renderPermissionItem(mode: PermissionModeOption, isSelected: boolean) {
@@ -103,7 +105,9 @@ export const PermissionModeSelector = memo(function PermissionModeSelector({
   chatId,
   agentKind,
   dropdownPosition = 'bottom',
+  dropdownAlign,
   disabled = false,
+  variant = 'default',
 }: PermissionModeSelectorProps) {
   const resolvedAgentKind = agentKind ?? 'claude';
   const showPlanMode = resolvedAgentKind === 'codex';
@@ -139,6 +143,8 @@ export const PermissionModeSelector = memo(function PermissionModeSelector({
       disabled={disabled}
       compactOnMobile
       forceCompact={isSplitMode}
+      triggerVariant={variant}
+      dropdownAlign={dropdownAlign}
       renderItem={renderPermissionItem}
       renderFooter={
         showPlanMode

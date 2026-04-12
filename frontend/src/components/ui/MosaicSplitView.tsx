@@ -1,4 +1,5 @@
 import { useCallback, useMemo, ReactNode } from 'react';
+import { Button } from '@/components/ui/primitives/Button';
 import { Mosaic, MosaicWindow } from 'react-mosaic-component';
 import { X, SplitSquareHorizontal } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
@@ -45,7 +46,8 @@ export function MosaicSplitView({ mosaicLayout, renderView }: MosaicSplitViewPro
             toolbarControls={
               <div className="flex items-center gap-0.5 pr-0.5">
                 {leaves.length > 1 && (
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={() => useUIStore.getState().removeTileFromMosaic(id as ViewType)}
                     className={cn(
                       'flex items-center justify-center',
@@ -58,7 +60,7 @@ export function MosaicSplitView({ mosaicLayout, renderView }: MosaicSplitViewPro
                     title="Close tile"
                   >
                     <X className="h-3 w-3" />
-                  </button>
+                  </Button>
                 )}
               </div>
             }

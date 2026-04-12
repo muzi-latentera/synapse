@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, lazy, Suspense } from 'react';
+import { Button } from '@/components/ui/primitives/Button';
 import { Bot, Maximize2 } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
 import { ToolCard } from '../common/ToolCard';
@@ -43,17 +44,18 @@ export const AgentTool: React.FC<AgentToolProps> = ({ tool }) => {
   );
 
   const expandAction = (
-    <button
+    <Button
+      variant="unstyled"
       type="button"
       onClick={(e) => {
         e.stopPropagation();
         setModalOpen(true);
       }}
-      className="rounded-sm opacity-0 transition-opacity duration-150 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-text-quaternary/30 group-hover/tool:opacity-100"
+      className="rounded-sm opacity-0 transition-opacity duration-150 focus-visible:opacity-100 group-hover/tool:opacity-100"
       title="Expand agent view"
     >
       <Maximize2 className="h-3 w-3 text-text-tertiary hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary" />
-    </button>
+    </Button>
   );
 
   return (

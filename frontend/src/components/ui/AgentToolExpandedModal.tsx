@@ -1,4 +1,5 @@
 import { useMemo, useState, Suspense } from 'react';
+import { Button } from '@/components/ui/primitives/Button';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { ModalHeader } from '@/components/ui/shared/ModalHeader';
 import { Spinner } from '@/components/ui/primitives/Spinner';
@@ -50,11 +51,12 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
               const desc = agent.input?.description as string | undefined;
               const isSelected = agent.id === selectedAgent.id;
               return (
-                <button
+                <Button
+                  variant="unstyled"
                   key={agent.id}
                   type="button"
                   onClick={() => setSelectedId(agent.id)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-text-quaternary/30 ${
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors duration-200 ${
                     isSelected
                       ? 'bg-surface-active dark:bg-surface-dark-active'
                       : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover'
@@ -77,7 +79,7 @@ function AgentToolExpandedModal({ agents, initialAgentId, onClose }: AgentToolEx
                       </div>
                     )}
                   </div>
-                </button>
+                </Button>
               );
             })}
           </div>

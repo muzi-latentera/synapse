@@ -112,6 +112,9 @@
 ### React Version
 - Project uses React 19 — use `use()` instead of `useContext()`, pass `ref` as a regular prop instead of `forwardRef`
 
+### UI Primitives
+- Never use raw HTML interactive elements (`<button>`, `<input>`, `<select>`, `<a>`) when a corresponding UI primitive exists in `components/ui/primitives/` — use `Button`, `Input`, etc. instead; for fully custom styling, use `variant="unstyled"` which still provides consistent focus-visible and disabled styles automatically; do not duplicate those built-in styles in `className`
+
 ### Composition Patterns
 - Avoid boolean prop proliferation — don't add `isX`, `showX`, `hideX` boolean props to customize component behavior; use composition instead
 - When a component exceeds ~10 props or has 3+ boolean flags, refactor to a context provider + compound components

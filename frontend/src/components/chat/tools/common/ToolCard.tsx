@@ -1,4 +1,5 @@
 import React, { JSX, memo, useState } from 'react';
+import { Button } from '@/components/ui/primitives/Button';
 import { Check, ChevronRight, Circle, X } from 'lucide-react';
 import type { ToolEventStatus } from '@/types/tools.types';
 import { TOOL_ERROR_PRE_CLASS } from '@/utils/toolStyles';
@@ -106,14 +107,15 @@ const ToolCardInner: React.FC<ToolCardProps> = ({
     <div className={`group/tool ${className}`}>
       <div className="flex items-center gap-1">
         {hasExpandableContent ? (
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
             className="-ml-1 rounded-md px-1 py-0.5 text-left transition-colors duration-150 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
             aria-expanded={expanded}
           >
             {header}
-          </button>
+          </Button>
         ) : (
           <div className="-ml-1 px-1 py-0.5">{header}</div>
         )}

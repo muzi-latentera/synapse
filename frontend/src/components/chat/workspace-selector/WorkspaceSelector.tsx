@@ -53,16 +53,22 @@ function ProviderToggle({
       <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
         Provider:
       </span>
-      <button type="button" onClick={() => onChange('host')} className={btnCls(value === 'host')}>
+      <Button
+        variant="unstyled"
+        type="button"
+        onClick={() => onChange('host')}
+        className={btnCls(value === 'host')}
+      >
         Host
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="unstyled"
         type="button"
         onClick={() => onChange('docker')}
         className={btnCls(value === 'docker')}
       >
         Docker
-      </button>
+      </Button>
     </div>
   );
 }
@@ -110,7 +116,8 @@ function WorkspaceItem({
 
   return (
     <div>
-      <button
+      <Button
+        variant="unstyled"
         type="button"
         onClick={() => {
           setBranchesExpanded(false);
@@ -149,10 +156,11 @@ function WorkspaceItem({
             )}
           </div>
         </div>
-      </button>
+      </Button>
       {showBranchSelector && (
         <div className="ml-6 mt-0.5">
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={(e) => {
               e.stopPropagation();
@@ -170,7 +178,7 @@ function WorkspaceItem({
             <span className="truncate font-mono text-2xs text-text-secondary dark:text-text-dark-secondary">
               {branchesData?.current_branch || '…'}
             </span>
-          </button>
+          </Button>
           {branchesExpanded && (
             <div className="mt-0.5 overflow-hidden rounded-md border border-border/50 dark:border-border-dark/50">
               {branchesLoading ? (
@@ -208,7 +216,8 @@ function WorkspaceItem({
                         {filteredBranches.map((branch) => {
                           const isCurrent = branch === branchesData.current_branch;
                           return (
-                            <button
+                            <Button
+                              variant="unstyled"
                               key={branch}
                               type="button"
                               disabled={checkoutBranch.isPending}
@@ -248,7 +257,7 @@ function WorkspaceItem({
                                 <span className="h-3 w-3 shrink-0" />
                               )}
                               <span className="truncate font-mono">{branch}</span>
-                            </button>
+                            </Button>
                           );
                         })}
                       </div>
@@ -274,7 +283,8 @@ const GitHubRepoItem = memo(function GitHubRepoItem({
   isCloning: boolean;
 }) {
   return (
-    <button
+    <Button
+      variant="unstyled"
       type="button"
       disabled={isCloning}
       onClick={() => onSelect(repo.clone_url, repo.name)}
@@ -308,7 +318,7 @@ const GitHubRepoItem = memo(function GitHubRepoItem({
           )}
         </div>
       </div>
-    </button>
+    </Button>
   );
 });
 
@@ -477,10 +487,11 @@ export function WorkspaceSelector({
   return (
     <>
       <div className="relative">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-2xs text-text-tertiary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30 dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
+          className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-2xs text-text-tertiary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-tertiary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
         >
           <FolderOpen className="h-3 w-3 shrink-0 text-text-quaternary dark:text-text-dark-quaternary" />
           <span className="max-w-[16rem] truncate">{label}</span>
@@ -491,7 +502,7 @@ export function WorkspaceSelector({
           >
             <path d="M4.427 6.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 6H4.604a.25.25 0 00-.177.427z" />
           </svg>
-        </button>
+        </Button>
       </div>
 
       <BaseModal isOpen={isModalOpen} onClose={closeModal} size="md" ariaLabel="Select workspace">
@@ -536,14 +547,15 @@ export function WorkspaceSelector({
 
           <div className="border-t border-border/50 px-4 py-3 dark:border-border-dark/50">
             {creationMode === 'none' ? (
-              <button
+              <Button
+                variant="unstyled"
                 type="button"
                 onClick={() => setCreationMode('menu')}
                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-text-secondary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
               >
                 <Plus className="h-3.5 w-3.5 text-text-quaternary dark:text-text-dark-quaternary" />
                 New workspace
-              </button>
+              </Button>
             ) : creationMode === 'empty' ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-xs text-text-secondary dark:text-text-dark-secondary">
@@ -591,7 +603,8 @@ export function WorkspaceSelector({
                     Clone Git repo
                   </div>
                   {hasGitHubToken && (
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() => {
                         setShowUrlInput(!showUrlInput);
@@ -601,7 +614,7 @@ export function WorkspaceSelector({
                       className="text-2xs text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
                     >
                       {showUrlInput ? 'Browse repos' : 'Paste URL'}
-                    </button>
+                    </Button>
                   )}
                 </div>
 
@@ -698,16 +711,18 @@ export function WorkspaceSelector({
                 <div className="px-2.5 py-1.5">
                   <ProviderToggle value={sandboxProvider} onChange={setSandboxProvider} />
                 </div>
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => setCreationMode('empty')}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-text-secondary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
                 >
                   <Box className="h-3.5 w-3.5 text-text-quaternary dark:text-text-dark-quaternary" />
                   Empty workspace
-                </button>
+                </Button>
                 {isDesktop && (
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => void handleChooseLocal()}
                     disabled={createWorkspace.isPending}
@@ -715,16 +730,17 @@ export function WorkspaceSelector({
                   >
                     <HardDrive className="h-3.5 w-3.5 text-text-quaternary dark:text-text-dark-quaternary" />
                     Local folder
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => setCreationMode('git')}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-text-secondary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
                 >
                   <GitBranch className="h-3.5 w-3.5 text-text-quaternary dark:text-text-dark-quaternary" />
                   Clone Git repo
-                </button>
+                </Button>
               </div>
             )}
           </div>

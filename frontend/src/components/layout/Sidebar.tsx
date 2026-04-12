@@ -173,7 +173,8 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
   return (
     <div>
       <div className="group flex items-center gap-1 pb-2 pt-3.5">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={() => onToggleCollapse(workspace.id)}
           className="min-w-0 flex-1 text-left"
@@ -181,23 +182,25 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
           <span className="text-2xs font-medium uppercase tracking-wider text-text-quaternary transition-colors duration-200 group-hover:text-text-tertiary dark:text-text-dark-quaternary dark:group-hover:text-text-dark-tertiary">
             {workspace.name}
           </span>
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="button"
           title="New thread"
           onClick={(e) => onNewThread(e, workspace.id)}
           className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
         >
           <SquarePen className="h-3 w-3" />
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="button"
           data-ws-dropdown-trigger
           onClick={(e) => onWorkspaceContextMenu(e, workspace.id)}
           className="flex shrink-0 items-center justify-center rounded p-0.5 text-text-quaternary opacity-0 transition-all duration-200 hover:text-text-primary group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
         >
           <MoreHorizontal className="h-3 w-3" />
-        </button>
+        </Button>
       </div>
       {!isCollapsed && (
         <div>
@@ -236,26 +239,29 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
                 </div>
               ))}
               {hasMoreLocalChats && !isChatsExpanded && (
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => setIsChatsExpanded(true)}
                   className="flex w-full items-center gap-1 py-1.5 text-left text-xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
                 >
                   Show more ({chats.length - CHATS_PER_WORKSPACE})
                   <ChevronDown className="h-3 w-3" />
-                </button>
+                </Button>
               )}
               {(hasMoreLocalChats || showLoadMore) && isChatsExpanded && (
                 <div className="flex items-center gap-2 py-1.5">
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => setIsChatsExpanded(false)}
                     className="text-2xs text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
                   >
                     Show less
-                  </button>
+                  </Button>
                   {showLoadMore && (
-                    <button
+                    <Button
+                      variant="unstyled"
                       type="button"
                       onClick={() => fetchNextPage()}
                       disabled={isFetchingNextPage}
@@ -269,7 +275,7 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
                       ) : (
                         'Load more'
                       )}
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
@@ -759,7 +765,8 @@ export function Sidebar({
             left: workspaceDropdown.position.left,
           }}
         >
-          <button
+          <Button
+            variant="unstyled"
             type="button"
             onClick={() => {
               const ws = workspaces.find((w) => w.id === workspaceDropdown.workspaceId);
@@ -768,14 +775,15 @@ export function Sidebar({
             className="w-full rounded-md px-2.5 py-1.5 text-left text-xs text-text-secondary transition-colors duration-200 hover:bg-surface-hover dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover"
           >
             Rename
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="unstyled"
             type="button"
             onClick={() => handleDeleteWorkspace(workspaceDropdown.workspaceId)}
             className="w-full rounded-md px-2.5 py-1.5 text-left text-xs text-error-500 transition-colors duration-200 hover:bg-surface-hover dark:text-error-400 dark:hover:bg-surface-dark-hover"
           >
             Delete
-          </button>
+          </Button>
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Button } from '@/components/ui/primitives/Button';
 import { createPortal } from 'react-dom';
 import {
   MessagesSquare,
@@ -442,13 +443,14 @@ export function CommandMenu() {
       >
         <div className="flex items-center gap-2 border-b border-border/50 px-3 dark:border-border-dark/50">
           {mode === 'files' && (
-            <button
+            <Button
+              variant="unstyled"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => switchMode('commands')}
               className="shrink-0 rounded-md bg-surface-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary dark:bg-surface-dark-hover dark:text-text-dark-secondary"
             >
               Files
-            </button>
+            </Button>
           )}
           <Search className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
           <input
@@ -490,7 +492,8 @@ export function CommandMenu() {
                   )}
                   onMouseEnter={() => setActiveIndex(index)}
                 >
-                  <button
+                  <Button
+                    variant="unstyled"
                     id={`file-item-${index}`}
                     role="option"
                     aria-selected={index === activeIndex}
@@ -509,7 +512,7 @@ export function CommandMenu() {
                         {file.path}
                       </span>
                     </span>
-                  </button>
+                  </Button>
                 </div>
               ))}
               {filteredFiles.length === 0 && (
@@ -537,7 +540,8 @@ export function CommandMenu() {
                     )}
                     onMouseEnter={() => setActiveIndex(index)}
                   >
-                    <button
+                    <Button
+                      variant="unstyled"
                       id={`command-item-${cmd.id}`}
                       role="option"
                       aria-selected={index === activeIndex}
@@ -560,7 +564,7 @@ export function CommandMenu() {
                       {isActive && (
                         <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
                       )}
-                    </button>
+                    </Button>
                     {!isMobile && cmd.shortcut && (
                       <kbd className="ml-auto shrink-0 font-mono text-2xs text-text-quaternary dark:text-text-dark-quaternary">
                         {formatShortcut(cmd.shortcut)}
@@ -568,22 +572,24 @@ export function CommandMenu() {
                     )}
                     {cmd.type === 'view' && !isMobile && !isActive && (
                       <div className="flex items-center gap-0.5">
-                        <button
+                        <Button
+                          variant="unstyled"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => handleSplit(cmd.id, 'row')}
                           className={splitButtonClass}
                           title="Split right"
                         >
                           <PanelRight className="h-3 w-3" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="unstyled"
                           onMouseDown={(e) => e.preventDefault()}
                           onClick={() => handleSplit(cmd.id, 'column')}
                           className={splitButtonClass}
                           title="Split down"
                         >
                           <PanelBottom className="h-3 w-3" />
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>

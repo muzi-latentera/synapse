@@ -16,6 +16,10 @@ export function EnhanceButton({
     <Button
       type="button"
       onClick={onEnhance}
+      onMouseDown={(event) => {
+        // Preserve the textarea selection so enhance can act on the current prompt without blurring the composer.
+        event.preventDefault();
+      }}
       disabled={disabled || isEnhancing}
       variant="unstyled"
       className={`group rounded-full p-1.5 transition-colors duration-200 ${

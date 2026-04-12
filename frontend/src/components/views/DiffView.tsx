@@ -396,7 +396,8 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
               const isRenamed = file.type === 'rename-pure' || file.type === 'rename-changed';
               return (
                 <div key={i}>
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => toggleFile(i)}
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
@@ -425,7 +426,7 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
                     </span>
                     <FileStatusBadge type={file.type} />
                     <FileStats file={file} />
-                  </button>
+                  </Button>
                   {isExpanded && <FileDiffRenderer file={file} options={options} />}
                 </div>
               );

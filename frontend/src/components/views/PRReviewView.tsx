@@ -8,6 +8,7 @@ import { useUIStore } from '@/store/uiStore';
 import { useGitRemoteUrlQuery } from '@/hooks/queries/useSandboxQueries';
 import { useGitHubPullsQuery, useGitHubPRCommentsQuery } from '@/hooks/queries/useGitHubQueries';
 import { queryKeys } from '@/hooks/queries/queryKeys';
+import { Button } from '@/components/ui/primitives/Button';
 import { cn } from '@/utils/cn';
 import { openExternalUrl } from '@/utils/openExternal';
 
@@ -102,20 +103,22 @@ function PRComments({
             {comment.body}
           </p>
           <div className="mt-1.5 flex gap-1.5">
-            <button
+            <Button
+              variant="unstyled"
               type="button"
               onClick={() => handleFixInThisChat(comment)}
               className="rounded px-2 py-0.5 text-2xs font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
             >
               Fix in this chat
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="unstyled"
               type="button"
               onClick={() => handleFixInNewChat(comment)}
               className="rounded px-2 py-0.5 text-2xs font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-hover hover:text-text-primary dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
             >
               Fix in new chat
-            </button>
+            </Button>
           </div>
         </div>
       ))}
@@ -167,13 +170,14 @@ export const PRReviewView = memo(function PRReviewView() {
             </span>
           )}
         </div>
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           onClick={handleRefresh}
           className="flex h-5 w-5 items-center justify-center rounded text-text-tertiary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-tertiary dark:hover:text-text-dark-primary"
         >
           <RefreshCw className="h-3 w-3" />
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
@@ -214,7 +218,8 @@ export const PRReviewView = memo(function PRReviewView() {
                   key={pr.number}
                   className="rounded-lg border border-border/50 dark:border-border-dark/50"
                 >
-                  <button
+                  <Button
+                    variant="unstyled"
                     type="button"
                     onClick={() => setExpandedPR(isExpanded ? null : pr.number)}
                     className="flex w-full items-center gap-2.5 p-2.5 text-left transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
@@ -262,7 +267,7 @@ export const PRReviewView = memo(function PRReviewView() {
                     >
                       GitHub
                     </span>
-                  </button>
+                  </Button>
 
                   {isExpanded && (
                     <div className="border-t border-border/50 px-2.5 pt-2 dark:border-border-dark/50">

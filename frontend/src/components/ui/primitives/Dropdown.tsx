@@ -29,6 +29,8 @@ export interface DropdownProps<T> {
   searchVariant?: 'boxed' | 'underline';
   selectionStyle?: 'check' | 'accent';
   renderFooter?: () => ReactNode;
+  triggerVariant?: 'default' | 'text';
+  dropdownAlign?: 'left' | 'right';
 }
 
 const isGroupedItems = <T,>(
@@ -117,6 +119,8 @@ function DropdownInner<T>({
   searchVariant = 'boxed',
   selectionStyle = 'check',
   renderFooter,
+  triggerVariant = 'default',
+  dropdownAlign = 'left',
 }: DropdownProps<T>) {
   const { isOpen, dropdownRef, setIsOpen } = useDropdown();
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,35 +159,60 @@ function DropdownInner<T>({
       : 'hidden sm:block h-3 w-3 flex-shrink-0 text-text-quaternary dark:text-text-dark-quaternary transition-transform duration-200'
     : 'h-3 w-3 flex-shrink-0 text-text-quaternary dark:text-text-dark-quaternary transition-transform duration-200';
 
+  const triggerLabel = getItemShortLabel ? getItemShortLabel(value) : getItemLabel(value);
+
   return (
     <div className="relative" ref={dropdownRef}>
       <Button
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(!isOpen)}
         disabled={disabled}
         variant="unstyled"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`flex min-w-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors duration-200 ${isOpen && !disabled ? 'bg-surface-hover dark:bg-surface-dark-hover' : 'hover:bg-surface-hover/60 dark:hover:bg-surface-dark-hover/60'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+        className={
+          triggerVariant === 'text'
+            ? `flex min-w-0 items-center gap-1 p-0 text-2xs leading-normal transition-colors duration-200 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:text-text-primary dark:hover:text-text-dark-primary'} ${isOpen ? 'text-text-primary dark:text-text-dark-primary' : 'text-text-secondary dark:text-text-dark-secondary'}`
+            : `flex min-w-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors duration-200 ${isOpen && !disabled ? 'bg-surface-hover dark:bg-surface-dark-hover' : 'hover:bg-surface-hover/60 dark:hover:bg-surface-dark-hover/60'} ${disabled ? 'cursor-not-allowed opacity-50' : ''}`
+        }
       >
-        {LeftIcon && (
-          <LeftIcon
-            className={cn(
-              'h-3 w-3 flex-shrink-0 text-text-tertiary dark:text-text-dark-tertiary',
-              !forceCompact && 'sm:hidden',
+        {triggerVariant === 'text' ? (
+          <>
+            {/* Keep the text trigger responsive so the composer row still collapses in split/mobile layouts. */}
+            {showIconOnly && LeftIcon && (
+              <LeftIcon
+                className={cn(
+                  'h-3 w-3 flex-shrink-0 text-current',
+                  forceCompact ? '' : 'sm:hidden',
+                )}
+              />
             )}
-          />
+            <span className={cn(labelClasses, 'text-inherit dark:text-inherit')}>
+              {triggerLabel}
+            </span>
+          </>
+        ) : (
+          <>
+            {LeftIcon && (
+              <LeftIcon
+                className={cn(
+                  'h-3 w-3 flex-shrink-0 text-text-tertiary dark:text-text-dark-tertiary',
+                  !forceCompact && 'sm:hidden',
+                )}
+              />
+            )}
+            <span className={labelClasses}>{triggerLabel}</span>
+            {!disabled && (
+              <ChevronDown className={`${chevronClasses} ${isOpen ? 'rotate-180' : ''}`} />
+            )}
+          </>
         )}
-        <span className={labelClasses}>
-          {getItemShortLabel ? getItemShortLabel(value) : getItemLabel(value)}
-        </span>
-        {!disabled && <ChevronDown className={`${chevronClasses} ${isOpen ? 'rotate-180' : ''}`} />}
       </Button>
 
       {isOpen && !disabled && (
         <div
           role="listbox"
-          className={`absolute left-0 ${width} z-[60] rounded-xl border border-border bg-surface-secondary/95 shadow-medium backdrop-blur-xl backdrop-saturate-150 dark:border-border-dark dark:bg-surface-dark-secondary/95 dark:shadow-black/40 ${dropdownPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
+          className={`absolute ${dropdownAlign === 'right' ? 'right-0' : 'left-0'} ${width} z-[60] rounded-xl border border-border bg-surface-secondary/95 shadow-medium backdrop-blur-xl backdrop-saturate-150 dark:border-border-dark dark:bg-surface-dark-secondary/95 dark:shadow-black/40 ${dropdownPosition === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
         >
           {searchable && searchVariant === 'boxed' && (
             <div className="border-b border-border p-1.5 dark:border-border-dark">
