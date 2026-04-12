@@ -18,7 +18,6 @@ interface SidebarChatItemProps {
   onMouseLeave: () => void;
   onToggleSubThreads?: (chatId: string) => void;
   isSubThreadsExpanded?: boolean;
-  isParentOfSelectedChat?: boolean;
 }
 
 export const SidebarChatItem = memo(function SidebarChatItem({
@@ -33,10 +32,9 @@ export const SidebarChatItem = memo(function SidebarChatItem({
   onMouseLeave,
   onToggleSubThreads,
   isSubThreadsExpanded,
-  isParentOfSelectedChat,
 }: SidebarChatItemProps) {
-  // Blocked for unselected non-parent rows so clicking them navigates normally
-  const canToggle = onToggleSubThreads != null && (isSelected || isParentOfSelectedChat);
+  // onToggleSubThreads is only set when sub_thread_count > 0
+  const hasSubThreads = onToggleSubThreads != null;
   return (
     <div
       className={cn(
@@ -60,25 +58,28 @@ export const SidebarChatItem = memo(function SidebarChatItem({
 
       <Button
         onClick={() => {
-          if (!canToggle) {
-            onSelect(chat.id);
-            return;
-          }
-          onToggleSubThreads(chat.id);
-          // When a sub-thread is active, also navigate to the parent so the
-          // click still opens the parent conversation
-          if (!isSelected) {
-            onSelect(chat.id);
+          // Always navigate to the chat; additionally toggle sub-threads if present
+          onSelect(chat.id);
+          if (hasSubThreads) {
+            onToggleSubThreads(chat.id);
           }
         }}
         aria-current={isSelected ? 'page' : undefined}
-        aria-expanded={canToggle ? isSubThreadsExpanded : undefined}
+        aria-expanded={hasSubThreads ? isSubThreadsExpanded : undefined}
         variant="unstyled"
         title={chat.title}
-        className="min-w-0 flex-1 truncate pr-10 text-left text-[13px]"
+        className="min-w-0 flex-1 pr-10 text-left text-[13px]"
       >
-        <span className={cn('truncate', isSelected && 'font-medium')}>
-          {stripMarkdownTitle(chat.title)}
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className={cn('min-w-0 truncate', isSelected && 'font-medium')}>
+            {stripMarkdownTitle(chat.title)}
+          </span>
+          {/* Sub-thread count pill — only shown when collapsed so the user knows there are expandable threads */}
+          {chat.sub_thread_count > 0 && !isSubThreadsExpanded && (
+            <span className="flex-shrink-0 rounded-full bg-surface-tertiary px-1.5 py-0.5 text-2xs text-text-tertiary dark:bg-surface-dark-tertiary dark:text-text-dark-tertiary">
+              {chat.sub_thread_count}
+            </span>
+          )}
         </span>
       </Button>
 
