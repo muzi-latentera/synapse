@@ -34,7 +34,7 @@ export function InputControls() {
         chatId={state.chatId}
         dropdownPosition={state.dropdownPosition}
         dropdownAlign="right"
-        disabled={state.isLoading || state.isStreaming}
+        disabled={state.isLoading}
         lockedAgentKind={lockedAgentKind}
         variant="text"
       />
