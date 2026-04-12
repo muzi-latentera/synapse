@@ -10,8 +10,8 @@ import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidEmail, isValidUsername, isValidPassword } from '@/utils/validation';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
-import { AuthPageLayout } from '@/pages/AuthPageLayout';
-import { AuthErrorBanner } from '@/pages/AuthErrorBanner';
+import { AuthPageLayout } from '@/components/auth/AuthPageLayout';
+import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 
 interface SignupFormData {
   email: string;
