@@ -27,6 +27,8 @@ export interface ModelSelectorProps {
   disabled?: boolean;
   compact?: boolean;
   lockedAgentKind?: AgentKind | null;
+  variant?: 'default' | 'text';
+  dropdownAlign?: 'left' | 'right';
 }
 
 export const ModelSelector = memo(function ModelSelector({
@@ -34,9 +36,11 @@ export const ModelSelector = memo(function ModelSelector({
   onModelChange,
   chatId,
   dropdownPosition = 'bottom',
+  dropdownAlign,
   disabled = false,
   compact,
   lockedAgentKind,
+  variant = 'default',
 }: ModelSelectorProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isSplitMode = useIsSplitMode();
@@ -109,6 +113,8 @@ export const ModelSelector = memo(function ModelSelector({
       searchPlaceholder="Filter..."
       searchVariant="underline"
       selectionStyle="accent"
+      triggerVariant={variant}
+      dropdownAlign={dropdownAlign}
       renderItem={(model, isSelected) => (
         <div className="flex items-center justify-between gap-2">
           <span

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { Plus, X } from 'lucide-react';
+import { Button } from '@/components/ui/primitives/Button';
 import { TerminalTab } from './TerminalTab';
 import { cn } from '@/utils/cn';
 
@@ -131,7 +132,8 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
         role="tablist"
       >
         {terminals.map((terminal) => (
-          <button
+          <Button
+            variant="unstyled"
             key={terminal.id}
             className={cn(
               'group flex h-full items-center gap-1.5 border-r border-border/30 px-3 font-mono text-2xs transition-colors duration-200 dark:border-border-dark/30',
@@ -157,15 +159,16 @@ export const Container: FC<ContainerProps> = ({ sandboxId, chatId, isVisible, pa
                 <X className="h-2.5 w-2.5" />
               </span>
             )}
-          </button>
+          </Button>
         ))}
-        <button
+        <Button
+          variant="unstyled"
           className="flex h-full items-center px-2 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
           onClick={addTerminal}
           aria-label="Add new terminal"
         >
           <Plus className="h-3 w-3" />
-        </button>
+        </Button>
       </div>
 
       <div className="relative flex-1 overflow-hidden">

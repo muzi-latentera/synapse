@@ -10,11 +10,15 @@ import { useGitBranchesQuery, useCheckoutBranchMutation } from '@/hooks/queries/
 export interface BranchSelectorProps {
   dropdownPosition?: 'top' | 'bottom';
   disabled?: boolean;
+  variant?: 'default' | 'text';
+  dropdownAlign?: 'left' | 'right';
 }
 
 export const BranchSelector = memo(function BranchSelector({
   dropdownPosition = 'bottom',
+  dropdownAlign,
   disabled = false,
+  variant = 'default',
 }: BranchSelectorProps) {
   const { sandboxId } = useChatContext();
   const worktreeCwd = useChatStore((s) => s.currentChat?.worktree_cwd) ?? undefined;
@@ -61,6 +65,8 @@ export const BranchSelector = memo(function BranchSelector({
       disabled={disabled || checkoutBranch.isPending}
       compactOnMobile
       forceCompact={isSplitMode}
+      triggerVariant={variant}
+      dropdownAlign={dropdownAlign}
       searchable={branches.length >= 6}
       searchPlaceholder="Search branches..."
       itemClassName="font-mono"

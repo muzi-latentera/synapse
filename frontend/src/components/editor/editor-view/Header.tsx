@@ -41,19 +41,19 @@ export const Header = memo(function Header({
     <div className="flex h-9 items-center justify-between border-b border-border/50 bg-surface-secondary px-3 dark:border-border-dark/50 dark:bg-surface-dark-secondary">
       <div className="flex min-w-0 items-center gap-2">
         {onToggleFileTree && (
-          <button
+          <Button
+            variant="unstyled"
             onClick={onToggleFileTree}
             className={cn(
               'shrink-0 rounded-md p-1',
               'text-text-quaternary hover:text-text-secondary',
               'dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary',
               'transition-colors duration-150',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30',
             )}
             aria-label="Toggle file tree"
           >
             <PanelLeft size={14} />
-          </button>
+          </Button>
         )}
         <FileIcon name={getFileName(filePath)} className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate font-mono text-2xs text-text-tertiary dark:text-text-dark-tertiary">

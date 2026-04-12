@@ -247,14 +247,15 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
                     {existingPR.title}
                   </p>
                 </div>
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => openExternalUrl(existingPR.html_url)}
                   className="ml-3 flex flex-shrink-0 items-center gap-1 rounded-md px-2 py-1 text-2xs text-text-secondary transition-colors duration-200 hover:bg-surface-hover dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover"
                 >
                   View on GitHub
                   <ExternalLink className="h-3 w-3" />
-                </button>
+                </Button>
               </div>
             )}
             <div>
@@ -339,7 +340,8 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
                     </span>
                   ) : (
                     collaborators.map((c) => (
-                      <button
+                      <Button
+                        variant="unstyled"
                         key={c.login}
                         type="button"
                         onClick={() => toggleReviewer(c.login)}
@@ -350,7 +352,7 @@ export function CreatePRDialog({ onClose }: CreatePRDialogProps) {
                         }`}
                       >
                         {c.login}
-                      </button>
+                      </Button>
                     ))
                   )}
                 </div>

@@ -5,6 +5,7 @@ import { DropIndicator } from './DropIndicator';
 import { SendButton } from './SendButton';
 import type { SendButtonStatus } from './SendButton';
 import { AttachButton } from './AttachButton';
+import { EnhanceButton } from './EnhanceButton';
 import { Textarea } from './Textarea';
 import { InputControls } from './InputControls';
 import { InputAttachments } from './InputAttachments';
@@ -67,7 +68,7 @@ function InputLayout() {
     <form ref={meta.formRef} onSubmit={actions.handleSubmit} className="relative px-4 sm:px-6">
       <div
         {...meta.dragHandlers}
-        className={`relative rounded-2xl border bg-surface-secondary shadow-sm transition-[border-color,box-shadow] duration-300 dark:bg-surface-dark-secondary ${
+        className={`relative rounded-2xl border bg-surface-secondary transition-[border-color] duration-300 dark:bg-surface-dark-secondary ${
           state.isDragging
             ? 'scale-[1.01] border-border-hover dark:border-border-dark-hover'
             : 'border-border dark:border-border-dark'
@@ -84,13 +85,7 @@ function InputLayout() {
           />
         )}
 
-        {state.contextUsage && (
-          <div className="absolute right-3 top-3 z-10">
-            <ContextUsageIndicator usage={state.contextUsage} />
-          </div>
-        )}
-
-        <div className="relative px-3 pb-12 pt-1.5 sm:pb-9">
+        <div className="relative px-4 pt-2.5">
           <Textarea
             ref={meta.textareaRef}
             message={state.message}
@@ -105,28 +100,34 @@ function InputLayout() {
           <InputSuggestionsPanel />
         </div>
 
-        <div className="absolute bottom-2.5 left-3 right-3 pb-safe">
-          <div className="flex items-center justify-between gap-2">
-            <InputControls />
-
-            <div className="flex flex-shrink-0 items-center gap-1">
-              <AttachButton
-                disabled={state.isDisabled}
-                onAttach={() => {
-                  actions.resetDragState();
-                  actions.setShowFileUpload(true);
-                }}
-              />
-              <SendButton
-                status={sendStatus}
-                disabled={sendStatus === 'idle' || state.isEnhancing || state.isDisabled}
-                onClick={actions.handleSendClick}
-                type="button"
-                showLoadingSpinner={state.showLoadingSpinner}
-              />
-            </div>
-          </div>
+        <div className="flex items-center justify-end gap-0.5 px-2 pb-2 pt-0.5">
+          <EnhanceButton
+            onEnhance={actions.handleEnhancePrompt}
+            isEnhancing={state.isEnhancing}
+            disabled={state.isLoading || !state.hasMessage}
+          />
+          <AttachButton
+            disabled={state.isDisabled}
+            onAttach={() => {
+              actions.resetDragState();
+              actions.setShowFileUpload(true);
+            }}
+          />
+          <SendButton
+            status={sendStatus}
+            disabled={sendStatus === 'idle' || state.isEnhancing || state.isDisabled}
+            onClick={actions.handleSendClick}
+            type="button"
+            showLoadingSpinner={state.showLoadingSpinner}
+          />
         </div>
+      </div>
+
+      <div className="flex items-center justify-between px-2 pb-safe pt-1.5">
+        <div className="flex-shrink-0">
+          {state.contextUsage && <ContextUsageIndicator usage={state.contextUsage} />}
+        </div>
+        <InputControls />
       </div>
 
       <FileUploadDialog

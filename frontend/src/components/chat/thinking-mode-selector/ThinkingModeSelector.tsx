@@ -61,13 +61,17 @@ export interface ThinkingModeSelectorProps {
   agentKind?: AgentKind;
   dropdownPosition?: 'top' | 'bottom';
   disabled?: boolean;
+  variant?: 'default' | 'text';
+  dropdownAlign?: 'left' | 'right';
 }
 
 export const ThinkingModeSelector = memo(function ThinkingModeSelector({
   chatId,
   agentKind,
   dropdownPosition = 'bottom',
+  dropdownAlign,
   disabled = false,
+  variant = 'default',
 }: ThinkingModeSelectorProps) {
   const key = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
   const resolvedAgentKind = agentKind ?? 'claude';
@@ -92,6 +96,8 @@ export const ThinkingModeSelector = memo(function ThinkingModeSelector({
       disabled={disabled}
       compactOnMobile
       forceCompact={isSplitMode}
+      triggerVariant={variant}
+      dropdownAlign={dropdownAlign}
       renderItem={(mode, isSelected) => (
         <span
           className={`text-2xs font-medium ${isSelected ? 'text-text-primary dark:text-text-dark-primary' : 'text-text-secondary dark:text-text-dark-secondary'}`}

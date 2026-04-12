@@ -1,4 +1,3 @@
-import { EnhanceButton } from './EnhanceButton';
 import { PermissionModeSelector } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
 import { ModelSelector } from '@/components/chat/model-selector/ModelSelector';
 import { ThinkingModeSelector } from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
@@ -7,6 +6,10 @@ import { BranchSelector } from '@/components/chat/branch-selector/BranchSelector
 import { useInputState, useInputActions } from '@/hooks/useInputContext';
 import { useModelMap } from '@/hooks/queries/useModelQueries';
 import { useChatQuery } from '@/hooks/queries/useChatQueries';
+import { useChatContext } from '@/hooks/useChatContext';
+import { useChatStore } from '@/store/chatStore';
+import { useGitBranchesQuery } from '@/hooks/queries/useSandboxQueries';
+import { SelectorDot } from '@/components/ui/primitives/SelectorDot';
 
 export function InputControls() {
   const state = useInputState();
@@ -16,47 +19,72 @@ export function InputControls() {
   const { data: chat } = useChatQuery(state.chatId, { enabled: !!state.chatId });
   const lockedAgentKind = chat?.session_agent_kind ?? null;
 
+  const { sandboxId, personas } = useChatContext();
+  const worktreeCwd = useChatStore((s) => s.currentChat?.worktree_cwd) ?? undefined;
+  const { data: branchesData } = useGitBranchesQuery(sandboxId, !!sandboxId, worktreeCwd);
+
+  const showPersona = personas.length > 0;
+  const showBranch = !!sandboxId && !!branchesData?.is_git_repo && branchesData.branches.length > 0;
+
   return (
-    <div
-      className="flex min-w-0 flex-1 items-center gap-1 sm:gap-1.5"
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      <EnhanceButton
-        onEnhance={actions.handleEnhancePrompt}
-        isEnhancing={state.isEnhancing}
-        disabled={state.isLoading || !state.hasMessage}
-      />
-
-      <PermissionModeSelector
-        chatId={state.chatId}
-        agentKind={agentKind}
-        dropdownPosition={state.dropdownPosition}
-        disabled={state.isLoading}
-      />
-
-      <ThinkingModeSelector
-        chatId={state.chatId}
-        agentKind={agentKind}
-        dropdownPosition={state.dropdownPosition}
-        disabled={state.isLoading}
-      />
-
-      <PersonaSelector
-        chatId={state.chatId}
-        dropdownPosition={state.dropdownPosition}
-        disabled={state.isLoading}
-      />
-
+    <div className="flex min-w-0 items-center gap-1" onMouseDown={(e) => e.preventDefault()}>
       <ModelSelector
         selectedModelId={state.selectedModelId}
         onModelChange={actions.onModelChange}
         chatId={state.chatId}
         dropdownPosition={state.dropdownPosition}
+        dropdownAlign="right"
         disabled={state.isLoading || state.isStreaming}
         lockedAgentKind={lockedAgentKind}
+        variant="text"
       />
 
-      <BranchSelector dropdownPosition={state.dropdownPosition} disabled={state.isLoading} />
+      <SelectorDot />
+
+      <ThinkingModeSelector
+        chatId={state.chatId}
+        agentKind={agentKind}
+        dropdownPosition={state.dropdownPosition}
+        dropdownAlign="right"
+        disabled={state.isLoading}
+        variant="text"
+      />
+
+      <SelectorDot />
+
+      <PermissionModeSelector
+        chatId={state.chatId}
+        agentKind={agentKind}
+        dropdownPosition={state.dropdownPosition}
+        dropdownAlign="right"
+        disabled={state.isLoading}
+        variant="text"
+      />
+
+      {showPersona && (
+        <>
+          <SelectorDot />
+          <PersonaSelector
+            chatId={state.chatId}
+            dropdownPosition={state.dropdownPosition}
+            dropdownAlign="right"
+            disabled={state.isLoading}
+            variant="text"
+          />
+        </>
+      )}
+
+      {showBranch && (
+        <>
+          <SelectorDot />
+          <BranchSelector
+            dropdownPosition={state.dropdownPosition}
+            dropdownAlign="right"
+            disabled={state.isLoading}
+            variant="text"
+          />
+        </>
+      )}
     </div>
   );
 }
