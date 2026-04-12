@@ -21,6 +21,7 @@ import { useFilesMetadataQuery } from '@/hooks/queries/useSandboxQueries';
 import { useModelSelection } from '@/hooks/queries/useModelQueries';
 import { useSettingsQuery } from '@/hooks/queries/useSettingsQueries';
 import { ChatProvider } from '@/contexts/ChatContext';
+import { Button } from '@/components/ui/primitives/Button';
 import { buildFileStructureFromSandboxFiles } from '@/utils/file';
 
 const EXAMPLE_PROMPTS = [
@@ -216,14 +217,15 @@ export function LandingPage() {
 
             <div className="mt-4 flex flex-wrap justify-center gap-2 px-4 sm:px-6">
               {EXAMPLE_PROMPTS.map((prompt) => (
-                <button
+                <Button
                   key={prompt}
                   type="button"
+                  variant="unstyled"
                   onClick={() => setMessage(prompt)}
                   className="rounded-lg border border-border/50 px-3 py-2 text-2xs text-text-tertiary transition-colors duration-200 hover:border-border-hover hover:bg-surface-hover hover:text-text-primary dark:border-border-dark/50 dark:text-text-dark-tertiary dark:hover:border-border-dark-hover dark:hover:bg-surface-dark-hover dark:hover:text-text-dark-primary"
                 >
                   {prompt}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

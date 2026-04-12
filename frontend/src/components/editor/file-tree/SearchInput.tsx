@@ -2,6 +2,7 @@ import { useRef, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
+import { Input } from '@/components/ui/primitives/Input';
 import { cn } from '@/utils/cn';
 
 export interface SearchInputProps {
@@ -62,8 +63,9 @@ export function SearchInput({
     <div role="search" className={cn('relative flex items-center', className)}>
       <Search className="pointer-events-none absolute left-2 h-3 w-3 text-text-quaternary dark:text-text-dark-quaternary" />
 
-      <input
+      <Input
         ref={inputRef}
+        variant="unstyled"
         type="text"
         role="searchbox"
         aria-label="Search files"
@@ -80,7 +82,6 @@ export function SearchInput({
           'border border-border/50 dark:border-border-dark/50',
           'rounded-md',
           'focus:border-border-hover focus:outline-none dark:focus:border-border-dark-hover',
-          'focus-visible:ring-1 focus-visible:ring-text-quaternary/30',
           'transition-colors duration-150',
         )}
       />

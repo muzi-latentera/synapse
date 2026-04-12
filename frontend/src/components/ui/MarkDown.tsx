@@ -5,6 +5,7 @@ import type { Components } from 'react-markdown';
 import type { AnchorHTMLAttributes, HTMLAttributes, ImgHTMLAttributes } from 'react';
 import { AttachmentViewer } from './AttachmentViewer';
 import { Button } from './primitives/Button';
+import { Link } from './primitives/Link';
 import type { MessageAttachment } from '@/types/chat.types';
 import { isImageUrl } from '@/utils/fileTypes';
 
@@ -338,15 +339,16 @@ function MarkDownInner({ content, className = '' }: { content: string; className
         }
 
         return (
-          <a
+          <Link
             href={href}
+            variant="unstyled"
             className="text-text-primary underline transition-colors hover:text-text-secondary dark:text-text-dark-primary dark:hover:text-text-dark-secondary"
             target="_blank"
             rel="noopener noreferrer"
             {...props}
           >
             {children}
-          </a>
+          </Link>
         );
       },
 

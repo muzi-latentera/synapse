@@ -1,5 +1,6 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
+import { Link } from '@/components/ui/primitives/Link';
 
 interface SourceChipProps {
   source: { title: string; url: string };
@@ -19,8 +20,9 @@ export const SourceChip: React.FC<SourceChipProps> = ({ source, index }) => {
   }
 
   return (
-    <a
+    <Link
       href={source.url}
+      variant="unstyled"
       target="_blank"
       rel="noopener noreferrer"
       title={source.title}
@@ -48,6 +50,6 @@ export const SourceChip: React.FC<SourceChipProps> = ({ source, index }) => {
       <span className="text-2xs tabular-nums text-text-quaternary/60 dark:text-text-dark-quaternary/60">
         {index + 1}
       </span>
-    </a>
+    </Link>
   );
 };

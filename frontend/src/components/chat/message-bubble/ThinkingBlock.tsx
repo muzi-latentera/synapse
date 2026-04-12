@@ -1,5 +1,6 @@
 import React, { useState, useMemo, memo, type CSSProperties } from 'react';
 import { ChevronRight, Brain } from 'lucide-react';
+import { Button } from '@/components/ui/primitives/Button';
 
 const DELAY_0: CSSProperties = { animationDelay: '0ms' };
 const DELAY_150: CSSProperties = { animationDelay: '150ms' };
@@ -28,8 +29,9 @@ const ThinkingBlockInner: React.FC<ThinkingBlockProps> = ({ content, isActiveThi
 
   return (
     <div className="group/thinking">
-      <button
+      <Button
         type="button"
+        variant="unstyled"
         onClick={() => setIsExpanded((prev) => !prev)}
         className="-ml-1 flex items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors duration-150 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
       >
@@ -61,7 +63,7 @@ const ThinkingBlockInner: React.FC<ThinkingBlockProps> = ({ content, isActiveThi
         <ChevronRight
           className={`h-3 w-3 text-text-quaternary transition-transform duration-200 dark:text-text-dark-quaternary ${isExpanded ? 'rotate-90' : ''}`}
         />
-      </button>
+      </Button>
 
       <div
         className={`overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out ${

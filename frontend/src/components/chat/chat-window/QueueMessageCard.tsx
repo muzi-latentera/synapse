@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useRef, useEffect } from 'react';
 import { X, Pencil, CornerDownRight, FileText, FileSpreadsheet, Send } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
+import { Input } from '@/components/ui/primitives/Input';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 import { apiClient } from '@/lib/api';
 import { detectFileType } from '@/utils/fileTypes';
@@ -251,8 +252,9 @@ export const QueueMessageCard = memo(function QueueMessageCard({
             </div>
           )}
           {isEditing ? (
-            <input
+            <Input
               ref={inputRef}
+              variant="unstyled"
               type="text"
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}

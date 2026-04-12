@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { Button } from '@/components/ui/primitives/Button';
 import { Dropdown } from '@/components/ui/primitives/Dropdown';
+import { Select } from '@/components/ui/primitives/Select';
+import { Textarea } from '@/components/ui/primitives/Textarea';
 import { ModelSelector } from '@/components/chat/model-selector/ModelSelector';
 import { SlashCommandsPanel } from '@/components/chat/message-input/SlashCommandsPanel';
 import {
@@ -167,10 +169,10 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
             <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
               Persona
             </label>
-            <select
+            <Select
               value={personaName}
               onChange={(e) => setPersonaName(e.target.value)}
-              className="w-full rounded-lg border border-border/50 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
+              className="h-8 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary dark:bg-surface-dark-secondary dark:text-text-dark-primary"
             >
               <option value={DEFAULT_PERSONA}>Default</option>
               {personas.map((p) => (
@@ -178,7 +180,7 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
                   {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">
@@ -214,8 +216,9 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
                   onSelect={selectCommand}
                 />
               )}
-              <textarea
+              <Textarea
                 ref={textareaRef}
+                variant="unstyled"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={handleSlashKeyDown}

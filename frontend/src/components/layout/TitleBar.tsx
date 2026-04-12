@@ -34,7 +34,7 @@ export function TrafficLights() {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <button
+      <Button
         type="button"
         onClick={handleClose}
         className="group flex h-3 w-3 items-center justify-center rounded-full bg-[#ff5f57] transition-opacity hover:opacity-90"
@@ -50,8 +50,8 @@ export function TrafficLights() {
             />
           </svg>
         )}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         onClick={handleMinimize}
         className="group flex h-3 w-3 items-center justify-center rounded-full bg-[#febc2e] transition-opacity hover:opacity-90"
@@ -62,8 +62,8 @@ export function TrafficLights() {
             <path d="M0.5 1H5.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
         )}
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
         onClick={handleMaximize}
         className="group flex h-3 w-3 items-center justify-center rounded-full bg-[#28c840] transition-opacity hover:opacity-90"
@@ -80,7 +80,7 @@ export function TrafficLights() {
             />
           </svg>
         )}
-      </button>
+      </Button>
     </div>
   );
 }

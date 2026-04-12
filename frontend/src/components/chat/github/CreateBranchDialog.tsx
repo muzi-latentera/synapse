@@ -3,6 +3,8 @@ import { GitBranch } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BaseModal } from '@/components/ui/shared/BaseModal';
 import { Button } from '@/components/ui/primitives/Button';
+import { Input } from '@/components/ui/primitives/Input';
+import { Select } from '@/components/ui/primitives/Select';
 import { useChatStore } from '@/store/chatStore';
 import { useGitBranchesQuery, useGitCreateBranchMutation } from '@/hooks/queries/useSandboxQueries';
 
@@ -66,7 +68,8 @@ export function CreateBranchDialog({ onClose }: CreateBranchDialogProps) {
             <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
               Branch name
             </label>
-            <input
+            <Input
+              variant="unstyled"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="feature/my-branch"
@@ -85,10 +88,10 @@ export function CreateBranchDialog({ onClose }: CreateBranchDialogProps) {
             <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wider text-text-quaternary dark:text-text-dark-quaternary">
               From
             </label>
-            <select
+            <Select
               value={baseBranch}
               onChange={(e) => setBaseBranch(e.target.value)}
-              className="w-full rounded-lg border border-border/50 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary outline-none transition-colors duration-200 focus:border-border-hover dark:border-border-dark/50 dark:bg-surface-dark-secondary dark:text-text-dark-primary dark:focus:border-border-dark-hover"
+              className="h-8 bg-surface-secondary px-3 py-1.5 text-xs text-text-primary dark:bg-surface-dark-secondary dark:text-text-dark-primary"
             >
               <option value="">
                 Current branch
@@ -99,7 +102,7 @@ export function CreateBranchDialog({ onClose }: CreateBranchDialogProps) {
                   {b}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </div>

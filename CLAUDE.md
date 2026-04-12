@@ -259,7 +259,6 @@
 - Expandable content: `transition-all duration-200` with `max-h-*` and `opacity` toggling
 - Dropdowns: `animate-fadeIn` for entry — no scale transforms on buttons
 
-### Button Layout
 ### Layout
 
 - Do not use absolute positioning for layout of sibling elements within a container — use flexbox (`flex`, `justify-between`, `gap-*`); reserve `absolute` for overlays, tooltips, dropdowns, and decorative elements only
