@@ -9,8 +9,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useLoginMutation } from '@/hooks/queries/useAuthQueries';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidEmail } from '@/utils/validation';
-import { AuthPageLayout } from '@/pages/AuthPageLayout';
-import { AuthErrorBanner } from '@/pages/AuthErrorBanner';
+import { AuthPageLayout } from '@/components/auth/AuthPageLayout';
+import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
 
 interface LoginFormData {
   email: string;

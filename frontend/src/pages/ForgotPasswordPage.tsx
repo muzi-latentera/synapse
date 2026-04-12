@@ -8,9 +8,9 @@ import { Label } from '@/components/ui/primitives/Label';
 import { useForgotPasswordMutation } from '@/hooks/queries/useAuthQueries';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidEmail } from '@/utils/validation';
-import { AuthPageLayout } from '@/pages/AuthPageLayout';
-import { AuthErrorBanner } from '@/pages/AuthErrorBanner';
-import { AuthSuccessScreen } from '@/pages/AuthSuccessScreen';
+import { AuthPageLayout } from '@/components/auth/AuthPageLayout';
+import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
+import { AuthSuccessScreen } from '@/components/auth/AuthSuccessScreen';
 
 interface ForgotPasswordFormData {
   email: string;
@@ -24,9 +24,7 @@ export function ForgotPasswordPage() {
   const forgotPasswordMutation = useForgotPasswordMutation();
 
   const resetMutation = useCallback(() => {
-    if (forgotPasswordMutation.isError) {
-      forgotPasswordMutation.reset();
-    }
+    forgotPasswordMutation.reset();
   }, [forgotPasswordMutation]);
 
   const { values, errors, setErrors, handleChange } = useAuthForm<ForgotPasswordFormData>(

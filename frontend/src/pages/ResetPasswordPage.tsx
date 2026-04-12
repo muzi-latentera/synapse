@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, ArrowLeft, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { FieldMessage } from '@/components/ui/primitives/FieldMessage';
 import { Input } from '@/components/ui/primitives/Input';
@@ -8,9 +8,9 @@ import { Label } from '@/components/ui/primitives/Label';
 import { useResetPasswordMutation } from '@/hooks/queries/useAuthQueries';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { isValidPassword } from '@/utils/validation';
-import { AuthPageLayout } from '@/pages/AuthPageLayout';
-import { AuthErrorBanner } from '@/pages/AuthErrorBanner';
-import { AuthSuccessScreen } from '@/pages/AuthSuccessScreen';
+import { AuthPageLayout } from '@/components/auth/AuthPageLayout';
+import { AuthErrorBanner } from '@/components/auth/AuthErrorBanner';
+import { AuthSuccessScreen } from '@/components/auth/AuthSuccessScreen';
 
 interface ResetPasswordFormData {
   password: string;
@@ -44,8 +44,10 @@ export function ResetPasswordPage() {
     password: false,
     confirmPassword: false,
   });
-  const [token, setToken] = useState<string | null>(null);
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  // The reset token is fully owned by the URL, so deriving it avoids a mount-only sync effect
+  // and keeps the invalid-token state tied to the actual query string.
+  const token = searchParams.get('token');
+  const tokenError = token ? null : 'Invalid or missing reset token';
 
   const resetPasswordMutation = useResetPasswordMutation();
 
@@ -58,15 +60,6 @@ export function ResetPasswordPage() {
     resetMutation,
   );
 
-  useEffect(() => {
-    const tokenParam = searchParams.get('token');
-    if (!tokenParam) {
-      setTokenError('Invalid or missing reset token');
-      return;
-    }
-    setToken(tokenParam);
-  }, [searchParams]);
-
   const toggleFieldVisibility = useCallback((field: keyof ResetPasswordFormData) => {
     setVisibleFields((prev) => ({ ...prev, [field]: !prev[field] }));
   }, []);
@@ -76,7 +69,6 @@ export function ResetPasswordPage() {
       e.preventDefault();
 
       if (!token) {
-        setTokenError('Invalid or missing reset token');
         return;
       }
 
@@ -114,16 +106,6 @@ export function ResetPasswordPage() {
   );
 
   const isSubmitting = resetPasswordMutation.isPending;
-
-  if (!token && !tokenError) {
-    return (
-      <AuthPageLayout title="Loading..." subtitle="Validating reset token">
-        <div className="flex justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-text-quaternary dark:text-text-dark-quaternary" />
-        </div>
-      </AuthPageLayout>
-    );
-  }
 
   if (resetPasswordMutation.isSuccess) {
     return (
