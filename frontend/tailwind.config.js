@@ -87,7 +87,7 @@ export default {
           hover: '#e0e0e0',
           active: '#d8d8d8',
           dark: {
-            DEFAULT: '#0a0a0a',
+            DEFAULT: '#111111',
             secondary: '#141414',
             tertiary: '#1e1e1e',
             hover: '#282828',
