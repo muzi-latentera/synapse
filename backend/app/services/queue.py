@@ -38,7 +38,7 @@ class QueueService:
         chat_id: str,
         content: str,
         model_id: str,
-        permission_mode: str = "acceptEdits",
+        permission_mode: str = "bypassPermissions",
         thinking_mode: str | None = None,
         worktree: bool = False,
         plan_mode: bool = False,

@@ -49,8 +49,8 @@ export const MODES_BY_AGENT: Record<AgentKind, PermissionModeOption[]> = {
 };
 
 const DEFAULT_BY_AGENT: Record<AgentKind, PermissionMode> = {
-  claude: 'acceptEdits',
-  codex: 'auto',
+  claude: 'bypassPermissions',
+  codex: 'full-access',
 };
 
 export function coercePermissionModeForAgent(

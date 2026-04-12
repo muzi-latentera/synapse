@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api';
 import { ensureResponse, serviceCall } from '@/services/base/BaseService';
-import { DEFAULT_PERSONA } from '@/store/chatSettingsStore';
+import { DEFAULT_PERSONA, DEFAULT_PERMISSION_MODE } from '@/store/chatSettingsStore';
 import type { PermissionMode } from '@/store/chatSettingsStore';
 import { validateId, validateRequired } from '@/utils/validation';
 import type { QueuedMessage, QueueAddResponse } from '@/types/queue.types';
@@ -9,7 +9,7 @@ async function queueMessage(
   chatId: string,
   content: string,
   modelId: string,
-  permissionMode: PermissionMode = 'acceptEdits',
+  permissionMode: PermissionMode = DEFAULT_PERMISSION_MODE,
   thinkingMode: string | null = null,
   worktree: boolean = false,
   planMode: boolean = false,

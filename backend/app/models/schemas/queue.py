@@ -11,7 +11,7 @@ from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
 class QueuedMessageBase(BaseModel):
     content: str = Field(..., min_length=1, max_length=100000)
     model_id: str = Field(..., min_length=1, max_length=255)
-    permission_mode: PermissionMode = "acceptEdits"
+    permission_mode: PermissionMode = "bypassPermissions"
     thinking_mode: str | None = None
     worktree: bool = False
     plan_mode: bool = False
