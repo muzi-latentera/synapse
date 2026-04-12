@@ -23,7 +23,7 @@ export function Input({
         ref={ref}
         type={type}
         className={cn(
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-text-quaternary/30 disabled:cursor-not-allowed disabled:opacity-50',
+          'focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
         disabled={disabled}
