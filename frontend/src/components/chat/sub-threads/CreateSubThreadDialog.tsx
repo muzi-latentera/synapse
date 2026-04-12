@@ -26,7 +26,11 @@ import { useCreateSubThreadMutation } from '@/hooks/queries/useChatQueries';
 import { useSlashCommandSuggestions } from '@/hooks/useSlashCommandSuggestions';
 import { useChatContext } from '@/hooks/useChatContext';
 import { useModelStore } from '@/store/modelStore';
-import { useChatSettingsStore, DEFAULT_PERSONA } from '@/store/chatSettingsStore';
+import {
+  useChatSettingsStore,
+  DEFAULT_PERSONA,
+  DEFAULT_PERMISSION_MODE,
+} from '@/store/chatSettingsStore';
 import { useAuthStore } from '@/store/authStore';
 import type { Chat } from '@/types/chat.types';
 import type { SlashCommand } from '@/types/ui.types';
@@ -47,7 +51,7 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
   const [personaName, setPersonaName] = useState(DEFAULT_PERSONA);
   const [message, setMessage] = useState('');
   const [thinkingMode, setThinkingMode] = useState<ThinkingModeOption>(CLAUDE_THINKING_MODES[1]);
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>('acceptEdits');
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>(DEFAULT_PERMISSION_MODE);
 
   const { customSkills, builtinSlashCommands } = useChatContext();
 

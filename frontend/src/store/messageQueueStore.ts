@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { LocalQueuedMessage } from '@/types/queue.types';
 import { queueService } from '@/services/queueService';
-import { DEFAULT_PERSONA } from '@/store/chatSettingsStore';
+import { DEFAULT_PERSONA, DEFAULT_PERMISSION_MODE } from '@/store/chatSettingsStore';
 import type { PermissionMode } from '@/store/chatSettingsStore';
 
 export const EMPTY_QUEUE: LocalQueuedMessage[] = [];
@@ -40,7 +40,7 @@ export const useMessageQueueStore = create<MessageQueueState>((set, get) => ({
     chatId: string,
     content: string,
     modelId: string,
-    permissionMode: PermissionMode = 'acceptEdits',
+    permissionMode: PermissionMode = DEFAULT_PERMISSION_MODE,
     thinkingMode: string | null = null,
     worktree: boolean = false,
     planMode: boolean = false,

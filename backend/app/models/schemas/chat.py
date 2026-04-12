@@ -31,7 +31,7 @@ class ChatRequest(BaseModel):
     chat_id: UUID
     model_id: str = Field(..., min_length=1, max_length=255)
     attached_files: list[UploadFile] | None = None
-    permission_mode: PermissionMode = "acceptEdits"
+    permission_mode: PermissionMode = "bypassPermissions"
     thinking_mode: str | None = Field(None, max_length=50)
     worktree: bool = False
     plan_mode: bool = False
