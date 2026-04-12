@@ -128,11 +128,14 @@ interface WorkspaceGroupProps {
   onNewThread: (e: React.MouseEvent, workspaceId: string) => void;
   onWorkspaceContextMenu: (e: React.MouseEvent<HTMLButtonElement>, workspaceId: string) => void;
   collapsedSubThreads: Set<string>;
+  onToggleSubThreads: (chatId: string) => void;
+  selectedChatParentId: string | null;
 }
 
 const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
   workspace,
   selectedChatId,
+  selectedChatParentId,
   dropdownChatId,
   streamingChatIdSet,
   isCollapsed,
@@ -142,6 +145,7 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
   onNewThread,
   onWorkspaceContextMenu,
   collapsedSubThreads,
+  onToggleSubThreads,
 }: WorkspaceGroupProps) {
   const [isChatsExpanded, setIsChatsExpanded] = useState(false);
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
@@ -217,6 +221,11 @@ const SidebarWorkspaceGroup = memo(function SidebarWorkspaceGroup({
                     onDropdownClick={onDropdownClick}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
+                    onToggleSubThreads={chat.sub_thread_count > 0 ? onToggleSubThreads : undefined}
+                    isSubThreadsExpanded={
+                      chat.sub_thread_count > 0 ? !collapsedSubThreads.has(chat.id) : undefined
+                    }
+                    isParentOfSelectedChat={chat.id === selectedChatParentId}
                   />
                   {chat.sub_thread_count > 0 && !collapsedSubThreads.has(chat.id) && (
                     <SubThreadList
@@ -325,7 +334,8 @@ export function Sidebar({
     position: { top: number; left: number };
   } | null>(null);
   // Tracks which parent chats have their sub-threads collapsed — sub-threads are visible by default
-  const [collapsedSubThreads, , setCollapsedSubThreads] = useToggleSet<string>();
+  const [collapsedSubThreads, toggleSubThreadCollapse, setCollapsedSubThreads] =
+    useToggleSet<string>();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -413,6 +423,16 @@ export function Sidebar({
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => scrollContainer.removeEventListener('scroll', handleScroll);
   });
+
+  // Clears any open dropdown when collapsing sub-threads, since the dropdown
+  // target may become hidden
+  const handleToggleSubThreads = useCallback(
+    (chatId: string) => {
+      toggleSubThreadCollapse(chatId);
+      if (dropdownStateRef.current) setDropdown(null);
+    },
+    [toggleSubThreadCollapse],
+  );
 
   const handleChatSelect = useCallback(
     (chatId: string) => {
@@ -644,6 +664,15 @@ export function Sidebar({
                           onDropdownClick={handleDropdownClick}
                           onMouseEnter={handlePinnedMouseEnter}
                           onMouseLeave={handlePinnedMouseLeave}
+                          onToggleSubThreads={
+                            chat.sub_thread_count > 0 ? handleToggleSubThreads : undefined
+                          }
+                          isSubThreadsExpanded={
+                            chat.sub_thread_count > 0
+                              ? !collapsedSubThreads.has(chat.id)
+                              : undefined
+                          }
+                          isParentOfSelectedChat={chat.id === selectedChatParentId}
                         />
                         {chat.sub_thread_count > 0 && !collapsedSubThreads.has(chat.id) && (
                           <SubThreadList
@@ -674,6 +703,8 @@ export function Sidebar({
                   onNewThread={handleNewWorkspaceThread}
                   onWorkspaceContextMenu={handleWorkspaceContextMenu}
                   collapsedSubThreads={collapsedSubThreads}
+                  onToggleSubThreads={handleToggleSubThreads}
+                  selectedChatParentId={selectedChatParentId ?? null}
                 />
               ))}
             </div>

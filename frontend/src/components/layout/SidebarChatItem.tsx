@@ -16,6 +16,9 @@ interface SidebarChatItemProps {
   onDropdownClick: (e: React.MouseEvent<HTMLButtonElement>, chat: Chat) => void;
   onMouseEnter: (chatId: string) => void;
   onMouseLeave: () => void;
+  onToggleSubThreads?: (chatId: string) => void;
+  isSubThreadsExpanded?: boolean;
+  isParentOfSelectedChat?: boolean;
 }
 
 export const SidebarChatItem = memo(function SidebarChatItem({
@@ -28,7 +31,12 @@ export const SidebarChatItem = memo(function SidebarChatItem({
   onDropdownClick,
   onMouseEnter,
   onMouseLeave,
+  onToggleSubThreads,
+  isSubThreadsExpanded,
+  isParentOfSelectedChat,
 }: SidebarChatItemProps) {
+  // Blocked for unselected non-parent rows so clicking them navigates normally
+  const canToggle = onToggleSubThreads != null && (isSelected || isParentOfSelectedChat);
   return (
     <div
       className={cn(
@@ -51,8 +59,20 @@ export const SidebarChatItem = memo(function SidebarChatItem({
       )}
 
       <Button
-        onClick={() => onSelect(chat.id)}
+        onClick={() => {
+          if (!canToggle) {
+            onSelect(chat.id);
+            return;
+          }
+          onToggleSubThreads(chat.id);
+          // When a sub-thread is active, also navigate to the parent so the
+          // click still opens the parent conversation
+          if (!isSelected) {
+            onSelect(chat.id);
+          }
+        }}
         aria-current={isSelected ? 'page' : undefined}
+        aria-expanded={canToggle ? isSubThreadsExpanded : undefined}
         variant="unstyled"
         title={chat.title}
         className="min-w-0 flex-1 truncate pr-10 text-left text-[13px]"
