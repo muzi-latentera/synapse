@@ -150,8 +150,17 @@ export function ChatPage() {
     [navigate],
   );
 
+  // Auto-close sidebar when switching to non-agent views (editor-only, terminal-only, etc.)
+  // to reclaim the 300px. Users can re-open via the TitleBar toggle.
+  const agentVisible = activeViews.includes('agent');
+  useEffect(() => {
+    if (!agentVisible) {
+      useUIStore.getState().setSidebarOpen(false);
+    }
+  }, [agentVisible]);
+
+  // Sidebar is always available on chat pages — it holds navigation, settings, and logout
   const sidebarContent = useMemo(() => {
-    if (!activeViews.includes('agent')) return null;
     return (
       <Sidebar
         workspaces={workspaces}
@@ -162,7 +171,6 @@ export function ChatPage() {
       />
     );
   }, [
-    activeViews,
     workspaces,
     chatId,
     currentChat?.workspace_id,

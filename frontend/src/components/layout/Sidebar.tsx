@@ -1,7 +1,17 @@
 import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useNavigate } from 'react-router-dom';
-import { Plus, MoreHorizontal, SquarePen, ChevronDown } from 'lucide-react';
+import {
+  Plus,
+  MoreHorizontal,
+  SquarePen,
+  ChevronDown,
+  Settings,
+  LogOut,
+  Sun,
+  Moon,
+  Monitor,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { Chat } from '@/types/chat.types';
 import type { Workspace } from '@/types/workspace.types';
@@ -24,12 +34,35 @@ import { cn } from '@/utils/cn';
 import { useUIStore } from '@/store/uiStore';
 import { useStreamStore } from '@/store/streamStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useCurrentUserQuery, useLogoutMutation } from '@/hooks/queries/useAuthQueries';
+import { useAuthStore } from '@/store/authStore';
+import { UserAvatarCircle } from '@/components/chat/message-bubble/MessageAvatars';
 import { SidebarChatItem } from './SidebarChatItem';
 import { SubThreadList } from './SubThreadList';
 import { ChatDropdown } from './ChatDropdown';
 import { DROPDOWN_WIDTH, DROPDOWN_HEIGHT, DROPDOWN_MARGIN } from '@/config/constants';
 
 const CHATS_PER_WORKSPACE = 5;
+
+const THEME_ICON_MAP = { dark: Sun, light: Moon, system: Monitor } as const;
+const THEME_NEXT_LABEL = { dark: 'light', light: 'system', system: 'dark' } as const;
+
+function ThemeToggle() {
+  const theme = useUIStore((state) => state.theme);
+  const Icon = THEME_ICON_MAP[theme as keyof typeof THEME_ICON_MAP] ?? Monitor;
+  const nextLabel = THEME_NEXT_LABEL[theme as keyof typeof THEME_NEXT_LABEL] ?? 'dark';
+  return (
+    <Button
+      onClick={() => useUIStore.getState().toggleTheme()}
+      variant="unstyled"
+      className="rounded-full p-1.5 text-text-quaternary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
+      aria-label="Toggle theme"
+      title={`Switch to ${nextLabel} mode`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </Button>
+  );
+}
 
 async function mutateWithToast<T>(
   mutateFn: () => Promise<T>,
@@ -262,6 +295,15 @@ export function Sidebar({
   const navigate = useNavigate();
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const isMobile = useIsMobile();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { data: currentUser } = useCurrentUserQuery({ enabled: isAuthenticated });
+  const userDisplayName = currentUser?.username || currentUser?.email || '';
+  const logoutMutation = useLogoutMutation({
+    onSuccess: () => {
+      useAuthStore.getState().setAuthenticated(false);
+      navigate('/login');
+    },
+  });
   const activeStreamMetadata = useStreamStore((state) => state.activeStreamMetadata);
   const streamingChatIdSet = useMemo(
     () => new Set(activeStreamMetadata.map((meta) => meta.chatId)),
@@ -636,6 +678,40 @@ export function Sidebar({
               ))}
             </div>
           )}
+        </div>
+
+        {/* User profile — fixed at sidebar bottom; always rendered so settings/logout are accessible even if the user query is loading or failed */}
+        <div className="flex-shrink-0 border-t border-border/50 px-4 py-2.5 dark:border-border-dark/50">
+          <div className="flex items-center gap-2.5">
+            <UserAvatarCircle displayName={userDisplayName} size="large" />
+            {userDisplayName && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-text-primary dark:text-text-dark-primary">
+                  {userDisplayName}
+                </p>
+              </div>
+            )}
+            {!userDisplayName && <div className="flex-1" />}
+            <ThemeToggle />
+            <Button
+              onClick={() => navigate('/settings')}
+              variant="unstyled"
+              className="rounded-full p-1.5 text-text-quaternary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
+              aria-label="Settings"
+              title="Settings"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              onClick={() => logoutMutation.mutate()}
+              variant="unstyled"
+              className="rounded-full p-1.5 text-text-quaternary transition-colors duration-200 hover:text-text-primary dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </aside>
 

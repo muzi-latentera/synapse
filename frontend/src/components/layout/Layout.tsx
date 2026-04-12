@@ -1,5 +1,6 @@
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { Header, type HeaderProps } from './Header';
+import { TitleBar } from './TitleBar';
 import { cn } from '@/utils/cn';
 import { LayoutContext, type LayoutContextValue } from './layoutState';
 import { useUIStore } from '@/store/uiStore';
@@ -29,8 +30,6 @@ export interface LayoutProps extends HeaderProps {
 
 export function Layout({
   children,
-  onLogout,
-  userName = 'User',
   isAuthPage = false,
   className,
   contentClassName,
@@ -68,7 +67,8 @@ export function Layout({
         >
           Skip to main content
         </a>
-        {showHeader && <Header onLogout={onLogout} userName={userName} isAuthPage={isAuthPage} />}
+        <TitleBar />
+        {showHeader && <Header isAuthPage={isAuthPage} />}
 
         <div className="flex min-h-0 flex-1">
           {sidebarContent && <MobileSidebarOverlay />}
