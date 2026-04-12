@@ -192,6 +192,12 @@ fn main() {
         .manage(backend_port.clone())
         .invoke_handler(tauri::generate_handler![get_backend_port])
         .setup(move |app| {
+            // Hide native title bar on macOS only — the frontend renders custom traffic lights
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_decorations(false);
+            }
+
             let child = spawn_backend(app.handle(), &data_dir, &secret_key, port);
             *backend_process.lock().unwrap() = Some(child);
 

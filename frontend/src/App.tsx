@@ -19,6 +19,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { check } from '@tauri-apps/plugin-updater';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { authStorage } from '@/utils/storage';
+import { DesktopDragRegion } from '@/components/layout/TitleBar';
 
 const LandingPage = lazy(() =>
   import('@/pages/LandingPage').then((m) => ({ default: m.LandingPage })),
@@ -281,9 +282,12 @@ export default function App() {
 
   if (desktopError) {
     return (
-      <div className="bg-surface-primary dark:bg-surface-dark-primary flex min-h-screen items-center justify-center text-text-primary dark:text-text-dark-primary">
-        <div className="rounded-lg border border-border/50 bg-surface-secondary px-4 py-3 text-xs dark:border-border-dark/50 dark:bg-surface-dark-secondary">
-          {desktopError}
+      <div className="bg-surface-primary dark:bg-surface-dark-primary flex min-h-screen flex-col text-text-primary dark:text-text-dark-primary">
+        <DesktopDragRegion />
+        <div className="flex flex-1 items-center justify-center">
+          <div className="rounded-lg border border-border/50 bg-surface-secondary px-4 py-3 text-xs dark:border-border-dark/50 dark:bg-surface-dark-secondary">
+            {desktopError}
+          </div>
         </div>
       </div>
     );
