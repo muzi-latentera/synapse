@@ -1,18 +1,9 @@
 import { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useToggleSet } from '@/hooks/useToggleSet';
-import {
-  AlertCircle,
-  ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  Columns2,
-  GitCompareArrows,
-  Rows2,
-  RotateCcw,
-} from 'lucide-react';
+import { AlertCircle, ChevronRight, GitCompareArrows, RotateCcw } from 'lucide-react';
 import { FileIcon } from '@/components/editor/file-tree/FileIcon';
 import { Button } from '@/components/ui/primitives/Button';
-import { Dropdown } from '@/components/ui/primitives/Dropdown';
+import { SegmentedControl } from '@/components/ui/primitives/SegmentedControl';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useGitDiffQuery } from '@/hooks/queries/useSandboxQueries';
@@ -23,16 +14,20 @@ import { cn } from '@/utils/cn';
 
 const DIFF_THEMES = { dark: 'pierre-dark', light: 'pierre-light' } as const;
 
-const DIFF_MODES: DiffMode[] = ['all', 'staged', 'unstaged', 'branch'];
-const DIFF_MODE_LABELS: Record<DiffMode, string> = {
-  all: 'Uncommitted',
-  staged: 'Staged',
-  unstaged: 'Unstaged',
-  branch: 'Branch',
-};
+const DIFF_MODE_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'staged', label: 'Staged' },
+  { value: 'unstaged', label: 'Unstaged' },
+  { value: 'branch', label: 'Branch' },
+] satisfies { value: DiffMode; label: string }[];
+
+const DIFF_STYLE_OPTIONS = [
+  { value: 'unified', label: 'Unified' },
+  { value: 'split', label: 'Split' },
+] satisfies { value: 'unified' | 'split'; label: string }[];
 
 const DIFF_EMPTY_LABELS: Record<DiffMode, string> = {
-  all: 'No uncommitted changes',
+  all: 'No changes',
   staged: 'No staged changes',
   unstaged: 'No unstaged changes',
   branch: 'No changes from base branch',
@@ -279,11 +274,11 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
 
   return (
     <div className="flex h-full w-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-      <div className="flex h-9 items-center gap-1 border-b border-border/50 px-3 dark:border-border-dark/50">
+      <div className="flex h-9 items-center gap-1.5 overflow-x-auto border-b border-border/50 px-3 [scrollbar-width:none] dark:border-border-dark/50 [&::-webkit-scrollbar]:hidden">
         <Button
           onClick={() => refetch()}
           variant="unstyled"
-          className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
+          className="shrink-0 rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
           title="Refresh diff"
           aria-label="Refresh diff"
         >
@@ -292,51 +287,38 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
           />
         </Button>
 
-        <Dropdown
+        <SegmentedControl
+          options={DIFF_MODE_OPTIONS}
           value={mode}
-          items={DIFF_MODES}
-          getItemKey={(m) => m}
-          getItemLabel={(m) => DIFF_MODE_LABELS[m]}
-          onSelect={setMode}
-          width="w-32"
+          onChange={setMode}
+          size="sm"
+          className="shrink-0"
         />
 
-        <div className="flex-1" />
+        <div className="min-w-0 flex-1" />
 
         {showFiles && (
           <>
-            <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              {parsedFiles.length} file{parsedFiles.length !== 1 ? 's' : ''}
-            </span>
             <Button
               onClick={toggleAll}
               variant="unstyled"
-              className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
+              className="shrink-0 whitespace-nowrap text-2xs text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
               title={allExpanded ? 'Collapse all' : 'Expand all'}
               aria-label={allExpanded ? 'Collapse all' : 'Expand all'}
             >
-              {allExpanded ? (
-                <ChevronsDownUp className="h-3 w-3" />
-              ) : (
-                <ChevronsUpDown className="h-3 w-3" />
-              )}
+              {allExpanded ? 'Collapse all' : 'Expand all'}
             </Button>
+            <div className="h-3 w-px shrink-0 bg-border/50 dark:bg-border-dark/50" />
           </>
         )}
 
-        <Button
-          onClick={() => setDiffStyle(diffStyle === 'unified' ? 'split' : 'unified')}
-          variant="unstyled"
-          className="rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
-          title={diffStyle === 'unified' ? 'Split view' : 'Unified view'}
-          aria-label={diffStyle === 'unified' ? 'Split view' : 'Unified view'}
-        >
-          {diffStyle === 'unified' ? (
-            <Columns2 className="h-3 w-3" />
-          ) : (
-            <Rows2 className="h-3 w-3" />
-          )}
-        </Button>
+        <SegmentedControl
+          options={DIFF_STYLE_OPTIONS}
+          value={diffStyle}
+          onChange={setDiffStyle}
+          size="sm"
+          className="shrink-0"
+        />
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-auto">
