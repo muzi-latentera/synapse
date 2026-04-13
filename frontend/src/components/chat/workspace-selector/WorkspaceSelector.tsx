@@ -32,6 +32,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 
 const VISIBLE_LIMIT = 5;
+const EMPTY_BRANCHES: string[] = [];
 
 type CreationMode = 'none' | 'menu' | 'empty' | 'git';
 
@@ -110,10 +111,20 @@ function WorkspaceItem({
   const checkoutBranch = useCheckoutBranchMutation();
 
   const showBranchSelector = branchesData?.is_git_repo === true;
-  const branches = branchesData?.branches ?? [];
-  const filteredBranches = branchSearch
-    ? branches.filter((b) => b.toLowerCase().includes(branchSearch.toLowerCase()))
-    : branches;
+  const branches = branchesData?.branches ?? EMPTY_BRANCHES;
+
+  // Pin current branch at top so it's always visible without scrolling
+  const currentBranch = branchesData?.current_branch;
+  const sortedBranches = useMemo(() => {
+    const searchLower = branchSearch.toLowerCase();
+    const filtered = branchSearch
+      ? branches.filter((b) => b.toLowerCase().includes(searchLower))
+      : branches;
+    if (!currentBranch) return filtered;
+    const others = filtered.filter((b) => b !== currentBranch);
+    const currentVisible = !branchSearch || currentBranch.toLowerCase().includes(searchLower);
+    return currentVisible ? [currentBranch, ...others] : others;
+  }, [branches, currentBranch, branchSearch]);
 
   return (
     <div>
@@ -209,57 +220,65 @@ function WorkspaceItem({
                     </div>
                   )}
                   <div className="max-h-[10rem] overflow-y-auto">
-                    {filteredBranches.length === 0 ? (
+                    {sortedBranches.length === 0 ? (
                       <p className="px-2 py-2 text-center text-2xs text-text-quaternary dark:text-text-dark-quaternary">
                         No matching branches
                       </p>
                     ) : (
                       <div className="flex flex-col py-0.5">
-                        {filteredBranches.map((branch) => {
+                        {sortedBranches.map((branch, index) => {
                           const isCurrent = branch === branchesData.current_branch;
+                          // Divider after pinned current branch to visually separate it
+                          const showDivider = isCurrent && index === 0 && sortedBranches.length > 1;
                           return (
-                            <Button
-                              variant="unstyled"
-                              key={branch}
-                              type="button"
-                              disabled={checkoutBranch.isPending}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isCurrent) return;
-                                checkoutBranch.mutate(
-                                  { sandboxId: ws.sandbox_id, branch },
-                                  {
-                                    onSuccess: (data) => {
-                                      if (data.success) {
-                                        toast.success(`Switched to ${branch}`);
-                                      } else {
-                                        toast.error(data.error ?? 'Failed to switch branch');
-                                      }
+                            <div key={branch}>
+                              <Button
+                                variant="unstyled"
+                                type="button"
+                                disabled={checkoutBranch.isPending}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isCurrent) return;
+                                  checkoutBranch.mutate(
+                                    { sandboxId: ws.sandbox_id, branch },
+                                    {
+                                      onSuccess: (data) => {
+                                        if (data.success) {
+                                          toast.success(`Switched to ${branch}`);
+                                        } else {
+                                          toast.error(data.error ?? 'Failed to switch branch');
+                                        }
+                                      },
+                                      onError: (err) => {
+                                        toast.error(
+                                          err instanceof Error
+                                            ? err.message
+                                            : 'Failed to switch branch',
+                                        );
+                                      },
                                     },
-                                    onError: (err) => {
-                                      toast.error(
-                                        err instanceof Error
-                                          ? err.message
-                                          : 'Failed to switch branch',
-                                      );
-                                    },
-                                  },
-                                );
-                              }}
-                              className={cn(
-                                'flex w-full items-center gap-1.5 px-2 py-1 text-left text-2xs transition-colors duration-200 disabled:opacity-50',
-                                isCurrent
-                                  ? 'bg-surface-active text-text-primary dark:bg-surface-dark-active dark:text-text-dark-primary'
-                                  : 'text-text-secondary hover:bg-surface-hover dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover',
+                                  );
+                                }}
+                                className={cn(
+                                  'flex w-full items-center gap-1.5 px-2 py-1 text-left text-2xs transition-colors duration-200 disabled:opacity-50',
+                                  isCurrent
+                                    ? 'bg-surface-active text-text-primary dark:bg-surface-dark-active dark:text-text-dark-primary'
+                                    : 'text-text-secondary hover:bg-surface-hover dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover',
+                                )}
+                              >
+                                {isCurrent ? (
+                                  <Check className="h-3 w-3 shrink-0" />
+                                ) : (
+                                  <span className="h-3 w-3 shrink-0" />
+                                )}
+                                <span className="truncate font-mono" title={branch}>
+                                  {branch}
+                                </span>
+                              </Button>
+                              {showDivider && (
+                                <div className="my-0.5 border-t border-border/50 dark:border-border-dark/50" />
                               )}
-                            >
-                              {isCurrent ? (
-                                <Check className="h-3 w-3 shrink-0" />
-                              ) : (
-                                <span className="h-3 w-3 shrink-0" />
-                              )}
-                              <span className="truncate font-mono">{branch}</span>
-                            </Button>
+                            </div>
                           );
                         })}
                       </div>

@@ -1,7 +1,7 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { GitBranch } from 'lucide-react';
-import { Dropdown } from '@/components/ui/primitives/Dropdown';
+import { Dropdown, DropdownItemType } from '@/components/ui/primitives/Dropdown';
 import { useChatContext } from '@/hooks/useChatContext';
 import { useIsSplitMode } from '@/hooks/useIsSplitMode';
 import { useChatStore } from '@/store/chatStore';
@@ -27,17 +27,29 @@ export const BranchSelector = memo(function BranchSelector({
   const { data: branchesData } = useGitBranchesQuery(sandboxId, !!sandboxId, worktreeCwd);
   const checkoutBranch = useCheckoutBranchMutation();
 
+  // Pin current branch at top with a divider separating it from the rest
+  const groupedItems = useMemo<DropdownItemType<string>[]>(() => {
+    if (!branchesData) return [];
+    const current = branchesData.current_branch;
+    const others = branchesData.branches.filter((b) => b !== current);
+    const items: DropdownItemType<string>[] = [{ type: 'item', data: current }];
+    if (others.length > 0) {
+      items.push({ type: 'header', label: 'Branches' });
+      others.forEach((b) => items.push({ type: 'item', data: b }));
+    }
+    return items;
+  }, [branchesData]);
+
   if (!sandboxId || !branchesData?.is_git_repo || branchesData.branches.length === 0) {
     return null;
   }
 
   const currentBranch = branchesData.current_branch;
-  const branches = branchesData.branches;
 
   return (
     <Dropdown
       value={currentBranch}
-      items={branches}
+      items={groupedItems}
       getItemKey={(branch) => branch}
       getItemLabel={(branch) => branch}
       onSelect={(branch) => {
@@ -60,15 +72,16 @@ export const BranchSelector = memo(function BranchSelector({
       }}
       leftIcon={GitBranch}
       getItemShortLabel={(branch) => (branch.length > 16 ? branch.slice(0, 16) + '…' : branch)}
-      width="w-48"
+      width="w-64"
       dropdownPosition={dropdownPosition}
       disabled={disabled || checkoutBranch.isPending}
       compactOnMobile
       forceCompact={isSplitMode}
       triggerVariant={variant}
       dropdownAlign={dropdownAlign}
-      searchable={branches.length >= 6}
+      searchable={branchesData.branches.length >= 6}
       searchPlaceholder="Search branches..."
+      searchVariant="underline"
       itemClassName="font-mono"
     />
   );
