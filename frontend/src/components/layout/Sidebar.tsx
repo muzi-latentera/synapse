@@ -632,7 +632,7 @@ export function Sidebar({
           <Button
             onClick={handleNewChat}
             variant="unstyled"
-            className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-surface-tertiary/50 px-2 py-2 text-[13px] font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-tertiary hover:text-text-primary dark:bg-surface-dark-tertiary/50 dark:text-text-dark-secondary dark:hover:bg-surface-dark-tertiary dark:hover:text-text-dark-primary"
+            className="flex w-full items-center justify-center gap-2.5 rounded-lg bg-surface-tertiary px-2 py-2 text-[13px] font-medium text-text-secondary transition-colors duration-200 hover:bg-surface-tertiary hover:text-text-primary dark:bg-surface-dark-tertiary/50 dark:text-text-dark-secondary dark:hover:bg-surface-dark-tertiary dark:hover:text-text-dark-primary"
           >
             <Plus className="h-3.5 w-3.5" />
             New thread
