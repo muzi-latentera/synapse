@@ -370,6 +370,8 @@ export function WorkspaceSelector({
   const [repoSearchQuery, setRepoSearchQuery] = useState('');
   const [debouncedRepoQuery, setDebouncedRepoQuery] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
+  // Form state initialization from server settings — useEffect is correct here
+  // because sandboxProvider is user-editable form state that diverges from the source
   useEffect(() => {
     if (defaultProvider) {
       setSandboxProvider(defaultProvider);

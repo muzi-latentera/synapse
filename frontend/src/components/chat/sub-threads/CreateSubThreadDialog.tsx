@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GitBranch, Brain, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -90,11 +90,14 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
     agentKind,
   });
 
-  useEffect(() => {
+  // Select first model when models load — ref-based check avoids extra render cycle
+  const prevModelsRef = useRef(models);
+  if (prevModelsRef.current !== models) {
+    prevModelsRef.current = models;
     if (!selectedModelId && models.length > 0) {
       setSelectedModelId(models[0].model_id);
     }
-  }, [models, selectedModelId]);
+  }
 
   const createSubThread = useCreateSubThreadMutation(parentChat.id);
 

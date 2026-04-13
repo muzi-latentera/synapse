@@ -107,6 +107,11 @@ export default {
           },
         },
 
+        // macOS traffic light colors
+        'traffic-close': '#ff5f57',
+        'traffic-minimize': '#febc2e',
+        'traffic-maximize': '#28c840',
+
         // Text colors
         text: {
           primary: '#0f172a',

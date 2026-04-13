@@ -1,7 +1,8 @@
-import { memo } from 'react';
-import Editor from '@monaco-editor/react';
+import { memo, lazy, Suspense } from 'react';
 import type * as monaco from 'monaco-editor';
 import { MONACO_FONT_FAMILY } from '@/config/constants';
+
+const Editor = lazy(() => import('@monaco-editor/react'));
 
 const EDITOR_OPTIONS = {
   minimap: { enabled: false },
@@ -59,29 +60,41 @@ export const Content = memo(function Content({
   onMount,
   theme,
 }: ContentProps) {
+  const loadingFallback = (
+    <div
+      className={`flex h-full items-center justify-center text-xs text-text-quaternary ${theme === 'custom-light' ? 'bg-surface-secondary' : 'bg-surface-dark-secondary'}`}
+    >
+      <div className="animate-pulse">Loading editor...</div>
+    </div>
+  );
+
   return (
     <div className="h-full">
-      <Editor
-        height="100%"
-        language={language}
-        path={`file://${language}`}
-        value={content}
-        onChange={onChange}
-        theme={theme}
-        options={{
-          ...EDITOR_OPTIONS,
-          readOnly: isReadOnly,
-        }}
-        onMount={onMount}
-        loading={
-          <div
-            className={`flex h-full items-center justify-center text-xs text-text-quaternary ${theme === 'custom-light' ? 'bg-surface-secondary' : 'bg-surface-dark-secondary'}`}
-          >
-            <div className="animate-pulse">Loading editor...</div>
-          </div>
-        }
-        className={theme === 'custom-light' ? 'bg-surface-secondary' : 'bg-surface-dark-secondary'}
-      />
+      <Suspense fallback={loadingFallback}>
+        <Editor
+          height="100%"
+          language={language}
+          path={`file://${language}`}
+          value={content}
+          onChange={onChange}
+          theme={theme}
+          options={{
+            ...EDITOR_OPTIONS,
+            readOnly: isReadOnly,
+          }}
+          onMount={onMount}
+          loading={
+            <div
+              className={`flex h-full items-center justify-center text-xs text-text-quaternary ${theme === 'custom-light' ? 'bg-surface-secondary' : 'bg-surface-dark-secondary'}`}
+            >
+              <div className="animate-pulse">Loading editor...</div>
+            </div>
+          }
+          className={
+            theme === 'custom-light' ? 'bg-surface-secondary' : 'bg-surface-dark-secondary'
+          }
+        />
+      </Suspense>
     </div>
   );
 });

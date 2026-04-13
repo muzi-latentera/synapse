@@ -15,9 +15,6 @@ import { useClipboard } from '@/hooks/useClipboard';
 import { useStreamCallbacks } from '@/hooks/useStreamCallbacks';
 import { useStreamReconnect } from '@/hooks/useStreamReconnect';
 
-export { useStreamRestoration } from './useStreamRestoration';
-export { useGlobalStream } from './useGlobalStream';
-
 interface UseChatStreamingParams {
   chatId: string | undefined;
   currentChat: Chat | undefined;
