@@ -306,11 +306,12 @@ function DropdownInner<T>({
                       renderItem(item, isSelected)
                     ) : (
                       <span
-                        className={`text-2xs font-medium ${
+                        className={`block truncate text-2xs font-medium ${
                           isSelected
                             ? 'text-text-primary dark:text-text-dark-primary'
                             : 'text-text-secondary dark:text-text-dark-secondary'
                         }`}
+                        title={getItemLabel(item)}
                       >
                         {getItemLabel(item)}
                       </span>
