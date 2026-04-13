@@ -39,6 +39,28 @@ ACP_PROTOCOL_VERSION = 1
 # default 64 KB stream buffer limit.
 STDIO_BUFFER_LIMIT = 100 * 1024 * 1024
 
+IMAGE_MIME_BY_EXT: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+}
+
+NON_IMAGE_MIME: dict[str, str] = {
+    "pdf": "application/pdf",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+EMPTY_FROZENSET: frozenset[str] = frozenset()
+
+# File types each agent can consume natively in the ACP prompt —
+# no sandbox-path note needed for these since the content is inline.
+NATIVE_FILE_TYPES: dict[AgentKind, frozenset[str]] = {
+    AgentKind.CLAUDE: frozenset({"image", "pdf"}),
+    AgentKind.CODEX: frozenset({"image"}),
+}
+
 
 @dataclass
 class AcpSessionConfig:
@@ -102,7 +124,7 @@ class AcpSession:
             TextContentBlock(type="text", text=content),
         ]
         if attachments:
-            attachment_note = self._build_attachment_note(attachments)
+            attachment_note = self._build_attachment_note(attachments, agent_kind)
             if attachment_note:
                 prompt_blocks.append(
                     TextContentBlock(type="text", text=attachment_note)
@@ -121,23 +143,17 @@ class AcpSession:
         finally:
             self._handler.finish(prompt_completed=prompt_completed)
 
-    IMAGE_MIME_BY_EXT: dict[str, str] = {
-        ".png": "image/png",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".gif": "image/gif",
-        ".webp": "image/webp",
-    }
-
-    NON_IMAGE_MIME: dict[str, str] = {
-        "pdf": "application/pdf",
-        "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    }
-
     @staticmethod
-    def _build_attachment_note(attachments: list[dict[str, Any]]) -> str:
+    def _build_attachment_note(
+        attachments: list[dict[str, Any]],
+        agent_kind: AgentKind,
+    ) -> str:
+        native_types = NATIVE_FILE_TYPES.get(agent_kind, EMPTY_FROZENSET)
         lines: list[str] = []
         for att in attachments:
+            file_type = att.get("file_type", "")
+            if file_type in native_types:
+                continue
             file_path = att.get("file_path")
             if not isinstance(file_path, str) or not file_path:
                 continue
@@ -170,14 +186,8 @@ class AcpSession:
             if not file_path:
                 continue
             file_type = att.get("file_type", "")
-            # Native ACP attachment support differs by agent: Claude can consume
-            # images and PDFs in the prompt, while Codex only handles images.
-            # Other uploaded files still exist in the sandbox for tool-based reads.
-            if file_type == "image":
-                pass
-            elif file_type == "pdf" and agent_kind == AgentKind.CLAUDE:
-                pass
-            else:
+            # Only include file types this agent can consume natively in the prompt.
+            if file_type not in NATIVE_FILE_TYPES.get(agent_kind, EMPTY_FROZENSET):
                 continue
             full_path = storage_path / file_path
             try:
@@ -190,7 +200,7 @@ class AcpSession:
 
             if file_type == "image":
                 ext = Path(filename).suffix.lower()
-                mime = AcpSession.IMAGE_MIME_BY_EXT.get(ext, "image/png")
+                mime = IMAGE_MIME_BY_EXT.get(ext, "image/png")
                 blocks.append(
                     ImageContentBlock(
                         type="image",
@@ -199,9 +209,7 @@ class AcpSession:
                     )
                 )
             else:
-                mime = AcpSession.NON_IMAGE_MIME.get(
-                    file_type, "application/octet-stream"
-                )
+                mime = NON_IMAGE_MIME.get(file_type, "application/octet-stream")
                 blocks.append(
                     EmbeddedResourceContentBlock(
                         type="resource",
