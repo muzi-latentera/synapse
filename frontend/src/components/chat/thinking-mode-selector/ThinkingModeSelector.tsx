@@ -14,38 +14,40 @@ export interface ThinkingModeOption {
   label: string;
 }
 
-export const CLAUDE_THINKING_MODES: ThinkingModeOption[] = [
+const CLAUDE_THINKING_MODES: ThinkingModeOption[] = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
   { value: 'max', label: 'Max' },
 ];
 
-export const CODEX_THINKING_MODES: ThinkingModeOption[] = [
+const CODEX_THINKING_MODES: ThinkingModeOption[] = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
   { value: 'xhigh', label: 'XHigh' },
 ];
 
-const MODES_BY_AGENT: Record<AgentKind, ThinkingModeOption[]> = {
+export const THINKING_MODES_BY_AGENT: Record<AgentKind, ThinkingModeOption[]> = {
   claude: CLAUDE_THINKING_MODES,
   codex: CODEX_THINKING_MODES,
+  copilot: CODEX_THINKING_MODES,
 };
 
 const DEFAULT_BY_AGENT: Record<AgentKind, string> = {
   claude: 'medium',
   codex: 'medium',
+  copilot: 'medium',
 };
 
 export function coerceThinkingModeForAgent(thinkingMode: string, agentKind: AgentKind): string {
-  const modes = MODES_BY_AGENT[agentKind];
+  const modes = THINKING_MODES_BY_AGENT[agentKind];
   const defaultMode = DEFAULT_BY_AGENT[agentKind];
   return modes.find((mode) => mode.value === thinkingMode)?.value ?? defaultMode;
 }
 
 function getThinkingModeOption(thinkingMode: string, agentKind: AgentKind): ThinkingModeOption {
-  const modes = MODES_BY_AGENT[agentKind];
+  const modes = THINKING_MODES_BY_AGENT[agentKind];
   const effectiveMode = coerceThinkingModeForAgent(thinkingMode, agentKind);
   const selectedMode = modes.find((mode) => mode.value === effectiveMode);
 
@@ -80,7 +82,7 @@ export const ThinkingModeSelector = memo(function ThinkingModeSelector({
   );
   const isSplitMode = useIsSplitMode();
 
-  const modes = MODES_BY_AGENT[resolvedAgentKind];
+  const modes = THINKING_MODES_BY_AGENT[resolvedAgentKind];
   const selectedMode = getThinkingModeOption(thinkingMode, resolvedAgentKind);
 
   return (

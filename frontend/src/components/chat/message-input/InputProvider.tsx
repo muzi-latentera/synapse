@@ -58,6 +58,7 @@ export function InputProvider({
   const modelMap = useModelMap();
   const agentKind =
     modelMap.get(selectedModelId)?.agent_kind ?? getAgentKindForModelId(selectedModelId);
+  const visibleContextUsage = agentKind === 'copilot' ? undefined : contextUsage;
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [previewDismissed, setPreviewDismissed] = useState(false);
@@ -324,7 +325,7 @@ export function InputProvider({
       attachedFiles,
       previewUrls,
       editingImageIndex,
-      contextUsage,
+      contextUsage: visibleContextUsage,
       chatId,
       isMentionActive,
       slashCommandSuggestions,
@@ -354,7 +355,7 @@ export function InputProvider({
       attachedFiles,
       previewUrls,
       editingImageIndex,
-      contextUsage,
+      visibleContextUsage,
       chatId,
       isMentionActive,
       slashCommandSuggestions,

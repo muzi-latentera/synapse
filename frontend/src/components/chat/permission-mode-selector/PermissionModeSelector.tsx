@@ -43,14 +43,34 @@ export const CODEX_PERMISSION_MODES: PermissionModeOption[] = [
   { value: 'full-access', label: 'Full Access', description: 'Full read and write access' },
 ];
 
+export const COPILOT_PERMISSION_MODES: PermissionModeOption[] = [
+  {
+    value: 'agent',
+    label: 'Agent',
+    description: 'Normal session mode with approvals for gated actions',
+  },
+  {
+    value: 'plan',
+    label: 'Plan',
+    description: 'Review and refine the plan before execution',
+  },
+  {
+    value: 'autopilot',
+    label: 'Autopilot',
+    description: 'Autonomous mode for longer multi-step work',
+  },
+];
+
 export const MODES_BY_AGENT: Record<AgentKind, PermissionModeOption[]> = {
   claude: CLAUDE_PERMISSION_MODES,
   codex: CODEX_PERMISSION_MODES,
+  copilot: COPILOT_PERMISSION_MODES,
 };
 
 const DEFAULT_BY_AGENT: Record<AgentKind, PermissionMode> = {
   claude: 'bypassPermissions',
   codex: 'full-access',
+  copilot: 'agent',
 };
 
 export function coercePermissionModeForAgent(

@@ -10,6 +10,7 @@ from typing import Any
 class AgentKind(str, Enum):
     CLAUDE = "claude"
     CODEX = "codex"
+    COPILOT = "copilot"
 
 
 # Claude uses MAX_THINKING_TOKENS env var (not a CLI arg) to cap the
@@ -36,6 +37,33 @@ CODEX_AUTO_SANDBOX_PERMISSIONS = (
 )
 # Valid Codex ACP session modes.
 CODEX_SESSION_MODES = frozenset({"auto", "read-only", "full-access"})
+COPILOT_SESSION_MODES = frozenset({"agent", "plan", "autopilot"})
+COPILOT_SESSION_MODE_BASE_URL = "https://agentclientprotocol.com/protocol/session-modes"
+COPILOT_SESSION_MODE_IDS: dict[str, str] = {
+    mode: f"{COPILOT_SESSION_MODE_BASE_URL}#{mode}" for mode in COPILOT_SESSION_MODES
+}
+
+CLAUDE_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "max"})
+CODEX_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "xhigh"})
+COPILOT_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "xhigh"})
+
+
+def coerce_thinking_mode(mode: str | None, valid_modes: frozenset[str]) -> str:
+    # Normalises the UI's named thinking tier to one the agent actually accepts,
+    # falling back to "medium" for None or unrecognised values.
+    return mode if mode in valid_modes else "medium"
+
+
+def build_system_prompt_meta(
+    system_prompt: str | None, is_full_replace: bool
+) -> dict[str, Any]:
+    # Builds the _meta systemPrompt payload shared by Claude and Copilot:
+    # a plain string replaces the default prompt; {"append": ...} appends to it.
+    if not system_prompt:
+        return {}
+    if is_full_replace:
+        return {"systemPrompt": system_prompt}
+    return {"systemPrompt": {"append": system_prompt}}
 
 
 @dataclass(frozen=True)
@@ -109,6 +137,11 @@ class AgentAdapter(ABC):
         # string is needed, not the full SessionConfig.
         raise NotImplementedError
 
+    def map_model_id(self, model_id: str) -> str:
+        # Translates the internal model registry key (e.g., "copilot:claude-sonnet-4.6")
+        # to the model ID the ACP agent expects. Default: passthrough.
+        return model_id
+
 
 class ClaudeAgentAdapter(AgentAdapter):
     def __init__(self) -> None:
@@ -134,20 +167,13 @@ class ClaudeAgentAdapter(AgentAdapter):
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
-        # Session metadata is sent as _meta in new_session/load_session and
-        # forwarded by the ACP bridge to Claude Code's internal config.
-        # "systemPrompt" as a string replaces the default prompt entirely;
-        # {"append": ...} appends to it (used for custom instructions).
-        meta: dict[str, Any] = {}
-        if system_prompt:
-            if system_prompt_is_full_replace:
-                meta["systemPrompt"] = system_prompt
-            else:
-                meta["systemPrompt"] = {"append": system_prompt}
+        meta = build_system_prompt_meta(system_prompt, system_prompt_is_full_replace)
 
         # Claude uses MAX_THINKING_TOKENS env var for thinking budget.
         env_overrides: dict[str, str] = {}
-        max_thinking = THINKING_MODE_TOKENS.get(thinking_mode or "")
+        max_thinking = THINKING_MODE_TOKENS.get(
+            coerce_thinking_mode(thinking_mode, CLAUDE_VALID_THINKING_MODES)
+        )
         if max_thinking:
             env_overrides["MAX_THINKING_TOKENS"] = str(max_thinking)
 
@@ -212,7 +238,9 @@ class CodexAgentAdapter(AgentAdapter):
     ) -> SessionConfig:
         # Codex accepts reasoning_effort directly as a CLI config value
         # (low, medium, high, xhigh) — no remapping needed.
-        reasoning_effort = thinking_mode or None
+        reasoning_effort = coerce_thinking_mode(
+            thinking_mode, CODEX_VALID_THINKING_MODES
+        )
 
         # Codex ACP advertises three session modes: auto, read-only, full-access.
         # The UI sends these same values, so session_mode is a direct passthrough.
@@ -239,7 +267,65 @@ class CodexAgentAdapter(AgentAdapter):
         return permission_mode
 
 
+class CopilotCliAdapter(AgentAdapter):
+    # Copilot CLI reuses the same ACP transport, but its ACP session modes and
+    # reasoning controls differ from Claude. Keep that mapping explicit here so
+    # we only send values the Copilot ACP server actually advertises.
+
+    def __init__(self) -> None:
+        super().__init__(kind=AgentKind.COPILOT)
+
+    def build_launch_config(
+        self,
+        *,
+        system_prompt: str | None,
+        system_prompt_is_full_replace: bool,
+        reasoning_effort: str | None,
+        permission_mode: str | None,
+        launch_approval_policy: str | None,
+    ) -> LaunchConfig:
+        return LaunchConfig(binary="copilot", cli_args=["--acp", "--stdio"])
+
+    def build_session_config(
+        self,
+        *,
+        system_prompt: str | None,
+        system_prompt_is_full_replace: bool,
+        thinking_mode: str | None,
+        permission_mode: str,
+    ) -> SessionConfig:
+        meta = build_system_prompt_meta(system_prompt, system_prompt_is_full_replace)
+
+        # Copilot ACP exposes reasoning effort directly rather than Claude's
+        # MAX_THINKING_TOKENS environment variable budget.
+        reasoning_effort = coerce_thinking_mode(
+            thinking_mode, COPILOT_VALID_THINKING_MODES
+        )
+
+        return SessionConfig(
+            meta=meta,
+            reasoning_effort=reasoning_effort,
+            permission=PermissionConfig(
+                session_mode=self.map_session_mode(permission_mode)
+            ),
+        )
+
+    def map_session_mode(self, permission_mode: str) -> str:
+        # Existing chats may still carry Claude/Codex mode strings in persisted
+        # settings. Default those to Copilot's normal agent mode so agent
+        # switches do not fail.
+        if permission_mode not in COPILOT_SESSION_MODES:
+            return COPILOT_SESSION_MODE_IDS["agent"]
+        return COPILOT_SESSION_MODE_IDS[permission_mode]
+
+    def map_model_id(self, model_id: str) -> str:
+        # Internal keys use "copilot:" prefix to namespace; the CLI expects
+        # the raw model name (e.g., "claude-sonnet-4.6" not "copilot:claude-sonnet-4.6").
+        return model_id.removeprefix("copilot:")
+
+
 AGENT_ADAPTERS: dict[AgentKind, AgentAdapter] = {
     AgentKind.CLAUDE: ClaudeAgentAdapter(),
     AgentKind.CODEX: CodexAgentAdapter(),
+    AgentKind.COPILOT: CopilotCliAdapter(),
 }

@@ -6,6 +6,8 @@ type PermissionMode =
   | 'acceptEdits'
   | 'plan'
   | 'bypassPermissions'
+  | 'agent'
+  | 'autopilot'
   | 'auto'
   | 'read-only'
   | 'full-access';
@@ -41,7 +43,10 @@ export const useChatSettingsStore = create<ChatSettingsState>()(
       personaByChat: {},
       setPermissionMode: (chatId, mode) =>
         set((state) => ({
-          permissionModeByChat: { ...state.permissionModeByChat, [chatId]: mode },
+          permissionModeByChat: {
+            ...state.permissionModeByChat,
+            [chatId]: mode,
+          },
         })),
       setThinkingMode: (chatId, mode) =>
         set((state) => ({
@@ -80,7 +85,10 @@ export const useChatSettingsStore = create<ChatSettingsState>()(
           >
         > = {};
         if (permission !== undefined) {
-          updates.permissionModeByChat = { ...state.permissionModeByChat, [chatId]: permission };
+          updates.permissionModeByChat = {
+            ...state.permissionModeByChat,
+            [chatId]: permission,
+          };
         }
         if (thinking !== undefined) {
           updates.thinkingModeByChat = { ...state.thinkingModeByChat, [chatId]: thinking };
