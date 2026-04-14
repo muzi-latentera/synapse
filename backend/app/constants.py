@@ -26,6 +26,12 @@ CLAUDE_SKILLS_DIR: Final[Path] = (
 CODEX_SKILLS_DIR: Final[Path] = (
     CODEX_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".codex"
 ) / "skills"
+COPILOT_DIR: Final[Path] = (
+    Path(d) if (d := os.environ.get("COPILOT_HOME")) else Path.home() / ".copilot"
+)
+COPILOT_SKILLS_DIR: Final[Path] = (
+    COPILOT_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".copilot"
+) / "skills"
 
 HOST_REQUIRED_PATH_PREFIX: Final[str] = (
     f"{Path.home()}/.local/bin:/opt/homebrew/bin:/usr/local/bin"
@@ -142,6 +148,7 @@ SANDBOX_HOME_DIR: Final[str] = "/home/user"
 SANDBOX_WORKSPACE_DIR: Final[str] = "/home/user/workspace"
 SANDBOX_CLAUDE_DIR: Final[str] = "/home/user/.claude"
 SANDBOX_CODEX_DIR: Final[str] = "/home/user/.codex"
+SANDBOX_COPILOT_DIR: Final[str] = "/home/user/.copilot"
 SANDBOX_CLAUDE_JSON_PATH: Final[str] = "/home/user/.claude.json"
 SANDBOX_GIT_ASKPASS_PATH: Final[str] = "/home/user/.git-askpass.sh"
 
@@ -174,6 +181,20 @@ MODELS: dict[str, ModelInfo] = {
     "gpt-5.2": ModelInfo("GPT 5.2", AgentKind.CODEX, 400_000),
     "gpt-5.1-codex-max": ModelInfo("GPT 5.1 Codex Max", AgentKind.CODEX, 400_000),
     "gpt-5.1-codex-mini": ModelInfo("GPT 5.1 Codex Mini", AgentKind.CODEX, 400_000),
+    "copilot:claude-sonnet-4.6": ModelInfo("Sonnet 4.6", AgentKind.COPILOT, 160_000),
+    "copilot:claude-sonnet-4.5": ModelInfo("Sonnet 4.5", AgentKind.COPILOT, 160_000),
+    "copilot:claude-opus-4.6": ModelInfo("Opus 4.6", AgentKind.COPILOT, 160_000),
+    "copilot:claude-opus-4.5": ModelInfo("Opus 4.5", AgentKind.COPILOT, 160_000),
+    "copilot:claude-haiku-4.5": ModelInfo("Haiku 4.5", AgentKind.COPILOT, 160_000),
+    "copilot:claude-sonnet-4": ModelInfo("Sonnet 4", AgentKind.COPILOT, 144_000),
+    "copilot:gpt-5.4": ModelInfo("GPT 5.4", AgentKind.COPILOT, 304_000),
+    "copilot:gpt-5.4-mini": ModelInfo("GPT 5.4 Mini", AgentKind.COPILOT, 304_000),
+    "copilot:gpt-5.3-codex": ModelInfo("GPT 5.3 Codex", AgentKind.COPILOT, 304_000),
+    "copilot:gpt-5.2-codex": ModelInfo("GPT 5.2 Codex", AgentKind.COPILOT, 304_000),
+    "copilot:gpt-5.2": ModelInfo("GPT 5.2", AgentKind.COPILOT, 160_000),
+    "copilot:gpt-5.1": ModelInfo("GPT 5.1", AgentKind.COPILOT, 160_000),
+    "copilot:gpt-5-mini": ModelInfo("GPT 5 Mini", AgentKind.COPILOT, 160_000),
+    "copilot:gpt-4.1": ModelInfo("GPT 4.1", AgentKind.COPILOT, 80_000),
 }
 
 # Built-in slash commands exposed to the frontend per agent kind.
@@ -257,6 +278,85 @@ BUILTIN_SLASH_COMMANDS: dict[AgentKind, list[dict[str, str]]] = {
             "value": "/compact",
             "label": "Compact",
             "description": "Clear conversation history but keep a summary in context",
+        },
+    ],
+    AgentKind.COPILOT: [
+        {"value": "/model", "label": "Model", "description": "Select the active model"},
+        {
+            "value": "/compact",
+            "label": "Compact",
+            "description": "Clear conversation history but keep a summary in context",
+        },
+        {
+            "value": "/context",
+            "label": "Context",
+            "description": "Show context window token usage and visualization",
+        },
+        {
+            "value": "/usage",
+            "label": "Usage",
+            "description": "Display session usage metrics and statistics",
+        },
+        {"value": "/review", "label": "Review", "description": "Review a pull request"},
+        {
+            "value": "/diff",
+            "label": "Diff",
+            "description": "Review the changes made in the current directory",
+        },
+        {
+            "value": "/pr",
+            "label": "PR",
+            "description": "Operate on pull requests for the current branch",
+        },
+        {
+            "value": "/init",
+            "label": "Init",
+            "description": "Initialize project configuration",
+        },
+        {
+            "value": "/agent",
+            "label": "Agent",
+            "description": "Browse and select from available agents",
+        },
+        {
+            "value": "/skills",
+            "label": "Skills",
+            "description": "Manage skills for enhanced capabilities",
+        },
+        {
+            "value": "/mcp",
+            "label": "MCP",
+            "description": "Manage MCP server configuration",
+        },
+        {
+            "value": "/plugin",
+            "label": "Plugin",
+            "description": "Manage plugins and plugin marketplaces",
+        },
+        {
+            "value": "/session",
+            "label": "Session",
+            "description": "View and manage sessions",
+        },
+        {
+            "value": "/tasks",
+            "label": "Tasks",
+            "description": "View and manage background tasks",
+        },
+        {
+            "value": "/delegate",
+            "label": "Delegate",
+            "description": "Send this session to GitHub and create a PR",
+        },
+        {
+            "value": "/fleet",
+            "label": "Fleet",
+            "description": "Enable parallel subagent execution",
+        },
+        {
+            "value": "/allow-all",
+            "label": "Allow All",
+            "description": "Enable all permissions for the session",
         },
     ],
 }

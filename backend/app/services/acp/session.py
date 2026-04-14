@@ -59,6 +59,7 @@ EMPTY_FROZENSET: frozenset[str] = frozenset()
 NATIVE_FILE_TYPES: dict[AgentKind, frozenset[str]] = {
     AgentKind.CLAUDE: frozenset({"image", "pdf"}),
     AgentKind.CODEX: frozenset({"image"}),
+    AgentKind.COPILOT: frozenset({"image", "pdf"}),
 }
 
 
@@ -95,12 +96,14 @@ class AcpSession:
         conn: ClientSideConnection,
         process: asyncio.subprocess.Process,
         acp_session_id: str,
+        agent_kind: AgentKind = AgentKind.CLAUDE,
         stderr_task: asyncio.Task[None] | None = None,
     ) -> None:
         self._handler = handler
         self._conn = conn
         self._process = process
         self.acp_session_id = acp_session_id
+        self._agent_kind = agent_kind
         self._stderr_task = stderr_task
 
     @property
@@ -229,9 +232,12 @@ class AcpSession:
             logger.warning("Failed to send ACP cancel", exc_info=True)
 
     async def set_model(self, model_id: str) -> None:
+        # Translate the internal model registry key to the ACP model ID
+        # the agent expects (e.g., strip "copilot:" prefix for Copilot CLI).
+        acp_model_id = AGENT_ADAPTERS[self._agent_kind].map_model_id(model_id)
         try:
             await self._conn.set_session_model(
-                model_id=model_id,
+                model_id=acp_model_id,
                 session_id=self.acp_session_id,
             )
         except Exception:
@@ -318,8 +324,11 @@ class AcpSession:
 
             if config.model:
                 try:
+                    acp_model_id = AGENT_ADAPTERS[config.agent_kind].map_model_id(
+                        config.model
+                    )
                     await conn.set_session_model(
-                        model_id=config.model,
+                        model_id=acp_model_id,
                         session_id=acp_session_id,
                     )
                 except Exception:
@@ -373,6 +382,7 @@ class AcpSession:
             conn=conn,
             process=process,
             acp_session_id=acp_session_id,
+            agent_kind=config.agent_kind,
             stderr_task=stderr_task,
         )
 

@@ -20,4 +20,8 @@ export const MONACO_FONT_FAMILY =
 
 export const MOBILE_BREAKPOINT = 768;
 
-export const EMPTY_BUILTIN_COMMANDS: Record<AgentKind, SlashCommand[]> = { claude: [], codex: [] };
+export const EMPTY_BUILTIN_COMMANDS: Record<AgentKind, SlashCommand[]> = {
+  claude: [],
+  codex: [],
+  copilot: [],
+};

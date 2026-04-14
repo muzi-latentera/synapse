@@ -5,6 +5,8 @@ PermissionMode: TypeAlias = Literal[
     "acceptEdits",
     "plan",
     "bypassPermissions",
+    "agent",
+    "autopilot",
     "auto",
     "read-only",
     "full-access",

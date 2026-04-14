@@ -11,8 +11,10 @@ from app.constants import (
     CLAUDE_DIR,
     CLAUDE_SKILLS_DIR,
     CODEX_SKILLS_DIR,
+    COPILOT_SKILLS_DIR,
     SANDBOX_CLAUDE_DIR,
     SANDBOX_CODEX_DIR,
+    SANDBOX_COPILOT_DIR,
 )
 from app.models.types import (
     CustomSkillDict,
@@ -23,7 +25,8 @@ from app.utils.yaml_parser import YAMLParser
 
 logger = logging.getLogger(__name__)
 
-SKILL_SANDBOX_DIRS = (SANDBOX_CLAUDE_DIR, SANDBOX_CODEX_DIR)
+SKILL_SANDBOX_DIRS = (SANDBOX_CLAUDE_DIR, SANDBOX_CODEX_DIR, SANDBOX_COPILOT_DIR)
+SKILL_SOURCE_BY_DIR: dict[str, str] = {".codex": "codex", ".copilot": "copilot"}
 SKILL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-_]*$")
 
 
@@ -39,6 +42,7 @@ class SkillService:
         return (
             CLAUDE_SKILLS_DIR,
             CODEX_SKILLS_DIR,
+            COPILOT_SKILLS_DIR,
             *SkillService._get_plugin_skill_paths(),
         )
 
@@ -78,7 +82,7 @@ class SkillService:
 
     @staticmethod
     def _get_skill_source(base_path: Path) -> str:
-        return "codex" if base_path.parent.name == ".codex" else "claude"
+        return SKILL_SOURCE_BY_DIR.get(base_path.parent.name, "claude")
 
     @staticmethod
     def _find_skill_md(skill_dir: Path) -> Path | None:
