@@ -229,8 +229,6 @@ export function buildFileStructureFromSandboxFiles(
           type: 'file',
           content: file.content || '',
           is_binary: file.is_binary,
-          size: file.size,
-          modified: file.modified,
           isLoaded: !!file.content,
         };
 

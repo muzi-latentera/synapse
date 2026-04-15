@@ -13,7 +13,7 @@ from app.constants import PTY_INPUT_QUEUE_SIZE, PTY_OUTPUT_QUEUE_SIZE
 from app.services.exceptions import SandboxException
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers import SandboxProviderType
-from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.sandbox_providers.base import SandboxProvider
 
 logger = logging.getLogger(__name__)
 
@@ -238,10 +238,8 @@ class TerminalSessionRegistry:
             if existing:
                 return existing
 
-            provider = SandboxProviderFactory.create_bound(
-                provider_type,
-                sandbox_id=sandbox_id,
-                workspace_path=workspace_path,
+            provider = SandboxProvider.create_provider(
+                provider_type, workspace_path=workspace_path
             )
             service = SandboxService(provider)
 

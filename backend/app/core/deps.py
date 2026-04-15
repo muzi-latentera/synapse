@@ -24,7 +24,7 @@ from app.services.refresh_token import RefreshTokenService
 from app.services.sandbox import SandboxService
 from app.services.workspace import WorkspaceService
 from app.services.sandbox_providers import SandboxProviderType
-from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.skill import SkillService
 from app.services.user import UserService
 from app.utils.cache import CacheError, cache_connection
@@ -105,15 +105,17 @@ async def get_sandbox_service(
     db: AsyncSession = Depends(get_db),
     user_service: UserService = Depends(get_user_service),
 ) -> AsyncIterator[SandboxService]:
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+    user_settings = await user_service.get_user_settings(user.id, db=db)
+
     sandbox_id = request.path_params.get("sandbox_id")
     if sandbox_id:
         # Sandbox-scoped routes must use the provider persisted with that
         # workspace so requests never hit the wrong backend.
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required",
-            )
         query = select(Workspace.sandbox_provider, Workspace.workspace_path).where(
             Workspace.sandbox_id == sandbox_id,
             Workspace.user_id == user.id,
@@ -129,26 +131,22 @@ async def get_sandbox_service(
         sandbox_provider = row.sandbox_provider
         sandbox_workspace_path = row.workspace_path
     else:
-        # Workspace creation has no sandbox_id yet, so it must use the user's
-        # saved preference instead of silently defaulting to Docker.
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required",
-            )
-        user_settings = await user_service.get_user_settings(user.id, db=db)
         sandbox_provider = user_settings.sandbox_provider
         sandbox_workspace_path = None
 
     provider_type = SandboxProviderType(sandbox_provider)
 
-    provider = SandboxProviderFactory.create_bound(
-        provider_type=provider_type,
-        sandbox_id=sandbox_id or "",
-        workspace_path=sandbox_workspace_path,
+    provider = SandboxProvider.create_provider(
+        provider_type, workspace_path=sandbox_workspace_path
     )
+
+    env_vars = SandboxService.build_env_vars(
+        user_settings.custom_env_vars,
+        user_settings.github_personal_access_token,
+    )
+
     try:
-        yield SandboxService(provider)
+        yield SandboxService(provider, env_vars=env_vars)
     finally:
         await provider.cleanup()
 

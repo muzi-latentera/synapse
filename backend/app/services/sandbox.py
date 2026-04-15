@@ -34,12 +34,32 @@ logger = logging.getLogger(__name__)
 
 
 class SandboxService:
+    @staticmethod
+    def build_env_vars(
+        custom_env_vars: list[CustomEnvVarDict] | None,
+        github_token: str | None,
+    ) -> dict[str, str]:
+        # Merge user-level env vars and github token into a single dict
+        # that gets injected into every sandbox command execution.
+        envs: dict[str, str] = {}
+        if custom_env_vars:
+            for ev in custom_env_vars:
+                envs[ev["key"]] = ev["value"]
+        if github_token:
+            envs["GITHUB_TOKEN"] = github_token
+            envs["GIT_ASKPASS"] = str(SANDBOX_GIT_ASKPASS_PATH)
+        return envs
+
     def __init__(
         self,
         provider: SandboxProvider,
+        env_vars: dict[str, str] | None = None,
         session_factory: Callable[..., Any] | None = None,
     ) -> None:
         self.provider = provider
+        # User-level env vars (custom_env_vars + github token) loaded from DB,
+        # injected into every command execution.
+        self.env_vars = env_vars or {}
         self.session_factory = session_factory
 
     @staticmethod
@@ -134,15 +154,9 @@ class SandboxService:
         self,
         sandbox_id: str,
         command: str,
-        background: bool = False,
     ) -> CommandResult:
-        # Inject the sandbox's user-defined secrets as env vars so commands
-        # (git, npm, etc.) can use tokens/keys without explicit configuration.
-        sandbox_secrets = await self.provider.get_secrets(sandbox_id)
-        envs = {s.key: s.value for s in sandbox_secrets}
-
         return await self.provider.execute_command(
-            sandbox_id, command, background=background, envs=envs
+            sandbox_id, command, envs=self.env_vars or None
         )
 
     async def create_pty_session(
@@ -200,8 +214,6 @@ class SandboxService:
             {
                 "path": m.path,
                 "type": m.type,
-                "size": m.size,
-                "modified": m.modified,
                 "is_binary": m.is_binary,
             }
             for m in metadata
@@ -218,37 +230,6 @@ class SandboxService:
             }
         except Exception as e:
             raise SandboxException(f"Failed to read file {file_path}: {str(e)}")
-
-    async def update_secret(
-        self,
-        sandbox_id: str,
-        key: str,
-        value: str,
-    ) -> None:
-        # Secrets are stored as `export KEY=VALUE` lines in .bashrc — there's no
-        # atomic update, so we delete the old line first then append the new one.
-        try:
-            sandbox_secrets = await self.provider.get_secrets(sandbox_id)
-            secret_exists = any(secret.key == key for secret in sandbox_secrets)
-        except Exception as e:
-            raise SandboxException(f"Failed to read secrets for update: {str(e)}")
-
-        if not secret_exists:
-            await self.provider.add_secret(sandbox_id, key, value)
-            return
-
-        try:
-            await self.provider.delete_secret(sandbox_id, key)
-            await self.provider.add_secret(sandbox_id, key, value)
-        except Exception as e:
-            raise SandboxException(f"Failed to update secret {key}: {str(e)}")
-
-    async def get_secrets(
-        self,
-        sandbox_id: str,
-    ) -> list[dict[str, Any]]:
-        sandbox_secrets = await self.provider.get_secrets(sandbox_id)
-        return [{"key": s.key, "value": s.value} for s in sandbox_secrets]
 
     async def generate_zip_download(self, sandbox_id: str) -> bytes:
         metadata_items = await self.provider.list_files(sandbox_id)
@@ -338,33 +319,11 @@ class SandboxService:
             logger.error("Failed to deploy resources to sandbox %s: %s", sandbox_id, e)
             raise SandboxException(f"Failed to deploy resources to sandbox: {e}") from e
 
-    async def _add_env_vars_parallel(
-        self, sandbox_id: str, custom_env_vars: list[CustomEnvVarDict]
-    ) -> None:
-        if not custom_env_vars:
-            return
-        async with asyncio.TaskGroup() as tg:
-            for env_var in custom_env_vars:
-                tg.create_task(
-                    self.provider.add_secret(
-                        sandbox_id, env_var["key"], env_var["value"]
-                    )
-                )
-
-    async def _setup_github_token(self, sandbox_id: str, github_token: str) -> None:
+    async def _setup_github_token(self, sandbox_id: str) -> None:
         # GIT_ASKPASS is a script git calls for credentials — it just echoes the
-        # token, avoiding interactive prompts for HTTPS git operations.
+        # GITHUB_TOKEN env var, avoiding interactive prompts for HTTPS git operations.
+        # The token itself is injected via env_vars on every execute_command call.
         script_content = '#!/bin/sh\\necho "$GITHUB_TOKEN"'
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(
-                self.provider.add_secret(sandbox_id, "GITHUB_TOKEN", github_token)
-            )
-            tg.create_task(
-                self.provider.add_secret(
-                    sandbox_id, "GIT_ASKPASS", SANDBOX_GIT_ASKPASS_PATH
-                )
-            )
-
         setup_cmd = (
             f"echo -e '{script_content}' > {SANDBOX_GIT_ASKPASS_PATH} && "
             f"chmod +x {SANDBOX_GIT_ASKPASS_PATH}"
@@ -413,19 +372,10 @@ class SandboxService:
     async def initialize_sandbox(
         self,
         sandbox_id: str,
-        github_token: str | None = None,
-        custom_env_vars: list[CustomEnvVarDict] | None = None,
+        has_github_token: bool = False,
         auto_compact_disabled: bool = False,
         attribution_disabled: bool = False,
     ) -> None:
-        # Ensure login shells (e.g. tmux in the web terminal) source .bashrc
-        # so custom env vars and secrets written there are available.
-        await self.provider.execute_command(
-            sandbox_id,
-            "test -f ~/.bash_profile || echo '[ -f ~/.bashrc ] && source ~/.bashrc' > ~/.bash_profile",
-            timeout=5,
-        )
-
         tasks: list[Coroutine[None, None, None]] = []
 
         tasks.append(
@@ -434,14 +384,11 @@ class SandboxService:
             )
         )
 
-        if custom_env_vars:
-            tasks.append(self._add_env_vars_parallel(sandbox_id, custom_env_vars))
-
         tasks.append(self._deploy_resources(sandbox_id))
         tasks.append(SandboxService.sync_cli_auth(self.provider, sandbox_id))
 
-        if github_token:
-            tasks.append(self._setup_github_token(sandbox_id, github_token))
+        if has_github_token:
+            tasks.append(self._setup_github_token(sandbox_id))
 
         async with asyncio.TaskGroup() as tg:
             for task in tasks:

@@ -33,10 +33,6 @@ COPILOT_SKILLS_DIR: Final[Path] = (
     COPILOT_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".copilot"
 ) / "skills"
 
-HOST_REQUIRED_PATH_PREFIX: Final[str] = (
-    f"{Path.home()}/.local/bin:/opt/homebrew/bin:/usr/local/bin"
-)
-
 REDIS_KEY_CHAT_STREAM_LIVE: Final[str] = "chat:{chat_id}:stream:live"
 REDIS_KEY_USER_SETTINGS: Final[str] = "user_settings:{user_id}"
 REDIS_KEY_CHAT_CONTEXT_USAGE: Final[str] = "chat:{chat_id}:context_usage"
@@ -48,22 +44,6 @@ QUEUE_MESSAGE_TTL_SECONDS: Final[int] = 3600
 SANDBOX_DEFAULT_COMMAND_TIMEOUT: Final[int] = 120
 PTY_OUTPUT_QUEUE_SIZE: Final[int] = 512
 PTY_INPUT_QUEUE_SIZE: Final[int] = 1024
-
-DOCKER_AVAILABLE_PORTS: Final[list[int]] = [
-    3000,
-    3001,
-    5000,
-    8000,
-    8080,
-    5173,
-    4200,
-    8888,
-    4321,
-    3030,
-    5500,
-    1234,
-    4000,
-]
 
 SANDBOX_SYSTEM_VARIABLES: Final[list[str]] = [
     "SHELL",

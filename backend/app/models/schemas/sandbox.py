@@ -21,8 +21,6 @@ class UpdateFileResponse(BaseModel):
 class FileMetadata(BaseModel):
     path: str
     type: str
-    size: int
-    modified: float
     is_binary: bool | None = None
 
 

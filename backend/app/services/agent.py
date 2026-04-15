@@ -36,7 +36,7 @@ from app.constants import MODELS
 from app.services.git import GitService
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers import SandboxProviderType
-from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.streaming.types import StreamEvent
 from app.services.user import UserService
 
@@ -110,8 +110,9 @@ class AgentService:
                 # Reuse the already-persisted worktree path from a prior turn.
                 cwd = chat.worktree_cwd
             else:
-                provider = SandboxProviderFactory.create(
-                    SandboxProviderType(sandbox_provider)
+                provider = SandboxProvider.create_provider(
+                    SandboxProviderType(sandbox_provider),
+                    workspace_path=workspace_path,
                 )
                 git_service = GitService(SandboxService(provider))
                 worktree_cwd = await git_service.create_worktree(
@@ -323,7 +324,7 @@ class AgentService:
             cwd = os.environ.get("HOME", "/tmp")
 
         if sandbox_provider == SandboxProviderType.DOCKER.value and sandbox_id:
-            provider = SandboxProviderFactory.create(SandboxProviderType.DOCKER)
+            provider = SandboxProvider.create_provider(SandboxProviderType.DOCKER)
             await SandboxService.sync_cli_auth(provider, sandbox_id)
 
         config = AcpSessionConfig(
