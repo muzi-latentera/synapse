@@ -396,7 +396,8 @@ class AgentService:
     ) -> AcpSessionConfig:
         env: dict[str, str] = {}
 
-        if user_settings.github_personal_access_token:
+        # Skip in desktop mode — host git credentials handle auth natively
+        if user_settings.github_personal_access_token and not settings.DESKTOP_MODE:
             env["GITHUB_TOKEN"] = user_settings.github_personal_access_token
             env["GIT_ASKPASS"] = SANDBOX_GIT_ASKPASS_PATH
         if settings.GIT_AUTHOR_NAME and settings.GIT_AUTHOR_EMAIL:
