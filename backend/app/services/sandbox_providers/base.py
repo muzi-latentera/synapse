@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from app.constants import SANDBOX_BINARY_EXTENSIONS
+from app.constants import SANDBOX_BINARY_EXTENSIONS, SANDBOX_HOME_DIR
 from app.core.config import get_settings
 from app.services.sandbox_providers.types import (
     CommandResult,
@@ -91,7 +91,7 @@ class SandboxProvider:
     async def list_files(
         self,
         sandbox_id: str,
-        path: str,
+        path: str = SANDBOX_HOME_DIR,
     ) -> list[FileMetadata]:
         raise NotImplementedError
 
