@@ -42,8 +42,6 @@ export interface UserSettings {
   custom_env_vars: CustomEnvVar[] | null;
   personas: Persona[] | null;
   notifications_enabled: boolean;
-  auto_compact_disabled: boolean;
-  attribution_disabled: boolean;
   created_at: string;
   updated_at: string;
 }
