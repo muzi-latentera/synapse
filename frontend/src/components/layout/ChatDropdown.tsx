@@ -51,7 +51,7 @@ export const ChatDropdown = memo(function ChatDropdown({
         'fixed w-32',
         'bg-surface dark:bg-surface-dark',
         'border border-border dark:border-border-dark',
-        'z-50 overflow-hidden rounded-lg shadow-medium',
+        'z-50 overflow-hidden rounded-lg shadow-medium focus:outline-none',
       )}
       style={{
         top: `${position.top}px`,
