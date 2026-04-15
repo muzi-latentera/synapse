@@ -174,21 +174,12 @@ class Settings(BaseSettings):
     DOCKER_IMAGE: str = "ghcr.io/mng-dev-ai/agentrove-sandbox:latest"
     DOCKER_NETWORK: str = "agentrove-sandbox-net"
     DOCKER_HOST: str | None = None
-    DOCKER_PREVIEW_BASE_URL: str = "http://localhost"
-    # Traefik path-prefix routing for HTTPS sandbox access (see docker_provider.py)
-    # Example: DOCKER_PREVIEW_BASE_URL=https://yourdomain.com, DOCKER_TRAEFIK_NETWORK=coolify
-    DOCKER_TRAEFIK_NETWORK: str = ""
-    DOCKER_TRAEFIK_ENTRYPOINT: str = "https"
-    DOCKER_RUNTIME: str = (
-        ""  # e.g. "sysbox-runc" for Sysbox, leave empty for default Docker runtime
-    )
     DOCKER_MEM_LIMIT: str = "4g"
     DOCKER_CPU_PERIOD: int = 100000
     DOCKER_CPU_QUOTA: int = 200000
     DOCKER_PIDS_LIMIT: int = 512
 
     # Host Sandbox configuration
-    HOST_STORAGE_PATH: str | None = None
     HOST_SANDBOX_BASE_DIR: str | None = None
     HOST_PREVIEW_BASE_URL: str = "http://localhost"
 

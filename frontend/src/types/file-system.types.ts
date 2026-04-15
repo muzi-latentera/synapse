@@ -3,8 +3,6 @@ export interface FileStructure {
   content: string;
   type: 'file' | 'folder';
   is_binary?: boolean;
-  size?: number;
-  modified?: number;
   isLoaded?: boolean;
   children?: FileStructure[];
 }

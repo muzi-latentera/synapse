@@ -27,7 +27,7 @@ from app.models.schemas.pagination import PaginatedResponse, PaginationParams
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import ErrorCode, WorkspaceException
 from app.services.sandbox import SandboxService
-from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.sandbox_providers.types import SandboxProviderType
 from app.services.acp.adapters import AgentKind
 from app.constants import BUILTIN_SLASH_COMMANDS
@@ -97,12 +97,15 @@ class WorkspaceService(BaseDbService[Workspace]):
             source_url = None
 
         resolved_provider = data.sandbox_provider or user_settings.sandbox_provider
-        sandbox_service = self.sandbox_service
-        if resolved_provider != user_settings.sandbox_provider:
-            provider = SandboxProviderFactory.create(
-                SandboxProviderType(resolved_provider)
-            )
-            sandbox_service = SandboxService(provider)
+        env_vars = SandboxService.build_env_vars(
+            user_settings.custom_env_vars,
+            user_settings.github_personal_access_token,
+        )
+        provider = SandboxProvider.create_provider(
+            SandboxProviderType(resolved_provider),
+            workspace_path=workspace_path,
+        )
+        sandbox_service = SandboxService(provider, env_vars=env_vars)
 
         sandbox_id = await sandbox_service.provider.create_sandbox(
             workspace_path=workspace_path,
@@ -110,8 +113,7 @@ class WorkspaceService(BaseDbService[Workspace]):
 
         await sandbox_service.initialize_sandbox(
             sandbox_id=sandbox_id,
-            github_token=user_settings.github_personal_access_token,
-            custom_env_vars=user_settings.custom_env_vars,
+            has_github_token=bool(user_settings.github_personal_access_token),
             auto_compact_disabled=user_settings.auto_compact_disabled,
             attribution_disabled=user_settings.attribution_disabled,
         )
@@ -305,10 +307,8 @@ class WorkspaceService(BaseDbService[Workspace]):
 
             # Destroy the container using the workspace's actual provider
             if workspace.sandbox_id:
-                provider = SandboxProviderFactory.create_bound(
-                    workspace.sandbox_provider,
-                    sandbox_id=workspace.sandbox_id,
-                    workspace_path=workspace.workspace_path,
+                provider = SandboxProvider.create_provider(
+                    workspace.sandbox_provider, workspace_path=workspace.workspace_path
                 )
                 sandbox_service = SandboxService(provider)
                 asyncio.create_task(

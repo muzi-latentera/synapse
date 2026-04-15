@@ -17,8 +17,6 @@ export interface FileMetadata {
   path: string;
   type: string;
   is_binary?: boolean;
-  size: number;
-  modified: number;
 }
 
 export interface FileContent {

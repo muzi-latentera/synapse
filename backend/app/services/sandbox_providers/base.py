@@ -1,20 +1,10 @@
-import asyncio
 import base64
-import fnmatch
 import logging
-import posixpath
-import shlex
-import subprocess
-from abc import ABC, abstractmethod
-from pathlib import Path, PurePosixPath
-from typing import Any, Awaitable, TypeVar
+from pathlib import Path
+from typing import Any
 
-from app.constants import (
-    SANDBOX_BASHRC_PATH,
-    SANDBOX_BINARY_EXTENSIONS,
-    SANDBOX_HOME_DIR,
-    SANDBOX_SYSTEM_VARIABLES,
-)
+from app.constants import SANDBOX_BINARY_EXTENSIONS
+from app.core.config import get_settings
 from app.services.sandbox_providers.types import (
     CommandResult,
     FileContent,
@@ -22,345 +12,89 @@ from app.services.sandbox_providers.types import (
     PtyDataCallbackType,
     PtySession,
     PtySize,
-    SecretEntry,
+    SandboxProviderType,
 )
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
-T = TypeVar("T")
-
-GITIGNORE_CMD = "cat .gitignore 2>/dev/null"
+GIT_LS_FILES_CMD = "git ls-files --cached --others --exclude-standard -z"
 
 
-class SandboxProvider(ABC):
+class SandboxProvider:
     _pty_sessions: dict[str, dict[str, Any]]
 
     @staticmethod
-    def normalize_path(file_path: str, base: str = SANDBOX_HOME_DIR) -> str:
-        path = PurePosixPath(file_path)
-
-        if path.is_absolute():
-            path_str = str(path)
-            if path_str.startswith(base):
-                return posixpath.normpath(path_str)
-            return posixpath.normpath(f"{base}{path}")
-        return posixpath.normpath(f"{base}/{path}")
-
-    @staticmethod
-    def format_export_command(key: str, value: str) -> str:
-        escaped_value = value.replace("'", "'\"'\"'")
-        return f"export {key}='{escaped_value}'"
-
-    @staticmethod
-    def _is_binary_file(path: str) -> bool:
-        return Path(path).suffix.lstrip(".").lower() in SANDBOX_BINARY_EXTENSIONS
-
-    @staticmethod
-    def _encode_file_content(path: str, content_bytes: bytes) -> tuple[str, bool]:
-        is_binary = SandboxProvider._is_binary_file(path)
-        if is_binary:
-            content = base64.b64encode(content_bytes).decode("utf-8")
-        else:
-            content = content_bytes.decode("utf-8", errors="replace")
-        return content, is_binary
-
-    @staticmethod
-    async def _execute_with_timeout(
-        coro: Awaitable[T],
-        timeout: int,
-        error_msg: str | None = None,
-    ) -> T:
-        try:
-            return await asyncio.wait_for(coro, timeout=timeout + 5)
-        except asyncio.TimeoutError:
-            raise TimeoutError(error_msg or f"Operation timed out after {timeout}s")
-
-    def _get_pty_session(
-        self, sandbox_id: str, session_id: str
-    ) -> dict[str, Any] | None:
-        return self._pty_sessions.get(sandbox_id, {}).get(session_id)
-
-    def _register_pty_session(
-        self, sandbox_id: str, session_id: str, session_data: dict[str, Any]
-    ) -> None:
-        self._pty_sessions.setdefault(sandbox_id, {})[session_id] = session_data
-
-    def _cleanup_pty_session_tracking(self, sandbox_id: str, session_id: str) -> None:
-        try:
-            del self._pty_sessions[sandbox_id][session_id]
-            if not self._pty_sessions[sandbox_id]:
-                del self._pty_sessions[sandbox_id]
-        except KeyError:
-            logger.error("Error cleaning up PTY session %s", session_id)
-
-    @staticmethod
-    def _build_gitignore_patterns(
-        gitignore_content: str,
-    ) -> tuple[list[str], list[str]]:
-        # Gitignore-like (not strict Git) negation handling: we allow
-        # negations to re-include children of excluded parent directories
-        # (e.g. ".claude/" + "!.claude/plans/" shows plans/), which real
-        # Git does not support without first un-ignoring the parent.
-        # Directory-only semantics (trailing /) are also not enforced.
-        rules: list[tuple[bool, str]] = []
-        for raw_line in gitignore_content.splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.startswith("!"):
-                neg = line[1:].strip().lstrip("/").rstrip("/")
-                if neg:
-                    rules.append((True, neg))
-            else:
-                normalized = line.lstrip("/")
-                if normalized:
-                    rules.append((False, normalized))
-
-        patterns = SandboxProvider._expand_ignore_rules(rules)
-        exceptions = SandboxProvider._build_negation_exceptions(rules)
-        return patterns, exceptions
-
-    @staticmethod
-    def _expand_ignore_rules(rules: list[tuple[bool, str]]) -> list[str]:
-        patterns: list[str] = []
-        for is_neg, rule in rules:
-            if is_neg:
-                continue
-            if rule.startswith("*."):
-                patterns.append(rule)
-                continue
-            if rule.endswith("/"):
-                folder = rule.rstrip("/")
-                if not folder:
-                    continue
-                patterns.extend([folder, f"{folder}/*", f"*/{folder}", f"*/{folder}/*"])
-                continue
-            patterns.extend([rule, f"{rule}/*", f"*/{rule}", f"*/{rule}/*"])
-        return list(dict.fromkeys(patterns))
-
-    @staticmethod
-    def _build_negation_exceptions(rules: list[tuple[bool, str]]) -> list[str]:
-        # A negation is only active if no later ignore rule
-        # re-matches the negated path (last rule wins).
-        active: list[str] = []
-        for idx, (is_neg, rule) in enumerate(rules):
-            if not is_neg:
-                continue
-            neg_basename = rule.rsplit("/", 1)[-1]
-            overridden = False
-            for later_is_neg, later in rules[idx + 1 :]:
-                if later_is_neg:
-                    continue
-                later_norm = later.rstrip("/")
-                if (
-                    fnmatch.fnmatch(rule, later_norm)
-                    or fnmatch.fnmatch(neg_basename, later_norm)
-                    or rule.startswith(f"{later_norm}/")
-                ):
-                    overridden = True
-                    break
-            if not overridden:
-                active.append(rule)
-
-        exceptions: list[str] = []
-        for neg in active:
-            if "/" in neg:
-                # Path negation: include ancestors so find can descend
-                # into parent dirs before reaching the negated subtree.
-                parts = neg.split("/")
-                for i in range(len(parts)):
-                    exceptions.append("/".join(parts[: i + 1]))
-                exceptions.append(f"{neg}/*")
-            else:
-                # Basename negation: match in any subdirectory.
-                exceptions.extend([neg, f"*/{neg}", f"{neg}/*", f"*/{neg}/*"])
-        return exceptions
-
-    @staticmethod
-    def _read_global_gitignore() -> str:
-        # Read from the API host, not the sandbox — sandbox containers
-        # don't have the user's global git config, so this is the only
-        # way to pick up global excludes like ~/.gitignore_global.
-        try:
-            result = subprocess.run(
-                ["git", "config", "--global", "core.excludesFile"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            p = result.stdout.strip()
-        except (OSError, subprocess.TimeoutExpired):
-            p = ""
-        # Fall back to XDG default location when core.excludesFile is not set
-        if not p:
-            p = str(Path.home() / ".config" / "git" / "ignore")
-        # Expand ~ and resolve relative paths against $HOME (matching git behavior)
-        path = Path(p).expanduser()
-        if not path.is_absolute():
-            path = Path.home() / path
-        try:
-            return path.read_text() if path.is_file() else ""
-        except (OSError, UnicodeDecodeError):
-            return ""
-
-    async def _get_gitignore_patterns(
-        self, sandbox_id: str, path: str = SANDBOX_HOME_DIR
-    ) -> tuple[list[str], list[str]]:
-        cmd = f"cd {shlex.quote(path)} && {GITIGNORE_CMD}"
-        result = await self.execute_command(
-            sandbox_id,
-            cmd,
-            timeout=5,
+    def create_provider(
+        provider_type: SandboxProviderType | str,
+        workspace_path: str | None = None,
+    ) -> "SandboxProvider":
+        # Factory that returns the appropriate provider (Docker or Host)
+        # based on the configured sandbox type.
+        # Inline import to avoid circular dependency — both providers import from base.
+        from app.services.sandbox_providers.docker_provider import (
+            DockerConfig,
+            LocalDockerProvider,
         )
-        parts = result.stdout or ""
-        global_ignore = await asyncio.to_thread(self._read_global_gitignore)
-        if global_ignore:
-            parts = f"{parts}\n{global_ignore}"
-        if not parts.strip():
-            return [], []
-        return self._build_gitignore_patterns(parts)
+        from app.services.sandbox_providers.host_provider import LocalHostProvider
 
-    @abstractmethod
+        if isinstance(provider_type, str):
+            provider_type = SandboxProviderType(provider_type)
+
+        if provider_type == SandboxProviderType.DOCKER:
+            return LocalDockerProvider(
+                config=DockerConfig(
+                    image=settings.DOCKER_IMAGE,
+                    network=settings.DOCKER_NETWORK,
+                    host=settings.DOCKER_HOST,
+                    mem_limit=settings.DOCKER_MEM_LIMIT,
+                    cpu_period=settings.DOCKER_CPU_PERIOD,
+                    cpu_quota=settings.DOCKER_CPU_QUOTA,
+                    pids_limit=settings.DOCKER_PIDS_LIMIT,
+                )
+            )
+
+        if not workspace_path:
+            raise ValueError("workspace_path is required for host provider")
+        return LocalHostProvider(workspace_path=workspace_path)
+
     async def create_sandbox(self, workspace_path: str | None = None) -> str:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
-    async def connect_sandbox(self, sandbox_id: str) -> bool:
-        pass
-
-    @abstractmethod
     async def delete_sandbox(self, sandbox_id: str) -> None:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
-    async def is_running(self, sandbox_id: str) -> bool:
-        pass
-
-    @abstractmethod
     async def execute_command(
         self,
         sandbox_id: str,
         command: str,
-        background: bool = False,
         envs: dict[str, str] | None = None,
-        timeout: int | None = None,
+        timeout: int = 120,
     ) -> CommandResult:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     async def write_file(
         self,
         sandbox_id: str,
         path: str,
         content: str | bytes,
     ) -> None:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     async def read_file(
         self,
         sandbox_id: str,
         path: str,
     ) -> FileContent:
-        pass
-
-    @staticmethod
-    def _find_prune_condition(p: str) -> str:
-        if p.startswith("*.") or p.startswith("."):
-            return f"-name {shlex.quote(p)}"
-        return f"-path {shlex.quote(p)}"
+        raise NotImplementedError
 
     async def list_files(
         self,
         sandbox_id: str,
-        path: str = SANDBOX_HOME_DIR,
-        excluded_patterns: list[str] | None = None,
+        path: str,
     ) -> list[FileMetadata]:
-        # Build a `find` command that respects .gitignore and caller-provided
-        # exclusions. Uses -prune so excluded subtrees are never descended into,
-        # keeping the command fast even in large repos (node_modules, .git, etc.).
-        caller_patterns = list(dict.fromkeys(excluded_patterns or []))
-        gitignore_patterns, exceptions = await self._get_gitignore_patterns(
-            sandbox_id, path
-        )
+        raise NotImplementedError
 
-        prune_parts: list[str] = []
-        if caller_patterns:
-            caller_expr = " -o ".join(
-                self._find_prune_condition(p) for p in caller_patterns
-            )
-            prune_parts.append(f"\\( {caller_expr} \\)")
-        if gitignore_patterns:
-            gi_expr = " -o ".join(
-                self._find_prune_condition(p) for p in gitignore_patterns
-            )
-            exception_expr = ""
-            if exceptions:
-                exception_parts = [
-                    f"! -path {shlex.quote(f'{path}/{e}')}" for e in exceptions
-                ]
-                exception_expr = " " + " ".join(exception_parts)
-            prune_parts.append(f"\\( {gi_expr} \\){exception_expr}")
-
-        if prune_parts:
-            combined = " -o ".join(prune_parts)
-            find_command = (
-                f"find {shlex.quote(path)} "
-                f"\\( {combined} \\) "
-                f"-prune -o -printf '%p\\t%y\\t%s\\t%T@\\n'"
-            )
-        else:
-            find_command = f"find {shlex.quote(path)} -printf '%p\\t%y\\t%s\\t%T@\\n'"
-
-        result = await self.execute_command(sandbox_id, find_command, timeout=30)
-
-        metadata_items = []
-        home_dir_slash = f"{SANDBOX_HOME_DIR}/"
-        for line in result.stdout.strip().split("\n"):
-            if not line:
-                continue
-
-            parts = line.split("\t")
-            if len(parts) < 4:
-                continue
-
-            file_path, file_type, size, mtime = parts[:4]
-
-            if not file_path or file_path == SANDBOX_HOME_DIR:
-                continue
-
-            if file_path.startswith(home_dir_slash):
-                file_path = file_path[len(home_dir_slash) :]
-
-            modified = float(mtime) if mtime.replace(".", "").isdigit() else 0
-
-            if file_type == "f":
-                is_binary = (
-                    Path(file_path).suffix.lstrip(".").lower()
-                    in SANDBOX_BINARY_EXTENSIONS
-                )
-                metadata_items.append(
-                    FileMetadata(
-                        path=file_path,
-                        type="file",
-                        is_binary=is_binary,
-                        size=int(size) if size.isdigit() else 0,
-                        modified=modified,
-                    )
-                )
-            elif file_type == "d":
-                metadata_items.append(
-                    FileMetadata(
-                        path=file_path,
-                        type="directory",
-                        size=0,
-                        modified=modified,
-                    )
-                )
-
-        return metadata_items
-
-    @abstractmethod
     async def create_pty(
         self,
         sandbox_id: str,
@@ -369,78 +103,91 @@ class SandboxProvider(ABC):
         tmux_session: str,
         on_data: PtyDataCallbackType | None = None,
     ) -> PtySession:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     async def send_pty_input(
         self,
         sandbox_id: str,
         pty_id: str,
         data: bytes,
     ) -> None:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     async def resize_pty(
         self,
         sandbox_id: str,
         pty_id: str,
         size: PtySize,
     ) -> None:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
-    async def kill_pty(
-        self,
-        sandbox_id: str,
-        pty_id: str,
+    async def kill_pty(self, sandbox_id: str, pty_id: str) -> None:
+        raise NotImplementedError
+
+    @staticmethod
+    def parse_git_ls_files(git_output: str) -> list[FileMetadata]:
+        # Build file metadata from git ls-files -z output. Derives directories
+        # from file paths since git only tracks files.
+        items: list[FileMetadata] = []
+        seen_dirs: set[str] = set()
+
+        for rel_path in filter(None, git_output.split("\0")):
+            # Add parent directories that haven't been seen yet.
+            parts = rel_path.split("/")
+            for i in range(1, len(parts)):
+                dir_rel = "/".join(parts[:i])
+                if dir_rel in seen_dirs:
+                    continue
+                seen_dirs.add(dir_rel)
+                items.append(FileMetadata(path=dir_rel, type="directory"))
+
+            ext = Path(rel_path).suffix.lstrip(".").lower()
+            items.append(
+                FileMetadata(
+                    path=rel_path,
+                    type="file",
+                    is_binary=ext in SANDBOX_BINARY_EXTENSIONS,
+                )
+            )
+
+        return items
+
+    @staticmethod
+    def encode_file_content(path: str, content_bytes: bytes) -> tuple[str, bool]:
+        # Return file content as a string — base64-encoded for binary files,
+        # UTF-8 decoded for text files.
+        is_binary = Path(path).suffix.lstrip(".").lower() in SANDBOX_BINARY_EXTENSIONS
+        if is_binary:
+            content = base64.b64encode(content_bytes).decode("utf-8")
+        else:
+            content = content_bytes.decode("utf-8", errors="replace")
+        return content, is_binary
+
+    def get_pty_session(
+        self, sandbox_id: str, session_id: str
+    ) -> dict[str, Any] | None:
+        # Look up a PTY session from the in-memory tracking dict.
+        return self._pty_sessions.get(sandbox_id, {}).get(session_id)
+
+    def register_pty_session(
+        self, sandbox_id: str, session_id: str, session_data: dict[str, Any]
     ) -> None:
-        pass
+        self._pty_sessions.setdefault(sandbox_id, {})[session_id] = session_data
 
-    async def get_secrets(self, sandbox_id: str) -> list[SecretEntry]:
-        # Secrets are persisted as `export KEY=VALUE` lines in .bashrc so they
-        # survive container restarts and are available in all shell sessions.
-        # System variables (PATH, HOME, etc.) are filtered out.
-        result = await self.execute_command(
-            sandbox_id,
-            f"grep '^export' {SANDBOX_BASHRC_PATH} | sed 's/^export //g'",
-            timeout=5,
-        )
+    def cleanup_pty_session_tracking(self, sandbox_id: str, session_id: str) -> None:
+        # Remove a PTY session from tracking. Cleans up the parent dict
+        # when the last session for a sandbox is removed.
+        sandbox_sessions = self._pty_sessions.get(sandbox_id)
+        if not sandbox_sessions:
+            return
 
-        env_lines = result.stdout.strip().split("\n")
-        secrets = []
-        for line in env_lines:
-            if "=" in line:
-                key, value = line.split("=", 1)
-                value = value.strip('"').strip("'")
-
-                if key not in SANDBOX_SYSTEM_VARIABLES:
-                    secrets.append(SecretEntry(key=key, value=value))
-
-        return secrets
-
-    async def add_secret(
-        self,
-        sandbox_id: str,
-        key: str,
-        value: str,
-    ) -> None:
-        export_command = self.format_export_command(key, value)
-        await self.execute_command(
-            sandbox_id, f'echo "{export_command}" >> {SANDBOX_BASHRC_PATH}'
-        )
-
-    async def delete_secret(
-        self,
-        sandbox_id: str,
-        key: str,
-    ) -> None:
-        escaped_key = key.replace(".", r"\.").replace("*", r"\*")
-        await self.execute_command(
-            sandbox_id, f"sed -i '/^export {escaped_key}=/d' {SANDBOX_BASHRC_PATH}"
-        )
+        sandbox_sessions.pop(session_id, None)
+        if not sandbox_sessions:
+            self._pty_sessions.pop(sandbox_id, None)
 
     async def cleanup(self) -> None:
+        # Tear down all active PTY sessions. Subclasses call super().cleanup()
+        # then handle their own resources (e.g. Docker client).
         for sandbox_id in list(self._pty_sessions.keys()):
             for session_id in list(self._pty_sessions[sandbox_id].keys()):
                 try:
@@ -452,15 +199,3 @@ class SandboxProvider(ABC):
                         sandbox_id,
                         e,
                     )
-
-    async def __aenter__(self) -> "SandboxProvider":
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        _exc_val: BaseException | None,
-        _exc_tb: Any,
-    ) -> bool:
-        await self.cleanup()
-        return False

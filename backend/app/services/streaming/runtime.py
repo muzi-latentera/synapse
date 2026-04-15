@@ -32,7 +32,7 @@ from app.services.agent import (
 )
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers import SandboxProviderType
-from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.session_registry import ChatSession, session_registry
 from app.services.db import SessionFactoryType
 from app.services.exceptions import AgentException
@@ -998,7 +998,7 @@ class ChatStreamRuntime:
                 config.sandbox_provider == SandboxProviderType.DOCKER.value
                 and config.sandbox_id
             ):
-                provider = SandboxProviderFactory.create(SandboxProviderType.DOCKER)
+                provider = SandboxProvider.create_provider(SandboxProviderType.DOCKER)
                 await SandboxService.sync_cli_auth(provider, config.sandbox_id)
 
             session, _ = await session_registry.get_or_create(

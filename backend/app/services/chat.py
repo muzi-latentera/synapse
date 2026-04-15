@@ -32,7 +32,7 @@ from app.services.exceptions import ChatException, ErrorCode
 from app.services.message import MessageService
 from app.constants import MODELS
 from app.services.sandbox import SandboxService
-from app.services.sandbox_providers.factory import SandboxProviderFactory
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.storage import StorageService
 from app.services.streaming.runtime import ChatStreamRuntime
 from app.services.streaming.types import ChatStreamRequest, StreamEnvelope
@@ -74,10 +74,8 @@ class ChatService(BaseDbService[Chat]):
     def sandbox_for_workspace(workspace: Workspace) -> SandboxService:
         # Create a short-lived SandboxService bound to the workspace's
         # provider and container — used for file ops and cleanup.
-        provider = SandboxProviderFactory.create_bound(
-            workspace.sandbox_provider,
-            sandbox_id=workspace.sandbox_id,
-            workspace_path=workspace.workspace_path,
+        provider = SandboxProvider.create_provider(
+            workspace.sandbox_provider, workspace_path=workspace.workspace_path
         )
         return SandboxService(provider)
 

@@ -21,8 +21,6 @@ class CommandResult:
 class FileMetadata:
     path: str
     type: str
-    size: int
-    modified: float
     is_binary: bool = False
 
 
@@ -46,25 +44,3 @@ class PtySession:
 class PtySize:
     rows: int
     cols: int
-
-
-@dataclass
-class SecretEntry:
-    key: str
-    value: str
-
-
-@dataclass
-class DockerConfig:
-    image: str = "agentrove-sandbox:latest"
-    network: str = "agentrove-sandbox-net"
-    host: str | None = None
-    preview_base_url: str = "http://localhost"
-    user_home: str = "/home/user"
-    traefik_network: str = ""
-    traefik_entrypoint: str = "https"
-    runtime: str = ""
-    mem_limit: str = ""
-    cpu_period: int = 0
-    cpu_quota: int = 0
-    pids_limit: int = 0
