@@ -323,10 +323,6 @@ class AgentService:
             workspace_path = None
             cwd = os.environ.get("HOME", "/tmp")
 
-        if sandbox_provider == SandboxProviderType.DOCKER.value and sandbox_id:
-            provider = SandboxProvider.create_provider(SandboxProviderType.DOCKER)
-            await SandboxService.sync_cli_auth(provider, sandbox_id)
-
         config = AcpSessionConfig(
             sandbox_id=sandbox_id,
             sandbox_provider=sandbox_provider,

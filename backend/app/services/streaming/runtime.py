@@ -30,9 +30,6 @@ from app.services.agent import (
     AgentService,
     StreamResult,
 )
-from app.services.sandbox import SandboxService
-from app.services.sandbox_providers import SandboxProviderType
-from app.services.sandbox_providers.base import SandboxProvider
 from app.services.session_registry import ChatSession, session_registry
 from app.services.db import SessionFactoryType
 from app.services.exceptions import AgentException
@@ -993,13 +990,6 @@ class ChatStreamRuntime:
                 worktree=request.worktree,
                 selected_persona_name=request.selected_persona_name,
             )
-
-            if (
-                config.sandbox_provider == SandboxProviderType.DOCKER.value
-                and config.sandbox_id
-            ):
-                provider = SandboxProvider.create_provider(SandboxProviderType.DOCKER)
-                await SandboxService.sync_cli_auth(provider, config.sandbox_id)
 
             session, _ = await session_registry.get_or_create(
                 chat_id=runtime.chat_id,
