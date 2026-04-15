@@ -158,11 +158,9 @@ def get_git_service(
 
 
 async def get_workspace_service(
-    sandbox_service: SandboxService = Depends(get_sandbox_service),
     user_service: UserService = Depends(get_user_service),
 ) -> WorkspaceService:
     return WorkspaceService(
-        sandbox_service,
         user_service,
         session_factory=SessionLocal,
     )

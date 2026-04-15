@@ -45,12 +45,10 @@ GIT_CLONE_TIMEOUT_SECONDS = 180
 class WorkspaceService(BaseDbService[Workspace]):
     def __init__(
         self,
-        sandbox_service: SandboxService,
         user_service: UserService,
         session_factory: SessionFactoryType | None = None,
     ) -> None:
         super().__init__(session_factory)
-        self.sandbox_service = sandbox_service
         self.user_service = user_service
         self._base_dir = (Path(settings.STORAGE_PATH) / WORKSPACES_DIR_NAME).resolve()
         self._base_dir.mkdir(parents=True, exist_ok=True)
