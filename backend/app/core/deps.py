@@ -41,7 +41,7 @@ def get_refresh_token_service() -> RefreshTokenService:
 
 
 def get_skill_service() -> SkillService:
-    return SkillService(base_paths=SkillService.get_default_base_paths())
+    return SkillService()
 
 
 async def get_github_token(

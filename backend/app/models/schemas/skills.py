@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 class SkillFileEntry(BaseModel):
     path: str = Field(..., max_length=4096)
-    content: str
+    content: str = Field(..., max_length=10_000_000)
     is_binary: bool = False
 
 

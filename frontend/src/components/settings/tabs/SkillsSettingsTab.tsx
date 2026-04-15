@@ -48,7 +48,7 @@ export const SkillsSettingsTab: React.FC<SkillsSettingsTabProps> = ({
         <div className="space-y-2">
           {items.map((skill) => (
             <div
-              key={skill.name}
+              key={`${skill.source}/${skill.name}`}
               className="rounded-lg border border-border/50 px-4 py-3 dark:border-border-dark/50"
             >
               <div className="flex items-start justify-between gap-3">
