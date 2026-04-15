@@ -18,37 +18,31 @@ async def list_skills(
     return skill_service.list_all()
 
 
-@router.get("/{skill_name}/files", response_model=SkillFilesResponse)
+@router.get("/{source}/{skill_name}/files", response_model=SkillFilesResponse)
 async def get_skill_files(
+    source: str,
     skill_name: str,
     current_user: User = Depends(get_current_user),
     skill_service: SkillService = Depends(get_skill_service),
 ) -> SkillFilesResponse:
     try:
-        skill_service.validate_exact_sanitized_name(skill_name)
-        files = skill_service.get_files(skill_name)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        files = skill_service.get_files(source, skill_name)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return SkillFilesResponse(name=skill_name, files=files)
 
 
-@router.put("/{skill_name}", response_model=CustomSkillDict)
+@router.put("/{source}/{skill_name}", response_model=CustomSkillDict)
 async def update_skill(
+    source: str,
     skill_name: str,
     request: SkillUpdateRequest,
     current_user: User = Depends(get_current_user),
     skill_service: SkillService = Depends(get_skill_service),
 ) -> CustomSkillDict:
     try:
-        skill_service.validate_exact_sanitized_name(skill_name)
-        files_data: list[dict[str, str | bool]] = [
-            {"path": file.path, "content": file.content, "is_binary": file.is_binary}
-            for file in request.files
-        ]
-        return skill_service.update(skill_name, files_data)
+        return skill_service.update(source, skill_name, request.files)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except FileNotFoundError as exc:

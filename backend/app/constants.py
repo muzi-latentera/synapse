@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from typing import Final, NamedTuple
 
 from app.core.config import get_settings
@@ -13,25 +11,6 @@ class ModelInfo(NamedTuple):
     agent_kind: AgentKind
     context_window: int | None
 
-
-CLAUDE_DIR: Final[Path] = (
-    Path(d) if (d := os.environ.get("CLAUDE_CONFIG_DIR")) else Path.home() / ".claude"
-)
-CODEX_DIR: Final[Path] = (
-    Path(d) if (d := os.environ.get("CODEX_HOME")) else Path.home() / ".codex"
-)
-CLAUDE_SKILLS_DIR: Final[Path] = (
-    CLAUDE_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".claude"
-) / "skills"
-CODEX_SKILLS_DIR: Final[Path] = (
-    CODEX_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".codex"
-) / "skills"
-COPILOT_DIR: Final[Path] = (
-    Path(d) if (d := os.environ.get("COPILOT_HOME")) else Path.home() / ".copilot"
-)
-COPILOT_SKILLS_DIR: Final[Path] = (
-    COPILOT_DIR if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH) / ".copilot"
-) / "skills"
 
 REDIS_KEY_CHAT_STREAM_LIVE: Final[str] = "chat:{chat_id}:stream:live"
 REDIS_KEY_USER_SETTINGS: Final[str] = "user_settings:{user_id}"
@@ -126,9 +105,6 @@ SANDBOX_BINARY_EXTENSIONS: Final[set[str]] = {
 
 SANDBOX_HOME_DIR: Final[str] = "/home/user"
 SANDBOX_WORKSPACE_DIR: Final[str] = "/home/user/workspace"
-SANDBOX_CLAUDE_DIR: Final[str] = "/home/user/.claude"
-SANDBOX_CODEX_DIR: Final[str] = "/home/user/.codex"
-SANDBOX_COPILOT_DIR: Final[str] = "/home/user/.copilot"
 SANDBOX_CLAUDE_JSON_PATH: Final[str] = "/home/user/.claude.json"
 SANDBOX_GIT_ASKPASS_PATH: Final[str] = "/home/user/.git-askpass.sh"
 

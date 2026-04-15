@@ -21,24 +21,29 @@ interface SkillFilesResponse {
   files: SkillFileEntry[];
 }
 
-async function getSkillFiles(skillName: string): Promise<SkillFileEntry[]> {
+async function getSkillFiles(source: string, skillName: string): Promise<SkillFileEntry[]> {
+  validateRequired(source, 'Source');
   validateRequired(skillName, 'Skill name');
 
   return withAuth(async () => {
-    const response = await apiClient.get<SkillFilesResponse>(`/skills/${skillName}/files`);
+    const response = await apiClient.get<SkillFilesResponse>(
+      `/skills/${source}/${skillName}/files`,
+    );
     const data = ensureResponse(response, 'Failed to fetch skill files');
     return data.files;
   });
 }
 
-async function updateSkill(skillName: string, filesJson: string): Promise<CustomSkill> {
+async function updateSkill(
+  source: string,
+  skillName: string,
+  files: SkillFileEntry[],
+): Promise<CustomSkill> {
+  validateRequired(source, 'Source');
   validateRequired(skillName, 'Skill name');
-  validateRequired(filesJson, 'Files');
-
-  const files: SkillFileEntry[] = JSON.parse(filesJson);
 
   return withAuth(async () => {
-    const response = await apiClient.put<CustomSkill>(`/skills/${skillName}`, { files });
+    const response = await apiClient.put<CustomSkill>(`/skills/${source}/${skillName}`, { files });
     return ensureResponse(response, 'Failed to update skill');
   });
 }

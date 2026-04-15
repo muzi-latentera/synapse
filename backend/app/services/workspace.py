@@ -261,14 +261,7 @@ class WorkspaceService(BaseDbService[Workspace]):
     ) -> WorkspaceResources:
         workspace = await self.get_workspace(workspace_id, user)
         workspace_path = Path(workspace.workspace_path)
-        # Include both workspace-local and global skill directories
-        skill_service = SkillService(
-            base_paths=(
-                workspace_path / ".claude" / "skills",
-                workspace_path / ".codex" / "skills",
-                *SkillService.get_default_base_paths(),
-            )
-        )
+        skill_service = SkillService(workspace_path=workspace_path)
 
         return await asyncio.to_thread(self._build_workspace_resources, skill_service)
 
