@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-import asyncio
 import base64
 import io
 import logging
-import os
 import zipfile
-from pathlib import Path
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable
 
-from app.core.config import get_settings
 from app.constants import (
-    CLAUDE_DIR,
-    CODEX_DIR,
-    SANDBOX_CLAUDE_DIR,
-    SANDBOX_CLAUDE_JSON_PATH,
     SANDBOX_GIT_ASKPASS_PATH,
-    SANDBOX_HOME_DIR,
 )
+from app.core.config import get_settings
 from app.models.types import CustomEnvVarDict
 from app.services.exceptions import SandboxException
 from app.services.sandbox_providers import (
@@ -26,20 +18,27 @@ from app.services.sandbox_providers import (
     SandboxProvider,
 )
 from app.services.sandbox_providers.types import CommandResult
-from app.services.skill import SkillService
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
 class SandboxService:
+    def __init__(
+        self,
+        provider: SandboxProvider,
+        env_vars: dict[str, str] | None = None,
+        session_factory: Callable[..., Any] | None = None,
+    ) -> None:
+        self.provider = provider
+        self.env_vars = env_vars or {}
+        self.session_factory = session_factory
+
     @staticmethod
     def build_env_vars(
         custom_env_vars: list[CustomEnvVarDict] | None,
         github_token: str | None,
     ) -> dict[str, str]:
-        # Merge user-level env vars and github token into a single dict
-        # that gets injected into every sandbox command execution.
         envs: dict[str, str] = {}
         if custom_env_vars:
             for ev in custom_env_vars:
@@ -51,93 +50,32 @@ class SandboxService:
             envs["GIT_ASKPASS"] = str(SANDBOX_GIT_ASKPASS_PATH)
         return envs
 
-    def __init__(
-        self,
-        provider: SandboxProvider,
-        env_vars: dict[str, str] | None = None,
-        session_factory: Callable[..., Any] | None = None,
-    ) -> None:
-        self.provider = provider
-        # User-level env vars (custom_env_vars + github token) loaded from DB,
-        # injected into every command execution.
-        self.env_vars = env_vars or {}
-        self.session_factory = session_factory
-
-    @staticmethod
-    def _get_claude_auth_paths() -> tuple[
-        list[tuple[Path, str]], list[tuple[Path, str]]
-    ]:
-        home_path = Path(os.environ.get("HOME", ""))
-        auth_files: list[tuple[Path, str]] = []
-        auth_dirs = [(CLAUDE_DIR, SANDBOX_CLAUDE_DIR)]
-
-        if home_path != Path("."):
-            auth_files.append((home_path / ".claude.json", SANDBOX_CLAUDE_JSON_PATH))
-
-        return auth_files, auth_dirs
-
-    @staticmethod
-    def _get_codex_auth_paths() -> tuple[
-        list[tuple[Path, str]], list[tuple[Path, str]]
-    ]:
-        return [
-            (CODEX_DIR / "config.toml", f"{SANDBOX_HOME_DIR}/.codex/config.toml"),
-        ], [
-            (CODEX_DIR, f"{SANDBOX_HOME_DIR}/.codex"),
-        ]
-
-    @staticmethod
-    async def _write_file_to_sandbox(
-        provider: SandboxProvider, sandbox_id: str, path: str, content: str
-    ) -> None:
-        try:
-            await provider.write_file(sandbox_id, path, content)
-        except OSError:
-            logger.debug("Failed to sync %s to sandbox %s", path, sandbox_id)
-
-    @staticmethod
-    async def sync_cli_auth(provider: SandboxProvider, sandbox_id: str) -> None:
-        # Copy the host's Claude/Codex auth credentials into the sandbox so the
-        # CLI inside the container can make authenticated API calls without the
-        # user re-authenticating.
-        claude_files, claude_dirs = SandboxService._get_claude_auth_paths()
-        codex_files, codex_dirs = SandboxService._get_codex_auth_paths()
-        auth_files = [*claude_files, *codex_files]
-        auth_dirs = [*claude_dirs, *codex_dirs]
-
-        writes: list[tuple[str, str]] = []
-
-        for host_file, sandbox_path in auth_files:
-            try:
-                content = host_file.read_text()
-            except OSError:
-                continue
-            writes.append((sandbox_path, content))
-
-        for host_dir, sandbox_dir in auth_dirs:
-            try:
-                json_files = list(host_dir.glob("*.json"))
-            except OSError:
-                continue
-            for json_file in json_files:
-                try:
-                    content = json_file.read_text()
-                    writes.append((f"{sandbox_dir}/{json_file.name}", content))
-                except OSError:
-                    pass
-
-        await asyncio.gather(
-            *[
-                SandboxService._write_file_to_sandbox(provider, sandbox_id, p, c)
-                for p, c in writes
-            ],
-            return_exceptions=True,
+    async def _setup_git_askpass_script(self, sandbox_id: str) -> None:
+        # GIT_ASKPASS is a script git calls for credentials — it just echoes the
+        # GITHUB_TOKEN env var, avoiding interactive prompts for HTTPS git operations.
+        script_content = '#!/bin/sh\\necho "$GITHUB_TOKEN"'
+        setup_cmd = (
+            f"echo -e '{script_content}' > {SANDBOX_GIT_ASKPASS_PATH} && "
+            f"chmod +x {SANDBOX_GIT_ASKPASS_PATH}"
         )
+        await self.execute_command(sandbox_id, setup_cmd)
+
+    async def initialize_sandbox(
+        self,
+        sandbox_id: str,
+        has_github_token: bool = False,
+    ) -> None:
+        # One-time setup when a sandbox is first created — provisions
+        # credentials and scripts the container needs before first use.
+        if has_github_token and not settings.DESKTOP_MODE:
+            await self._setup_git_askpass_script(sandbox_id)
 
     async def cleanup(self) -> None:
         await self.provider.cleanup()
 
     async def delete_sandbox(self, sandbox_id: str) -> None:
+        # Best-effort container removal — logs but doesn't propagate failures,
+        # since a failed delete is non-blocking for the user.
         if not sandbox_id:
             return
         try:
@@ -156,8 +94,10 @@ class SandboxService:
         sandbox_id: str,
         command: str,
     ) -> CommandResult:
+        # Every command gets the user's env vars (tokens, custom vars) so agents
+        # and tools have access to credentials without explicit per-call wiring.
         return await self.provider.execute_command(
-            sandbox_id, command, envs=self.env_vars or None
+            sandbox_id, command, envs=self.env_vars
         )
 
     async def create_pty_session(
@@ -180,6 +120,8 @@ class SandboxService:
     async def send_pty_input(
         self, sandbox_id: str, pty_session_id: str, data: bytes
     ) -> None:
+        # Forward user keystrokes to the PTY; if the write fails the session
+        # is likely dead, so clean it up rather than leaving a zombie.
         try:
             await self.provider.send_pty_input(sandbox_id, pty_session_id, data)
         except Exception as e:
@@ -261,89 +203,3 @@ class SandboxService:
 
         zip_buffer.seek(0)
         return zip_buffer.read()
-
-    async def _deploy_resources(
-        self,
-        sandbox_id: str,
-    ) -> None:
-        # In desktop mode, resources already live under the host's CLI config
-        # directories (~/.claude and ~/.codex), which the sandbox reads
-        # directly, so there is nothing to copy.
-        if settings.DESKTOP_MODE:
-            return
-
-        skill_service = SkillService(base_paths=SkillService.get_default_base_paths())
-
-        skill_paths = skill_service.get_all_skill_paths()
-
-        writes: list[tuple[str, str | bytes]] = []
-
-        for skill in skill_paths:
-            skill_name = skill["name"]
-            skill_dir = Path(skill["path"])
-
-            if not skill_dir.is_dir():
-                logger.warning(
-                    "Skill directory not found: %s at %s", skill_name, skill_dir
-                )
-                continue
-
-            for f in skill_dir.rglob("*"):
-                if not f.is_file():
-                    continue
-                try:
-                    file_bytes = f.read_bytes()
-                except OSError:
-                    continue
-                rel = str(f.relative_to(skill_dir))
-                writes.extend(
-                    SkillService.format_for_sandbox(skill_name, rel, file_bytes)
-                )
-
-        if not writes:
-            return
-
-        try:
-            async with asyncio.TaskGroup() as tg:
-                for remote_path, content in writes:
-                    tg.create_task(
-                        self.provider.write_file(sandbox_id, remote_path, content)
-                    )
-
-            logger.info(
-                "Deployed %d skills (%d files) to sandbox %s",
-                len(skill_paths),
-                len(writes),
-                sandbox_id,
-            )
-        except Exception as e:
-            logger.error("Failed to deploy resources to sandbox %s: %s", sandbox_id, e)
-            raise SandboxException(f"Failed to deploy resources to sandbox: {e}") from e
-
-    async def _setup_github_token(self, sandbox_id: str) -> None:
-        # GIT_ASKPASS is a script git calls for credentials — it just echoes the
-        # GITHUB_TOKEN env var, avoiding interactive prompts for HTTPS git operations.
-        # The token itself is injected via env_vars on every execute_command call.
-        script_content = '#!/bin/sh\\necho "$GITHUB_TOKEN"'
-        setup_cmd = (
-            f"echo -e '{script_content}' > {SANDBOX_GIT_ASKPASS_PATH} && "
-            f"chmod +x {SANDBOX_GIT_ASKPASS_PATH}"
-        )
-        await self.execute_command(sandbox_id, setup_cmd)
-
-    async def initialize_sandbox(
-        self,
-        sandbox_id: str,
-        has_github_token: bool = False,
-    ) -> None:
-        tasks: list[Coroutine[None, None, None]] = []
-
-        tasks.append(self._deploy_resources(sandbox_id))
-        tasks.append(SandboxService.sync_cli_auth(self.provider, sandbox_id))
-
-        if has_github_token:
-            tasks.append(self._setup_github_token(sandbox_id))
-
-        async with asyncio.TaskGroup() as tg:
-            for task in tasks:
-                tg.create_task(task)
