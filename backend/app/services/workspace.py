@@ -58,6 +58,14 @@ class WorkspaceService(BaseDbService[Workspace]):
         user_workspace_dir = (self._base_dir / str(user.id)).resolve()
         user_workspace_dir.mkdir(parents=True, exist_ok=True)
 
+        # Desktop mode uses the host's native git credentials; token-based
+        # auth is only needed inside Docker containers.
+        github_token: str | None = (
+            None
+            if settings.DESKTOP_MODE
+            else user_settings.github_personal_access_token
+        )
+
         if data.source_type == "git":
             if not data.git_url:
                 raise WorkspaceException(
@@ -69,7 +77,7 @@ class WorkspaceService(BaseDbService[Workspace]):
             workspace_path = await self._clone_git_workspace(
                 user_workspace_dir,
                 normalized_url,
-                github_token=user_settings.github_personal_access_token,
+                github_token=github_token,
             )
             source_url = normalized_url
         elif data.source_type == "local":
@@ -97,7 +105,7 @@ class WorkspaceService(BaseDbService[Workspace]):
         resolved_provider = data.sandbox_provider or user_settings.sandbox_provider
         env_vars = SandboxService.build_env_vars(
             user_settings.custom_env_vars,
-            user_settings.github_personal_access_token,
+            github_token,
         )
         provider = SandboxProvider.create_provider(
             SandboxProviderType(resolved_provider),
@@ -111,7 +119,7 @@ class WorkspaceService(BaseDbService[Workspace]):
 
         await sandbox_service.initialize_sandbox(
             sandbox_id=sandbox_id,
-            has_github_token=bool(user_settings.github_personal_access_token),
+            has_github_token=bool(github_token),
             auto_compact_disabled=user_settings.auto_compact_disabled,
             attribution_disabled=user_settings.attribution_disabled,
         )

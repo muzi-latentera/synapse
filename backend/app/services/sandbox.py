@@ -45,7 +45,9 @@ class SandboxService:
         if custom_env_vars:
             for ev in custom_env_vars:
                 envs[ev["key"]] = ev["value"]
-        if github_token:
+        # Desktop mode uses the host's native git credentials; only inject
+        # token-based auth inside Docker containers.
+        if github_token and not settings.DESKTOP_MODE:
             envs["GITHUB_TOKEN"] = github_token
             envs["GIT_ASKPASS"] = str(SANDBOX_GIT_ASKPASS_PATH)
         return envs
