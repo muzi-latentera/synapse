@@ -120,8 +120,6 @@ class WorkspaceService(BaseDbService[Workspace]):
         await sandbox_service.initialize_sandbox(
             sandbox_id=sandbox_id,
             has_github_token=bool(github_token),
-            auto_compact_disabled=user_settings.auto_compact_disabled,
-            attribution_disabled=user_settings.attribution_disabled,
         )
 
         try:

@@ -16,8 +16,6 @@ interface GeneralSettingsTabProps {
   onToggleVisibility: (field: ApiFieldKey) => void;
   onDeleteAllChats: () => void;
   onNotificationsEnabledChange: (enabled: boolean) => void;
-  onAutoCompactDisabledChange: (disabled: boolean) => void;
-  onAttributionDisabledChange: (disabled: boolean) => void;
   onSandboxProviderChange: (provider: SandboxProviderType) => void;
 }
 
@@ -65,8 +63,6 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
   onToggleVisibility,
   onDeleteAllChats,
   onNotificationsEnabledChange,
-  onAutoCompactDisabledChange,
-  onAttributionDisabledChange,
   onSandboxProviderChange,
 }) => (
   <div className="space-y-4">
@@ -134,36 +130,6 @@ export const GeneralSettingsTab: React.FC<GeneralSettingsTabProps> = ({
             checked={settings.notifications_enabled}
             onCheckedChange={onNotificationsEnabledChange}
             aria-label="Notifications"
-          />
-        </div>
-        <div className="flex items-center justify-between gap-4 py-3">
-          <div>
-            <h3 className="text-sm font-medium text-text-primary dark:text-text-dark-primary">
-              Disable Auto Compact
-            </h3>
-            <p className="mt-0.5 text-xs text-text-tertiary dark:text-text-dark-tertiary">
-              Prevents Claude from automatically compacting conversation history.
-            </p>
-          </div>
-          <Switch
-            checked={settings.auto_compact_disabled}
-            onCheckedChange={onAutoCompactDisabledChange}
-            aria-label="Disable auto compact"
-          />
-        </div>
-        <div className="flex items-center justify-between gap-4 py-3 last:pb-0">
-          <div>
-            <h3 className="text-sm font-medium text-text-primary dark:text-text-dark-primary">
-              Disable Attribution
-            </h3>
-            <p className="mt-0.5 text-xs text-text-tertiary dark:text-text-dark-tertiary">
-              Removes Claude attribution from commits and pull requests.
-            </p>
-          </div>
-          <Switch
-            checked={settings.attribution_disabled}
-            onCheckedChange={onAttributionDisabledChange}
-            aria-label="Disable attribution"
           />
         </div>
       </div>

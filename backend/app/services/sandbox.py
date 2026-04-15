@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
-import json
 import logging
 import os
 import zipfile
@@ -332,59 +331,12 @@ class SandboxService:
         )
         await self.execute_command(sandbox_id, setup_cmd)
 
-    async def _setup_claude_config(
-        self,
-        sandbox_id: str,
-        auto_compact_disabled: bool,
-        attribution_disabled: bool,
-    ) -> None:
-        if not auto_compact_disabled and not attribution_disabled:
-            return
-
-        if auto_compact_disabled:
-            config: dict[str, Any] = {}
-            try:
-                existing = await self.provider.read_file(
-                    sandbox_id, SANDBOX_CLAUDE_JSON_PATH
-                )
-                if not existing.is_binary and existing.content:
-                    config = json.loads(existing.content)
-            except Exception:
-                pass
-            config["autoCompactEnabled"] = False
-            await self.provider.write_file(
-                sandbox_id, SANDBOX_CLAUDE_JSON_PATH, json.dumps(config, indent=2)
-            )
-
-        if attribution_disabled:
-            settings_path = f"{SANDBOX_CLAUDE_DIR}/settings.json"
-            settings: dict[str, Any] = {}
-            await self.execute_command(sandbox_id, f"mkdir -p {SANDBOX_CLAUDE_DIR}")
-            try:
-                existing = await self.provider.read_file(sandbox_id, settings_path)
-                if not existing.is_binary and existing.content:
-                    settings = json.loads(existing.content)
-            except Exception:
-                pass
-            settings["attribution"] = {"commit": "", "pr": ""}
-            await self.provider.write_file(
-                sandbox_id, settings_path, json.dumps(settings, indent=2)
-            )
-
     async def initialize_sandbox(
         self,
         sandbox_id: str,
         has_github_token: bool = False,
-        auto_compact_disabled: bool = False,
-        attribution_disabled: bool = False,
     ) -> None:
         tasks: list[Coroutine[None, None, None]] = []
-
-        tasks.append(
-            self._setup_claude_config(
-                sandbox_id, auto_compact_disabled, attribution_disabled
-            )
-        )
 
         tasks.append(self._deploy_resources(sandbox_id))
         tasks.append(SandboxService.sync_cli_auth(self.provider, sandbox_id))

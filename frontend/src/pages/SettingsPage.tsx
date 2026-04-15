@@ -111,8 +111,6 @@ const SettingsPage: React.FC = () => {
         'custom_env_vars',
         'personas',
         'notifications_enabled',
-        'auto_compact_disabled',
-        'attribution_disabled',
       ];
 
       for (const field of fields) {
@@ -212,14 +210,6 @@ const SettingsPage: React.FC = () => {
 
   const handleNotificationsEnabledChange = (enabled: boolean) => {
     persistSettings((prev) => ({ ...prev, notifications_enabled: enabled }));
-  };
-
-  const handleAutoCompactDisabledChange = (disabled: boolean) => {
-    persistSettings((prev) => ({ ...prev, auto_compact_disabled: disabled }));
-  };
-
-  const handleAttributionDisabledChange = (disabled: boolean) => {
-    persistSettings((prev) => ({ ...prev, attribution_disabled: disabled }));
   };
 
   const handleSandboxProviderChange = (provider: SandboxProviderType) => {
@@ -458,8 +448,6 @@ const SettingsPage: React.FC = () => {
                         onToggleVisibility={toggleFieldVisibility}
                         onDeleteAllChats={handleDeleteAllChats}
                         onNotificationsEnabledChange={handleNotificationsEnabledChange}
-                        onAutoCompactDisabledChange={handleAutoCompactDisabledChange}
-                        onAttributionDisabledChange={handleAttributionDisabledChange}
                         onSandboxProviderChange={handleSandboxProviderChange}
                       />
                     </div>

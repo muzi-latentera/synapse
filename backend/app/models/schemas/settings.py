@@ -22,8 +22,6 @@ class UserSettingsBase(BaseModel):
     custom_env_vars: list[CustomEnvVar] | None = None
     personas: list[Persona] | None = None
     notifications_enabled: bool = True
-    auto_compact_disabled: bool = False
-    attribution_disabled: bool = False
 
     @field_validator(
         "custom_env_vars",

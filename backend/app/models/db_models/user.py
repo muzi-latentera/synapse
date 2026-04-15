@@ -87,10 +87,4 @@ class UserSettings(Base):
     notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False
     )
-    auto_compact_disabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false", nullable=False
-    )
-    attribution_disabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false", nullable=False
-    )
     user = relationship("User", back_populates="settings")
