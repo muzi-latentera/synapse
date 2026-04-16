@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { MessageRenderer } from './MessageRenderer';
-import type { AssistantStreamEvent, MessageAttachment } from '@/types/chat.types';
+import type { AgentKind, AssistantStreamEvent, MessageAttachment } from '@/types/chat.types';
 import { MessageAttachments } from './MessageAttachments';
 
 interface SharedContentProps {
@@ -37,6 +37,7 @@ export const UserMessageContent = memo(function UserMessageContent({
 interface AssistantMessageContentProps extends SharedContentProps {
   isLastBotMessage?: boolean;
   onSuggestionSelect?: (suggestion: string) => void;
+  agentKind?: AgentKind;
 }
 
 export const AssistantMessageContent = memo(function AssistantMessageContent({
@@ -46,6 +47,7 @@ export const AssistantMessageContent = memo(function AssistantMessageContent({
   chatId,
   isLastBotMessage,
   onSuggestionSelect,
+  agentKind,
 }: AssistantMessageContentProps) {
   return (
     <div className="space-y-4">
@@ -55,6 +57,7 @@ export const AssistantMessageContent = memo(function AssistantMessageContent({
         chatId={chatId}
         isLastBotMessage={isLastBotMessage}
         onSuggestionSelect={onSuggestionSelect}
+        agentKind={agentKind}
       />
 
       <MessageAttachments attachments={attachments} className="mt-3" />

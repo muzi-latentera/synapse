@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import type { ToolComponent } from '@/types/ui.types';
+import type { AgentKind } from '@/types/chat.types';
 type ToolModuleLoader = () => Promise<{ default: ToolComponent }>;
 
 const toLazy = (loader: ToolModuleLoader): ToolComponent =>
@@ -7,6 +8,15 @@ const toLazy = (loader: ToolModuleLoader): ToolComponent =>
 
 const codexShellLoader: ToolModuleLoader = () =>
   import('./codex/ShellTool').then((m) => ({ default: m.ShellTool }));
+
+const copilotToolLoaders: Record<string, ToolModuleLoader> = {
+  execute: () => import('./copilot/ExecuteTool').then((m) => ({ default: m.ExecuteTool })),
+  read: () => import('./copilot/ReadTool').then((m) => ({ default: m.ReadTool })),
+  edit: () => import('./copilot/EditTool').then((m) => ({ default: m.EditTool })),
+  fetch: () => import('./copilot/FetchTool').then((m) => ({ default: m.FetchTool })),
+  // Copilot uses `kind: "other"` for sub-agent invocations.
+  other: () => import('./copilot/AgentTool').then((m) => ({ default: m.AgentTool })),
+};
 
 const toolLoaders: Record<string, ToolModuleLoader> = {
   // Claude Code tools
@@ -57,7 +67,14 @@ const getOrCreateLazy = (key: string, loader: ToolModuleLoader) => {
   return component;
 };
 
-export const getToolComponent = (toolName: string): ToolComponent => {
+export const getToolComponent = (toolName: string, agentKind?: AgentKind): ToolComponent => {
+  // Copilot shares lowercase ACP kinds (execute/read/edit/fetch) with Codex but
+  // emits different rawInput shapes, so route Copilot tools to their own
+  // renderers before falling through to the Codex/Claude table.
+  if (agentKind === 'copilot' && copilotToolLoaders[toolName]) {
+    return getOrCreateLazy(`copilot:${toolName}`, copilotToolLoaders[toolName]);
+  }
+
   if (toolLoaders[toolName]) {
     return getOrCreateLazy(toolName, toolLoaders[toolName]);
   }
