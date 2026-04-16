@@ -3,6 +3,7 @@ import { FileSearch } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
 import { extractFilename } from '@/utils/format';
 import { ToolCard } from '../common/ToolCard';
+import { NumberedContent } from '../common/NumberedContent';
 import { OpenInEditorButton } from '../common/OpenInEditorButton';
 import {
   type ShellLikeInput,
@@ -46,20 +47,7 @@ const ReadToolInner: React.FC<{ tool: ToolAggregate }> = ({ tool }) => {
             </div>
           )}
           {renderCommand(command)}
-          {content && (
-            <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed">
-              {content.split('\n').map((line, idx) => (
-                <div key={idx} className="flex">
-                  <span className="w-8 flex-shrink-0 select-none pr-2 text-right text-text-quaternary dark:text-text-dark-quaternary">
-                    {idx + 1}
-                  </span>
-                  <span className="whitespace-pre text-text-tertiary dark:text-text-dark-tertiary">
-                    {line || '\u00A0'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {content && <NumberedContent content={content} />}
         </div>
       )}
     </ToolCard>

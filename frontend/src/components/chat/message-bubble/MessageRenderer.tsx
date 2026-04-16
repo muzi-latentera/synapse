@@ -5,7 +5,7 @@ import { PromptSuggestions } from './PromptSuggestions';
 import { getToolComponent } from '@/components/chat/tools/registry';
 import { buildSegments } from './segmentBuilder';
 import { AgentToolsContext } from '@/contexts/AgentToolsContext';
-import type { AssistantStreamEvent } from '@/types/chat.types';
+import type { AgentKind, AssistantStreamEvent } from '@/types/chat.types';
 import type { ToolAggregate } from '@/types/tools.types';
 import { Spinner } from '@/components/ui/primitives/Spinner';
 
@@ -16,6 +16,7 @@ interface MessageRendererProps {
   chatId?: string;
   isLastBotMessage?: boolean;
   onSuggestionSelect?: (suggestion: string) => void;
+  agentKind?: AgentKind;
 }
 
 const MessageRendererInner: React.FC<MessageRendererProps> = ({
@@ -25,6 +26,7 @@ const MessageRendererInner: React.FC<MessageRendererProps> = ({
   chatId,
   isLastBotMessage = false,
   onSuggestionSelect,
+  agentKind,
 }) => {
   const { segments, activeThinkingIndex } = React.useMemo(() => {
     const builtSegments = buildSegments(events);
@@ -82,7 +84,7 @@ const MessageRendererInner: React.FC<MessageRendererProps> = ({
               );
             }
             case 'tool': {
-              const Component = getToolComponent(segment.tool.name);
+              const Component = getToolComponent(segment.tool.name, agentKind);
               return (
                 <div key={segment.id} className="mb-2 mt-1">
                   <Suspense

@@ -5,7 +5,14 @@ import type { LucideIcon } from 'lucide-react';
 import type { ToolAggregate } from '@/types/tools.types';
 import type { ToolComponent } from '@/types/ui.types';
 import { ToolCard } from '../common/ToolCard';
+import { NumberedContent } from '../common/NumberedContent';
 import { OpenInEditorButton } from '../common/OpenInEditorButton';
+
+// Claude's Read output embeds real line numbers before each line. The
+// separator has shifted between agent versions: older builds used "→"
+// (U+2192), newer builds use a tab. Handle both so we use the real line
+// numbers instead of the array index.
+const CLAUDE_READ_LINE_PREFIX = /^\s*(\d+)(?:→|\t)/;
 
 interface FileOperationToolProps {
   tool: ToolAggregate;
@@ -132,27 +139,7 @@ const FileOperationToolInner: React.FC<FileOperationToolProps> = ({ tool, varian
     if (variant === 'read') {
       const content = normalizeContent(tool.result);
       if (!content || tool.status !== 'completed') return null;
-
-      const lines = content.split('\n');
-      return (
-        <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed">
-          {lines.map((line: string, idx: number) => {
-            const match = line.match(/^\s*(\d+)→/);
-            const lineNum = match ? match[1] : String(idx + 1);
-            const lineContent = line.replace(/^\s*\d+→/, '');
-            return (
-              <div key={idx} className="flex">
-                <span className="w-8 flex-shrink-0 select-none pr-2 text-right text-text-quaternary dark:text-text-dark-quaternary">
-                  {lineNum}
-                </span>
-                <span className="whitespace-pre text-text-tertiary dark:text-text-dark-tertiary">
-                  {lineContent || '\u00A0'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      );
+      return <NumberedContent content={content} prefixPattern={CLAUDE_READ_LINE_PREFIX} />;
     }
 
     if (variant === 'edit') {
@@ -165,22 +152,7 @@ const FileOperationToolInner: React.FC<FileOperationToolProps> = ({ tool, varian
 
     const content = typeof tool.input?.content === 'string' ? tool.input.content : '';
     if (!content) return null;
-
-    const lines = content.split('\n');
-    return (
-      <div className="max-h-48 overflow-auto font-mono text-2xs leading-relaxed">
-        {lines.map((line: string, idx: number) => (
-          <div key={idx} className="flex">
-            <span className="w-8 flex-shrink-0 select-none pr-2 text-right text-text-quaternary dark:text-text-dark-quaternary">
-              {idx + 1}
-            </span>
-            <span className="whitespace-pre text-text-tertiary dark:text-text-dark-tertiary">
-              {line || '\u00A0'}
-            </span>
-          </div>
-        ))}
-      </div>
-    );
+    return <NumberedContent content={content} />;
   };
 
   const hasContent =

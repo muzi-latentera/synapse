@@ -2,7 +2,11 @@ import { memo, useMemo } from 'react';
 import { UserMessageContent, AssistantMessageContent } from './MessageContent';
 import { MessageActions } from './MessageActions';
 import { useModelMap } from '@/hooks/queries/useModelQueries';
-import type { AssistantStreamEvent, MessageAttachment } from '@/types/chat.types';
+import {
+  getAgentKindForModelId,
+  type AssistantStreamEvent,
+  type MessageAttachment,
+} from '@/types/chat.types';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { formatRelativeTime, formatFullTimestamp } from '@/utils/date';
 import { useChatContext } from '@/hooks/useChatContext';
@@ -91,6 +95,11 @@ export const AssistantMessage = memo(function AssistantMessage({
     return modelId.includes(':') ? modelId.split(':').pop()! : modelId;
   }, [modelId, modelMap]);
 
+  // modelId tells us which agent produced the tool calls embedded in this
+  // message, so tool renderers can handle per-agent rawInput shape variations
+  // (e.g. Copilot's apply_patch vs. Codex's structured changes).
+  const agentKind = modelId ? getAgentKindForModelId(modelId) : undefined;
+
   return (
     <div className="group px-4 py-1.5 sm:px-6 sm:py-2">
       <div className="flex items-start">
@@ -103,6 +112,7 @@ export const AssistantMessage = memo(function AssistantMessage({
               chatId={chatId}
               isLastBotMessage={isLastBotMessage}
               onSuggestionSelect={onSuggestionSelect}
+              agentKind={agentKind}
             />
           </div>
 
