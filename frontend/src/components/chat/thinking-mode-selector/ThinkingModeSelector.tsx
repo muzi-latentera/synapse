@@ -28,16 +28,23 @@ const CODEX_THINKING_MODES: ThinkingModeOption[] = [
   { value: 'xhigh', label: 'XHigh' },
 ];
 
+// Cursor bakes reasoning effort into the model ID itself (e.g. `-low`,
+// `-thinking-high`, `-max`), so it has no separate thinking-mode control.
+// An empty list causes the selector to render nothing.
+const CURSOR_THINKING_MODES: ThinkingModeOption[] = [];
+
 export const THINKING_MODES_BY_AGENT: Record<AgentKind, ThinkingModeOption[]> = {
   claude: CLAUDE_THINKING_MODES,
   codex: CODEX_THINKING_MODES,
   copilot: CODEX_THINKING_MODES,
+  cursor: CURSOR_THINKING_MODES,
 };
 
 const DEFAULT_BY_AGENT: Record<AgentKind, string> = {
   claude: 'medium',
   codex: 'medium',
   copilot: 'medium',
+  cursor: 'medium',
 };
 
 export function coerceThinkingModeForAgent(thinkingMode: string, agentKind: AgentKind): string {
@@ -46,8 +53,12 @@ export function coerceThinkingModeForAgent(thinkingMode: string, agentKind: Agen
   return modes.find((mode) => mode.value === thinkingMode)?.value ?? defaultMode;
 }
 
-function getThinkingModeOption(thinkingMode: string, agentKind: AgentKind): ThinkingModeOption {
+function getThinkingModeOption(
+  thinkingMode: string,
+  agentKind: AgentKind,
+): ThinkingModeOption | null {
   const modes = THINKING_MODES_BY_AGENT[agentKind];
+  if (modes.length === 0) return null;
   const effectiveMode = coerceThinkingModeForAgent(thinkingMode, agentKind);
   const selectedMode = modes.find((mode) => mode.value === effectiveMode);
 
@@ -84,6 +95,10 @@ export const ThinkingModeSelector = memo(function ThinkingModeSelector({
 
   const modes = THINKING_MODES_BY_AGENT[resolvedAgentKind];
   const selectedMode = getThinkingModeOption(thinkingMode, resolvedAgentKind);
+
+  // Some agents (e.g. Cursor) don't expose a thinking-mode control because
+  // reasoning effort is chosen at the model level. Hide the selector entirely.
+  if (!selectedMode || modes.length === 0) return null;
 
   return (
     <Dropdown

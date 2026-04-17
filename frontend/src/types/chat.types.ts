@@ -85,7 +85,7 @@ export interface CreateChatRequest {
   parent_chat_id?: string;
 }
 
-export type AgentKind = 'claude' | 'codex' | 'copilot';
+export type AgentKind = 'claude' | 'codex' | 'copilot' | 'cursor';
 
 export interface Model {
   model_id: string;
@@ -109,9 +109,10 @@ export function getAgentKindForModelId(modelId: string | null | undefined): Agen
     return 'claude';
   }
   if (CODEX_MODEL_IDS.has(modelId)) return 'codex';
-  // Copilot models use a "copilot:" prefix — detect by convention
+  // Copilot and Cursor models use a prefix convention — detect by convention
   // instead of maintaining a duplicate static set.
   if (modelId.startsWith('copilot:')) return 'copilot';
+  if (modelId.startsWith('cursor:')) return 'cursor';
   return 'claude';
 }
 

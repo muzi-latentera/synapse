@@ -44,6 +44,8 @@ Agentrove launches agents through ACP adapters:
 
 - **Claude** via `claude-agent-acp` + Claude Code
 - **Codex** via `codex-acp` + Codex CLI
+- **Copilot** via `copilot --acp --stdio`
+- **Cursor** via `cursor-agent acp`
 
 ## Key Features
 
@@ -211,6 +213,7 @@ The backend and sandbox images install the tooling Agentrove needs to run coding
 
 - Claude Code
 - Codex CLI
+- Cursor CLI (`cursor-agent`)
 - `claude-agent-acp`
 - `codex-acp`
 - GitHub CLI

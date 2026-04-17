@@ -474,17 +474,41 @@ class AcpClientHandler:
                 texts.append(inner.text)
         return texts
 
+    @staticmethod
+    def _extract_content_diffs(tc: ToolCallProgress) -> list[dict[str, Any]]:
+        # Cursor emits its `edit` tool results as ACP FileEditToolCallContent
+        # blocks (type="diff") with path/oldText/newText, without raw_output.
+        # Surface these so the frontend edit renderer can show the diff.
+        if not tc.content:
+            return []
+        diffs: list[dict[str, Any]] = []
+        for block in tc.content:
+            if getattr(block, "type", None) != "diff":
+                continue
+            diffs.append(
+                {
+                    "path": getattr(block, "path", None),
+                    "oldText": getattr(block, "old_text", None),
+                    "newText": getattr(block, "new_text", None),
+                }
+            )
+        return diffs
+
     @classmethod
     def _extract_tool_result(cls, tc: ToolCallProgress) -> Any:
         # Claude puts structured results in field_meta.claudeCode.toolResponse,
-        # while Codex uses raw_output directly. Content text blocks are the
-        # last resort for agents that use neither convention.
+        # Codex/Cursor put execute/read results in raw_output, and Cursor emits
+        # its edit results as diff content blocks instead of raw_output. Content
+        # text blocks are the last resort for agents that use none of the above.
         meta = getattr(tc, "field_meta", None) or {}
         claude_meta = meta.get("claudeCode", {})
         if "toolResponse" in claude_meta:
             return claude_meta["toolResponse"]
         if tc.raw_output is not None:
             return tc.raw_output
+        diffs = cls._extract_content_diffs(tc)
+        if diffs:
+            return {"diffs": diffs}
         texts = cls._extract_content_texts(tc)
         return "\n".join(texts) if texts else None
 

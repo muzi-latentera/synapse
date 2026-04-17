@@ -18,6 +18,13 @@ const copilotToolLoaders: Record<string, ToolModuleLoader> = {
   other: () => import('./copilot/AgentTool').then((m) => ({ default: m.AgentTool })),
 };
 
+const cursorToolLoaders: Record<string, ToolModuleLoader> = {
+  execute: () => import('./cursor/ExecuteTool').then((m) => ({ default: m.ExecuteTool })),
+  read: () => import('./cursor/ReadTool').then((m) => ({ default: m.ReadTool })),
+  search: () => import('./cursor/SearchTool').then((m) => ({ default: m.SearchTool })),
+  edit: () => import('./cursor/EditTool').then((m) => ({ default: m.EditTool })),
+};
+
 const toolLoaders: Record<string, ToolModuleLoader> = {
   // Claude Code tools
   Agent: () => import('./claude/AgentTool').then((m) => ({ default: m.AgentTool })),
@@ -68,11 +75,16 @@ const getOrCreateLazy = (key: string, loader: ToolModuleLoader) => {
 };
 
 export const getToolComponent = (toolName: string, agentKind?: AgentKind): ToolComponent => {
-  // Copilot shares lowercase ACP kinds (execute/read/edit/fetch) with Codex but
-  // emits different rawInput shapes, so route Copilot tools to their own
-  // renderers before falling through to the Codex/Claude table.
+  // Copilot and Cursor both speak the lowercase ACP kinds (execute/read/edit/
+  // fetch) that Codex uses, but emit different rawInput/rawOutput shapes.
+  // Route each agent's tools to its own renderers before falling through to
+  // the Codex/Claude table.
   if (agentKind === 'copilot' && copilotToolLoaders[toolName]) {
     return getOrCreateLazy(`copilot:${toolName}`, copilotToolLoaders[toolName]);
+  }
+
+  if (agentKind === 'cursor' && cursorToolLoaders[toolName]) {
+    return getOrCreateLazy(`cursor:${toolName}`, cursorToolLoaders[toolName]);
   }
 
   if (toolLoaders[toolName]) {

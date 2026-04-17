@@ -59,6 +59,9 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | b
 RUN . "$NVM_DIR/nvm.sh" && \
     npm install -g @anthropic-ai/claude-code@2.1.87 @agentclientprotocol/claude-agent-acp@0.24.2 @zed-industries/codex-acp@0.11.1 @openai/codex
 
+# Cursor CLI (installs `cursor-agent` to ~/.local/bin, which is already on PATH).
+RUN curl -fsS https://cursor.com/install | bash
+
 RUN python3 -m pip install --user --upgrade pip && \
     python3 -m pip install --user \
     uv
