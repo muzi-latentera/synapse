@@ -24,6 +24,7 @@ export interface CustomSkill {
   size_bytes: number;
   file_count: number;
   source: string;
+  read_only: boolean;
 }
 
 export interface Persona {

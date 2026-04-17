@@ -33,7 +33,7 @@ export const SkillsSettingsTab: React.FC<SkillsSettingsTabProps> = ({
           Skills
         </h2>
         <p className="mt-1 text-xs text-text-tertiary dark:text-text-dark-tertiary">
-          Skills installed via the Claude or Codex CLI are shown here.
+          Skills installed via the Claude, Codex, Copilot, or Cursor CLI are shown here.
         </p>
       </div>
 
@@ -60,6 +60,11 @@ export const SkillsSettingsTab: React.FC<SkillsSettingsTabProps> = ({
                     <span className="rounded-md bg-surface-tertiary px-1.5 py-0.5 text-2xs text-text-quaternary dark:bg-surface-dark-tertiary dark:text-text-dark-quaternary">
                       {skill.source}
                     </span>
+                    {skill.read_only && (
+                      <span className="rounded-md bg-surface-tertiary px-1.5 py-0.5 text-2xs text-text-quaternary dark:bg-surface-dark-tertiary dark:text-text-dark-quaternary">
+                        built-in
+                      </span>
+                    )}
                   </div>
                   {skill.description && (
                     <p className="mb-2 text-xs text-text-tertiary dark:text-text-dark-tertiary">
@@ -74,16 +79,18 @@ export const SkillsSettingsTab: React.FC<SkillsSettingsTabProps> = ({
                     <span>{formatBytes(skill.size_bytes)}</span>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  onClick={() => setEditingSkill(skill)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
-                  aria-label={`Edit ${skill.name}`}
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                </Button>
+                {!skill.read_only && (
+                  <Button
+                    type="button"
+                    onClick={() => setEditingSkill(skill)}
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-text-quaternary hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
+                    aria-label={`Edit ${skill.name}`}
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}

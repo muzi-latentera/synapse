@@ -11,6 +11,7 @@ class CustomSkill(BaseModel):
     size_bytes: int
     file_count: int
     source: str
+    read_only: bool
 
 
 class BuiltinSlashCommand(BaseModel):
