@@ -85,9 +85,8 @@ class StorageService:
         if sandbox_id:
             # Attachments are advertised to the agent as readable from the
             # sandbox, so fail the upload if the sandbox copy is unavailable.
-            # Pass a relative filename so both providers handle it — Docker
-            # normalises it under /home/user/, Host resolves against the
-            # workspace root (absolute paths are rejected by Host).
+            # Pass a relative filename so both providers resolve it under the
+            # workspace dir (absolute paths are rejected by Host).
             await self.sandbox_service.provider.write_file(
                 sandbox_id=sandbox_id, path=unique_filename, content=contents
             )
