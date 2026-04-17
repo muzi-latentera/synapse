@@ -61,16 +61,36 @@ export const COPILOT_PERMISSION_MODES: PermissionModeOption[] = [
   },
 ];
 
+export const CURSOR_PERMISSION_MODES: PermissionModeOption[] = [
+  {
+    value: 'agent',
+    label: 'Agent',
+    description: 'Full tool access with approvals for gated actions',
+  },
+  {
+    value: 'plan',
+    label: 'Plan',
+    description: 'Analyze and propose plans without making edits',
+  },
+  {
+    value: 'ask',
+    label: 'Ask',
+    description: 'Q&A style for explanations and read-only answers',
+  },
+];
+
 export const MODES_BY_AGENT: Record<AgentKind, PermissionModeOption[]> = {
   claude: CLAUDE_PERMISSION_MODES,
   codex: CODEX_PERMISSION_MODES,
   copilot: COPILOT_PERMISSION_MODES,
+  cursor: CURSOR_PERMISSION_MODES,
 };
 
 const DEFAULT_BY_AGENT: Record<AgentKind, PermissionMode> = {
   claude: 'bypassPermissions',
   codex: 'full-access',
   copilot: 'agent',
+  cursor: 'agent',
 };
 
 export function coercePermissionModeForAgent(

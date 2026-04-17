@@ -60,6 +60,7 @@ NATIVE_FILE_TYPES: dict[AgentKind, frozenset[str]] = {
     AgentKind.CLAUDE: frozenset({"image", "pdf"}),
     AgentKind.CODEX: frozenset({"image"}),
     AgentKind.COPILOT: frozenset({"image", "pdf"}),
+    AgentKind.CURSOR: frozenset({"image"}),
 }
 
 

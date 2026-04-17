@@ -1,6 +1,9 @@
 import { PermissionModeSelector } from '@/components/chat/permission-mode-selector/PermissionModeSelector';
 import { ModelSelector } from '@/components/chat/model-selector/ModelSelector';
-import { ThinkingModeSelector } from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
+import {
+  THINKING_MODES_BY_AGENT,
+  ThinkingModeSelector,
+} from '@/components/chat/thinking-mode-selector/ThinkingModeSelector';
 import { PersonaSelector } from '@/components/chat/persona-selector/PersonaSelector';
 import { BranchSelector } from '@/components/chat/branch-selector/BranchSelector';
 import { useInputState, useInputActions } from '@/hooks/useInputContext';
@@ -25,6 +28,7 @@ export function InputControls() {
 
   const showPersona = personas.length > 0;
   const showBranch = !!sandboxId && !!branchesData?.is_git_repo && branchesData.branches.length > 0;
+  const showThinking = agentKind ? THINKING_MODES_BY_AGENT[agentKind].length > 0 : true;
 
   return (
     <div className="flex min-w-0 items-center gap-1" onMouseDown={(e) => e.preventDefault()}>
@@ -39,16 +43,20 @@ export function InputControls() {
         variant="text"
       />
 
-      <SelectorDot />
+      {showThinking && (
+        <>
+          <SelectorDot />
 
-      <ThinkingModeSelector
-        chatId={state.chatId}
-        agentKind={agentKind}
-        dropdownPosition={state.dropdownPosition}
-        dropdownAlign="right"
-        disabled={state.isLoading}
-        variant="text"
-      />
+          <ThinkingModeSelector
+            chatId={state.chatId}
+            agentKind={agentKind}
+            dropdownPosition={state.dropdownPosition}
+            dropdownAlign="right"
+            disabled={state.isLoading}
+            variant="text"
+          />
+        </>
+      )}
 
       <SelectorDot />
 

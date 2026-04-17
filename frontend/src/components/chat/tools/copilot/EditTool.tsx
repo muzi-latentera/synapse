@@ -6,6 +6,7 @@ import { ToolCard } from '../common/ToolCard';
 import { DiffView } from '../common/DiffView';
 import { NumberedContent } from '../common/NumberedContent';
 import { OpenInEditorButton } from '../common/OpenInEditorButton';
+import { buildUnifiedDiff } from '../common/buildUnifiedDiff';
 import type { CopilotEditInput, CopilotToolOutput } from './copilotPayload';
 
 type EditOp = 'add' | 'update' | 'delete';
@@ -40,12 +41,6 @@ const identifyEdit = (input: CopilotEditInput | undefined): ParsedEdit => {
   return { op: 'update', path: input.path ?? '' };
 };
 
-const buildStrReplaceDiff = (oldStr: string, newStr: string): string => {
-  const removed = oldStr.split('\n').map((l) => `-${l}`);
-  const added = newStr.split('\n').map((l) => `+${l}`);
-  return [...removed, ...added].join('\n');
-};
-
 const ICON_BY_OP: Record<EditOp, React.ReactNode> = {
   add: <FilePlus className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />,
   delete: <FileMinus className="h-3.5 w-3.5 text-text-secondary dark:text-text-dark-tertiary" />,
@@ -60,7 +55,7 @@ const PendingPreview: React.FC<{ input: CopilotEditInput; op: EditOp }> = ({ inp
     return <NumberedContent content={input.file_text} />;
   }
   if (typeof input.old_str === 'string' || typeof input.new_str === 'string') {
-    return <DiffView diff={buildStrReplaceDiff(input.old_str ?? '', input.new_str ?? '')} />;
+    return <DiffView diff={buildUnifiedDiff(input.old_str ?? '', input.new_str ?? '')} />;
   }
   return null;
 };

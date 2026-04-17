@@ -11,6 +11,7 @@ class AgentKind(str, Enum):
     CLAUDE = "claude"
     CODEX = "codex"
     COPILOT = "copilot"
+    CURSOR = "cursor"
 
 
 # Claude uses MAX_THINKING_TOKENS env var (not a CLI arg) to cap the
@@ -46,6 +47,9 @@ COPILOT_SESSION_MODE_IDS: dict[str, str] = {
 CLAUDE_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "max"})
 CODEX_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "xhigh"})
 COPILOT_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "xhigh"})
+
+# Cursor CLI exposes three ACP session modes (see https://cursor.com/docs/cli/acp).
+CURSOR_SESSION_MODES = frozenset({"agent", "plan", "ask"})
 
 
 def coerce_thinking_mode(mode: str | None, valid_modes: frozenset[str]) -> str:
@@ -324,8 +328,60 @@ class CopilotCliAdapter(AgentAdapter):
         return model_id.removeprefix("copilot:")
 
 
+class CursorAgentAdapter(AgentAdapter):
+    # Cursor CLI runs as an ACP server via `cursor-agent acp` and speaks the
+    # same ACP transport as Claude/Codex/Copilot. Unlike the others, Cursor
+    # bakes reasoning effort into the model ID itself (e.g. `-low`, `-high`,
+    # `-thinking-max`), so there is no separate thinking-mode CLI flag or env
+    # var — the UI's thinking selector is hidden for this adapter.
+
+    def __init__(self) -> None:
+        super().__init__(kind=AgentKind.CURSOR)
+
+    def build_launch_config(
+        self,
+        *,
+        system_prompt: str | None,
+        system_prompt_is_full_replace: bool,
+        reasoning_effort: str | None,
+        permission_mode: str | None,
+        launch_approval_policy: str | None,
+    ) -> LaunchConfig:
+        return LaunchConfig(binary="cursor-agent", cli_args=["acp"])
+
+    def build_session_config(
+        self,
+        *,
+        system_prompt: str | None,
+        system_prompt_is_full_replace: bool,
+        thinking_mode: str | None,
+        permission_mode: str,
+    ) -> SessionConfig:
+        meta = build_system_prompt_meta(system_prompt, system_prompt_is_full_replace)
+        return SessionConfig(
+            meta=meta,
+            permission=PermissionConfig(
+                session_mode=self.map_session_mode(permission_mode)
+            ),
+        )
+
+    def map_session_mode(self, permission_mode: str) -> str:
+        # Persisted settings may still carry Claude/Codex/Copilot mode strings
+        # from a previous agent. Default to Cursor's normal agent mode so
+        # agent switches don't fail.
+        if permission_mode not in CURSOR_SESSION_MODES:
+            return "agent"
+        return permission_mode
+
+    def map_model_id(self, model_id: str) -> str:
+        # Internal keys use "cursor:" prefix to namespace; the CLI expects
+        # the raw model name (e.g. "composer-2-fast" not "cursor:composer-2-fast").
+        return model_id.removeprefix("cursor:")
+
+
 AGENT_ADAPTERS: dict[AgentKind, AgentAdapter] = {
     AgentKind.CLAUDE: ClaudeAgentAdapter(),
     AgentKind.CODEX: CodexAgentAdapter(),
     AgentKind.COPILOT: CopilotCliAdapter(),
+    AgentKind.CURSOR: CursorAgentAdapter(),
 }

@@ -196,15 +196,17 @@ export function CreateSubThreadDialog({ parentChat, onClose }: CreateSubThreadDi
           </div>
 
           <div className="flex items-center gap-2">
-            <Dropdown
-              value={selectedThinkingOption}
-              items={thinkingModes}
-              getItemKey={(m) => m.value ?? 'off'}
-              getItemLabel={(m) => m.label}
-              onSelect={setThinkingMode}
-              leftIcon={Brain}
-              dropdownPosition="bottom"
-            />
+            {selectedThinkingOption && (
+              <Dropdown
+                value={selectedThinkingOption}
+                items={thinkingModes}
+                getItemKey={(m) => m.value ?? 'off'}
+                getItemLabel={(m) => m.label}
+                onSelect={setThinkingMode}
+                leftIcon={Brain}
+                dropdownPosition="bottom"
+              />
+            )}
             <Dropdown
               value={selectedPermissionOption}
               items={permissionModes}

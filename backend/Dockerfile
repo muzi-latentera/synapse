@@ -19,6 +19,13 @@ RUN apt-get update && \
 
 RUN npm install -g @anthropic-ai/claude-code@2.1.87 @agentclientprotocol/claude-agent-acp@0.24.2 @zed-industries/codex-acp@0.11.1 @openai/codex
 
+# Cursor CLI (installs `cursor-agent` to /root/.local/bin) — used for the Cursor
+# ACP server (`cursor-agent acp`). The install script downloads the binary for
+# the current platform.
+RUN curl -fsS https://cursor.com/install | bash && \
+    cp /root/.local/bin/cursor-agent /usr/local/bin/cursor-agent && \
+    chmod +x /usr/local/bin/cursor-agent
+
 # Install uv package manager
 RUN curl -LsSf https://astral.sh/uv/install.sh | bash
 

@@ -7,6 +7,7 @@ import { useIsSplitMode } from '@/hooks/useIsSplitMode';
 import { ClaudeIcon } from '@/components/ui/icons/ClaudeIcon';
 import { CodexIcon } from '@/components/ui/icons/CodexIcon';
 import { CopilotIcon } from '@/components/ui/icons/CopilotIcon';
+import { CursorIcon } from '@/components/ui/icons/CursorIcon';
 import { formatNumberCompact } from '@/utils/format';
 import type { AgentKind, Model } from '@/types/chat.types';
 
@@ -14,12 +15,14 @@ const AGENT_LABELS: Record<AgentKind, string> = {
   claude: 'Claude',
   codex: 'Codex',
   copilot: 'Copilot',
+  cursor: 'Cursor',
 };
 
 const AGENT_ICONS: Record<AgentKind, ComponentType<SVGProps<SVGSVGElement>>> = {
   claude: ClaudeIcon,
   codex: CodexIcon,
   copilot: CopilotIcon,
+  cursor: CursorIcon,
 };
 
 export interface ModelSelectorProps {
