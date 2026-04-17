@@ -20,15 +20,20 @@ SKILL_MD_FILENAME = "SKILL.md"
 
 class SkillService:
     def __init__(self, workspace_path: Path | None = None) -> None:
-        self.paths_by_source = self._build_paths_by_source(workspace_path)
+        self.paths_by_source, self.readonly_paths = self._build_paths_by_source(
+            workspace_path
+        )
 
     @staticmethod
-    def _build_paths_by_source(workspace_path: Path | None) -> dict[str, list[Path]]:
+    def _build_paths_by_source(
+        workspace_path: Path | None,
+    ) -> tuple[dict[str, list[Path]], set[Path]]:
         # Desktop mode reads from the user's home dir, server mode from STORAGE_PATH
         base = Path.home() if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH)
         # Agents that support the shared .agents/skills directory (Vercel skills ecosystem)
-        agents_dir_kinds = {AgentKind.CODEX, AgentKind.COPILOT}
+        agents_dir_kinds = {AgentKind.CODEX, AgentKind.COPILOT, AgentKind.CURSOR}
         result: dict[str, list[Path]] = {}
+        readonly_paths: set[Path] = set()
         for kind in AgentKind:
             paths: list[Path] = []
             # Workspace-local paths first so they take priority over globals
@@ -40,11 +45,17 @@ class SkillService:
             if kind in agents_dir_kinds:
                 paths.append(base / ".agents" / "skills")
             result[kind.value] = paths
+        # Cursor CLI ships built-in skills at ~/.cursor/skills-cursor/ and manages
+        # that directory automatically (updates overwrite user edits), so we
+        # surface those skills but flag them read-only.
+        cursor_builtin = base / ".cursor" / "skills-cursor"
+        result[AgentKind.CURSOR.value].append(cursor_builtin)
+        readonly_paths.add(cursor_builtin)
         # Claude plugins can also bundle skills
         result[AgentKind.CLAUDE.value].extend(
             SkillService._get_claude_plugin_skill_paths()
         )
-        return result
+        return result, readonly_paths
 
     @staticmethod
     def _get_claude_plugin_skill_paths() -> list[Path]:
@@ -108,6 +119,7 @@ class SkillService:
             for base_path in paths:
                 if not base_path.is_dir():
                     continue
+                is_readonly = base_path in self.readonly_paths
                 for entry in base_path.iterdir():
                     if not entry.is_dir() or entry.name in seen_names:
                         continue
@@ -130,6 +142,7 @@ class SkillService:
                             "size_bytes": total_size,
                             "file_count": file_count,
                             "source": source,
+                            "read_only": is_readonly,
                         }
                     )
                     seen_names.add(entry.name)
@@ -170,6 +183,11 @@ class SkillService:
         if skill_dir is None:
             raise FileNotFoundError(f"Skill '{skill_name}' not found")
 
+        # Reject edits under CLI-managed directories (e.g. ~/.cursor/skills-cursor)
+        # where an external tool would silently overwrite user changes.
+        if skill_dir.parent in self.readonly_paths:
+            raise ValueError(f"Skill '{skill_name}' is read-only and cannot be edited")
+
         with tempfile.TemporaryDirectory() as tmp_dir_str:
             tmp_dir = Path(tmp_dir_str) / skill_name
             tmp_dir.mkdir()
@@ -199,4 +217,5 @@ class SkillService:
             "size_bytes": total_size,
             "file_count": file_count,
             "source": source,
+            "read_only": skill_dir.parent in self.readonly_paths,
         }

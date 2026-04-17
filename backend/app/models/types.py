@@ -24,6 +24,7 @@ class CustomSkillDict(TypedDict):
     size_bytes: int
     file_count: int
     source: str
+    read_only: bool
 
 
 class PersonaDict(TypedDict):
