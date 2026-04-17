@@ -95,3 +95,22 @@ class GitRemoteUrlResponse(BaseModel):
     owner: str
     repo: str
     remote_url: str
+
+
+class SearchMatch(BaseModel):
+    line_number: int
+    line_text: str
+    match_start: int
+    match_end: int
+
+
+class SearchFileResult(BaseModel):
+    path: str
+    matches: list[SearchMatch]
+
+
+class SearchResponse(BaseModel):
+    results: list[SearchFileResult]
+    # True when either per-file or total match caps were hit — the UI should
+    # show a "showing first N" hint so the user knows there's more.
+    truncated: bool

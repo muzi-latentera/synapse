@@ -24,6 +24,15 @@ GIT_LS_FILES_CMD = "git ls-files --cached --others --exclude-standard -z"
 class SandboxProvider:
     _pty_sessions: dict[str, dict[str, Any]]
 
+    @property
+    def workspace_root(self) -> str:
+        # Absolute path of the file-tree root inside whichever namespace the
+        # provider operates in (container path for Docker, host path for
+        # local). Callers need this to translate between cwd-relative and
+        # workspace-relative paths (e.g. mapping search results back to
+        # file-tree entries).
+        raise NotImplementedError
+
     @staticmethod
     def create_provider(
         provider_type: SandboxProviderType | str,

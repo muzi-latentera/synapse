@@ -1,8 +1,8 @@
 import { memo, useState, useCallback } from 'react';
-import { Header } from './Header';
 import { EmptyState } from './EmptyState';
 import { LoadingState } from './LoadingState';
 import { Item } from './Item';
+import { SearchInput } from './SearchInput';
 import { FileTreeProvider } from './FileTreeProvider';
 import { useFileTreeSearch } from '@/hooks/useFileTreeSearch';
 import type { FileStructure } from '@/types/file-system.types';
@@ -14,12 +14,7 @@ export interface TreeProps {
   expandedFolders: Record<string, boolean>;
   onFileSelect: (file: FileStructure) => void;
   onToggleFolder: (path: string) => void;
-  onDownload?: () => void;
-  isDownloading?: boolean;
   isSandboxSyncing?: boolean;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
-  onClose?: () => void;
   modifiedPaths?: Set<string>;
 }
 
@@ -29,12 +24,7 @@ export const Tree = memo(function Tree({
   expandedFolders,
   onFileSelect,
   onToggleFolder,
-  onDownload,
-  isDownloading = false,
   isSandboxSyncing = false,
-  onRefresh,
-  isRefreshing = false,
-  onClose,
   modifiedPaths,
 }: TreeProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,17 +54,14 @@ export const Tree = memo(function Tree({
       onToggleFolder={onToggleFolder}
       modifiedPaths={modifiedPaths}
     >
-      <div className="flex h-full select-none flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
-        <Header
-          onDownload={onDownload}
-          isDownloading={isDownloading}
-          onRefresh={onRefresh}
-          isRefreshing={isRefreshing}
-          searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
-          onSearchClear={handleSearchClear}
-          onClose={onClose}
-        />
+      <div className="flex h-full select-none flex-col">
+        <div className="flex-none border-b border-border/50 px-3 py-2 dark:border-border-dark/50">
+          <SearchInput
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onClear={handleSearchClear}
+          />
+        </div>
 
         <div className="flex-1 overflow-hidden">
           <div className="scrollbar-thin scrollbar-thumb-text-quaternary dark:scrollbar-thumb-text-dark-quaternary hover:scrollbar-thumb-text-tertiary dark:hover:scrollbar-thumb-text-dark-tertiary h-full overflow-y-auto">

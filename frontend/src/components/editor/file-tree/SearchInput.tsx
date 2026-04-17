@@ -48,9 +48,13 @@ export function SearchInput({
           activeElement?.tagName === 'TEXTAREA' ||
           (activeElement as HTMLElement)?.contentEditable === 'true';
 
-        if (!isInInput) {
+        // Skip when the input is inside a hidden tab (display: none leaves
+        // offsetParent null) — otherwise the shortcut would focus an
+        // invisible element instead of yielding to the browser or another
+        // sibling Files/Search tab.
+        if (!isInInput && inputRef.current?.offsetParent) {
           event.preventDefault();
-          inputRef.current?.focus();
+          inputRef.current.focus();
         }
       }
     };

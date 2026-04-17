@@ -22,6 +22,7 @@ from app.services.github import GitHubService
 from app.services.queue import QueueService
 from app.services.refresh_token import RefreshTokenService
 from app.services.sandbox import SandboxService
+from app.services.search import SearchService
 from app.services.workspace import WorkspaceService
 from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.base import SandboxProvider
@@ -155,6 +156,12 @@ def get_git_service(
     sandbox_service: SandboxService = Depends(get_sandbox_service),
 ) -> GitService:
     return GitService(sandbox_service)
+
+
+def get_search_service(
+    sandbox_service: SandboxService = Depends(get_sandbox_service),
+) -> SearchService:
+    return SearchService(sandbox_service)
 
 
 async def get_workspace_service(

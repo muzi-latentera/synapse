@@ -110,6 +110,7 @@ export const Editor = memo(function Editor({
         theme={theme}
         sandboxId={currentChat?.sandbox_id}
         chatId={currentChat?.id}
+        cwd={currentChat?.worktree_cwd ?? undefined}
         onDownload={handleDownload}
         isDownloading={isDownloading}
         isSandboxSyncing={isSandboxSyncing}

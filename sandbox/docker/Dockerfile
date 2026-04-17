@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     jq \
     tmux \
+    ripgrep \
     ca-certificates \
     gnupg \
     && add-apt-repository -y ppa:deadsnakes/ppa \

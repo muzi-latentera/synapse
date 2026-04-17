@@ -75,3 +75,30 @@ export interface GitRemoteUrlData {
   repo: string;
   remote_url: string;
 }
+
+export interface SearchMatch {
+  line_number: number;
+  line_text: string;
+  match_start: number;
+  match_end: number;
+}
+
+export interface SearchFileResult {
+  path: string;
+  matches: SearchMatch[];
+}
+
+export interface SearchResponse {
+  results: SearchFileResult[];
+  truncated: boolean;
+}
+
+export interface SearchParams {
+  query: string;
+  cwd?: string;
+  caseSensitive?: boolean;
+  regex?: boolean;
+  wholeWord?: boolean;
+  include?: string;
+  exclude?: string;
+}

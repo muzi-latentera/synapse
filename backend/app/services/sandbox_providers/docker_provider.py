@@ -54,6 +54,10 @@ class LocalDockerProvider(SandboxProvider):
         self._pty_sessions: dict[str, dict[str, Any]] = {}
         self._docker: aiodocker.Docker | None = None
 
+    @property
+    def workspace_root(self) -> str:
+        return f"{self.config.user_home}/workspace"
+
     @staticmethod
     def _normalize_path(file_path: str, base: str = SANDBOX_WORKSPACE_DIR) -> str:
         # Convert a relative or absolute path into an absolute container path —

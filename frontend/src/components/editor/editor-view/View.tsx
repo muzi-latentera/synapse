@@ -18,6 +18,7 @@ export interface ViewProps {
   sandboxId?: string;
   chatId?: string;
   onToggleFileTree?: () => void;
+  targetLine?: { path: string; line: number; nonce: number } | null;
 }
 
 export const View = memo(function View({
@@ -26,6 +27,7 @@ export const View = memo(function View({
   sandboxId,
   chatId,
   onToggleFileTree,
+  targetLine,
 }: ViewProps) {
   const theme = useResolvedTheme();
   const previousFileRef = useRef<FileStructure | null>(null);
@@ -145,6 +147,38 @@ export const View = memo(function View({
     },
     [setupEditorTheme],
   );
+
+  const lastAppliedTargetRef = useRef<string>('');
+
+  useEffect(() => {
+    // Reveal + select the requested line after Monaco's model has absorbed the
+    // new file content. @monaco-editor/react syncs `value` -> model inside its
+    // own effect; we rAF to ensure that effect has flushed before we reveal,
+    // otherwise the editor would still be on the previous file's model and
+    // the line number would be clamped wrong.
+    if (!targetLine || !selectedFile) return;
+    if (selectedFile.path !== targetLine.path) return;
+    if (!fileContentData) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    const key = `${targetLine.path}:${targetLine.line}:${targetLine.nonce}`;
+    if (lastAppliedTargetRef.current === key) return;
+
+    const raf = requestAnimationFrame(() => {
+      lastAppliedTargetRef.current = key;
+      const lineNumber = Math.max(1, targetLine.line);
+      editor.revealLineInCenter(lineNumber);
+      editor.setPosition({ lineNumber, column: 1 });
+      editor.setSelection({
+        startLineNumber: lineNumber,
+        startColumn: 1,
+        endLineNumber: lineNumber,
+        endColumn: Number.MAX_SAFE_INTEGER,
+      });
+      editor.focus();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [targetLine, selectedFile, fileContentData, currentContent]);
 
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const prevShowPreviewRef = useRef(showPreview);

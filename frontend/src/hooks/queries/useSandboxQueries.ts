@@ -9,6 +9,8 @@ import type {
   GitCreateBranchResult,
   GitDiffData,
   GitPushPullResult,
+  SearchParams,
+  SearchResponse,
   Secret,
   UpdateFileResult,
 } from '@/types/sandbox.types';
@@ -202,6 +204,31 @@ export const useGitPullMutation = createMutation<
     ]);
   },
 );
+
+export const useSearchInFilesQuery = (
+  sandboxId: string | undefined,
+  params: SearchParams,
+  options?: Partial<UseQueryOptions<SearchResponse>>,
+) => {
+  return useQuery({
+    queryKey: queryKeys.sandbox.search(
+      sandboxId,
+      params.query,
+      params.cwd,
+      params.caseSensitive,
+      params.regex,
+      params.wholeWord,
+      params.include,
+      params.exclude,
+    ),
+    queryFn: () => sandboxService.searchInFiles(sandboxId!, params),
+    // Require at least 2 chars so we don't fire a giant match set on first keystroke.
+    enabled: !!sandboxId && params.query.trim().length >= 2,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    ...options,
+  });
+};
 
 export const useGitCreateBranchMutation = createMutation<
   GitCreateBranchResult,
