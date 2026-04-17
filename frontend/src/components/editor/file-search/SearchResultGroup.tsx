@@ -50,7 +50,7 @@ export const SearchResultGroup = memo(function SearchResultGroup({
       </Button>
 
       {expanded && (
-        <div className="flex flex-col pl-5">
+        <div className="flex flex-col pl-2">
           {result.matches.map((match, idx) => (
             <SearchResultLine
               key={`${match.line_number}-${idx}`}

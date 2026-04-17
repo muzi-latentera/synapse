@@ -178,7 +178,7 @@ export const View = memo(function View({
       editor.focus();
     });
     return () => cancelAnimationFrame(raf);
-  }, [targetLine, selectedFile, fileContentData, currentContent]);
+  }, [targetLine, selectedFile, fileContentData]);
 
   const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
   const prevShowPreviewRef = useRef(showPreview);

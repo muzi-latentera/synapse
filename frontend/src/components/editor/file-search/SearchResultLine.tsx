@@ -24,13 +24,13 @@ export const SearchResultLine = memo(function SearchResultLine({
       variant="unstyled"
       onClick={onClick}
       className={cn(
-        'flex w-full items-start gap-2 rounded px-1.5 py-0.5 text-left font-mono text-2xs leading-5',
+        'flex w-full items-start gap-1.5 rounded px-1.5 py-0.5 text-left font-mono text-2xs leading-5',
         'text-text-secondary dark:text-text-dark-secondary',
         'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
         isActive && 'bg-surface-active dark:bg-surface-dark-active',
       )}
     >
-      <span className="min-w-[2rem] shrink-0 text-right tabular-nums text-text-quaternary dark:text-text-dark-quaternary">
+      <span className="min-w-[1.75rem] shrink-0 text-right tabular-nums text-text-quaternary dark:text-text-dark-quaternary">
         {match.line_number}
       </span>
       <span className="truncate whitespace-pre">

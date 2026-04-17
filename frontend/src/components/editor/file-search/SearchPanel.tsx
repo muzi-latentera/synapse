@@ -12,7 +12,7 @@ export interface SearchPanelProps {
   sandboxId: string | undefined;
   cwd?: string;
   onOpenResult: (path: string, lineNumber: number) => void;
-  inputRef?: React.Ref<HTMLInputElement>;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 type ToggleKey = 'caseSensitive' | 'wholeWord' | 'regex';
@@ -38,6 +38,7 @@ export const SearchPanel = memo(function SearchPanel({
   });
   const [activeLine, setActiveLine] = useState<{ path: string; line: number } | null>(null);
   const localInputRef = useRef<HTMLInputElement>(null);
+  const activeInputRef = inputRef ?? localInputRef;
 
   const handleOpen = useCallback(
     (path: string, lineNumber: number) => {
@@ -77,8 +78,8 @@ export const SearchPanel = memo(function SearchPanel({
   const handleClear = useCallback(() => {
     setQuery('');
     setDebouncedQuery('');
-    localInputRef.current?.focus();
-  }, []);
+    activeInputRef.current?.focus();
+  }, [activeInputRef]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -88,17 +89,6 @@ export const SearchPanel = memo(function SearchPanel({
       }
     },
     [query, handleClear],
-  );
-
-  const setInputRef = useCallback(
-    (el: HTMLInputElement | null) => {
-      localInputRef.current = el;
-      if (typeof inputRef === 'function') inputRef(el);
-      else if (inputRef && typeof inputRef === 'object') {
-        (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = el;
-      }
-    },
-    [inputRef],
   );
 
   const hasQuery = debouncedQuery.trim().length >= 2;
@@ -113,7 +103,7 @@ export const SearchPanel = memo(function SearchPanel({
         >
           <Search className="pointer-events-none absolute left-2 h-3 w-3 text-text-quaternary dark:text-text-dark-quaternary" />
           <Input
-            ref={setInputRef}
+            ref={activeInputRef}
             variant="unstyled"
             type="text"
             role="searchbox"

@@ -229,7 +229,9 @@ class SearchService:
         # Line too long: slide a window so the match is inside it. Clamp the
         # window start so we always include MAX_LINE_LENGTH chars when
         # possible, and bracket with an ellipsis on whichever side we chopped.
-        window_start = max(0, min(char_start - CONTEXT_BEFORE, len(line) - MAX_LINE_LENGTH))
+        window_start = max(
+            0, min(char_start - CONTEXT_BEFORE, len(line) - MAX_LINE_LENGTH)
+        )
         window_end = window_start + MAX_LINE_LENGTH
         windowed = line[window_start:window_end]
         prefix = "…" if window_start > 0 else ""
