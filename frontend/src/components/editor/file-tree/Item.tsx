@@ -39,6 +39,7 @@ export const Item = memo(function Item({ item, level, searchQuery = '', matchedP
       <Button
         onClick={handleClick}
         variant="unstyled"
+        data-file-path={item.path}
         className={cn(
           'flex w-full items-center gap-1 px-1.5 py-[3px] text-left',
           'rounded-md transition-colors duration-150',

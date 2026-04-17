@@ -5,7 +5,9 @@ import { Tree } from '../file-tree/Tree';
 import { View } from '../editor-view/View';
 import type { FileStructure } from '@/types/file-system.types';
 import { cn } from '@/utils/cn';
+import { getAncestorFolderPaths } from '@/utils/file';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useMountEffect } from '@/hooks/useMountEffect';
 
 export interface CodeViewProps {
   files: FileStructure[];
@@ -22,6 +24,17 @@ export interface CodeViewProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }
+
+const scrollSelectedFileIntoView = (container: HTMLElement | null, path: string) => {
+  if (!container) return;
+  // Two rAFs: first for React to flush folder-expansion state, second for the layout to settle.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const el = container.querySelector<HTMLElement>(`[data-file-path="${CSS.escape(path)}"]`);
+      el?.scrollIntoView({ block: 'center' });
+    });
+  });
+};
 
 export const CodeView = memo(function CodeView({
   files,
@@ -42,7 +55,18 @@ export const CodeView = memo(function CodeView({
   const isMobile = useIsMobile();
   const [showMobileTree, setShowMobileTree] = useState(false);
   const fileTreePanelRef = useRef<ImperativePanelHandle>(null);
-  const [isFileTreeCollapsed, setIsFileTreeCollapsed] = useState(false);
+  const fileTreeContainerRef = useRef<HTMLDivElement>(null);
+  const [isFileTreeCollapsed, setIsFileTreeCollapsed] = useState(true);
+
+  useMountEffect(() => {
+    // Sync the flag with the panel's actual restored state: autoSaveId can override defaultSize,
+    // so a returning user's saved-expanded layout would otherwise leave isFileTreeCollapsed=true
+    // and desync the View's toggle button from reality.
+    const panel = fileTreePanelRef.current;
+    if (panel && !panel.isCollapsed()) {
+      setIsFileTreeCollapsed(false);
+    }
+  });
 
   const handleToggleFileTree = useCallback(() => {
     const panel = fileTreePanelRef.current;
@@ -53,6 +77,22 @@ export const CodeView = memo(function CodeView({
       panel.collapse();
     }
   }, []);
+
+  const handleFileTreeExpand = useCallback(() => {
+    setIsFileTreeCollapsed(false);
+    if (!selectedFile || selectedFile.type !== 'file') return;
+
+    // Expand any collapsed ancestor folders so the selected file renders in the DOM before scrolling.
+    // Editor.tsx normalizes expandedFolders so unknown paths default to `true`; `=== false` matches
+    // only explicitly-collapsed folders and avoids toggling implicit-true defaults closed.
+    for (const ancestorPath of getAncestorFolderPaths(selectedFile.path)) {
+      if (expandedFolders[ancestorPath] === false) {
+        toggleFolder(ancestorPath);
+      }
+    }
+
+    scrollSelectedFileIntoView(fileTreeContainerRef.current, selectedFile.path);
+  }, [selectedFile, expandedFolders, toggleFolder]);
 
   const handleMobileFileSelect = useCallback(
     (file: FileStructure | null) => {
@@ -119,15 +159,16 @@ export const CodeView = memo(function CodeView({
       <PanelGroup direction="horizontal" autoSaveId="code-view-layout">
         <Panel
           ref={fileTreePanelRef}
-          defaultSize={20}
+          defaultSize={0}
           minSize={15}
           maxSize={40}
           collapsible
           collapsedSize={0}
           onCollapse={() => setIsFileTreeCollapsed(true)}
-          onExpand={() => setIsFileTreeCollapsed(false)}
+          onExpand={handleFileTreeExpand}
         >
           <div
+            ref={fileTreeContainerRef}
             className={`h-full overflow-hidden border-r border-border dark:border-border-dark ${backgroundClass}`}
           >
             <Tree
