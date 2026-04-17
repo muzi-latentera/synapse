@@ -69,6 +69,19 @@ export function getFileName(path: string): string {
   return parts[parts.length - 1];
 }
 
+export function getAncestorFolderPaths(path: string): string[] {
+  const segments = path.split('/');
+  const ancestors: string[] = [];
+  let prefix = '';
+  for (let i = 0; i < segments.length - 1; i++) {
+    const segment = segments[i];
+    if (!segment) continue;
+    prefix = prefix ? `${prefix}/${segment}` : segment;
+    ancestors.push(prefix);
+  }
+  return ancestors;
+}
+
 export function findFileInStructure(
   items: FileStructure[],
   path: string,

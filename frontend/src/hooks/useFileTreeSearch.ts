@@ -1,6 +1,6 @@
 import { useDeferredValue, useMemo } from 'react';
 import type { FileStructure } from '@/types/file-system.types';
-import { traverseFileStructure, getFileName } from '@/utils/file';
+import { traverseFileStructure, getFileName, getAncestorFolderPaths } from '@/utils/file';
 import { fuzzySearch } from '@/utils/fuzzySearch';
 
 interface FileItem {
@@ -38,14 +38,8 @@ const getFoldersToExpand = (matchedFiles: FileItem[]): Record<string, boolean> =
   const foldersToExpand: Record<string, boolean> = {};
 
   matchedFiles.forEach((file) => {
-    const pathParts = file.path.split('/');
-
-    // Build all parent paths (excluding the file itself)
-    for (let i = 1; i < pathParts.length; i++) {
-      const folderPath = pathParts.slice(0, i).join('/');
-      if (folderPath) {
-        foldersToExpand[folderPath] = true;
-      }
+    for (const folderPath of getAncestorFolderPaths(file.path)) {
+      foldersToExpand[folderPath] = true;
     }
   });
 
