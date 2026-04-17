@@ -10,6 +10,7 @@ PermissionMode: TypeAlias = Literal[
     "auto",
     "read-only",
     "full-access",
+    "ask",
 ]
 
 

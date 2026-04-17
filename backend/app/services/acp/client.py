@@ -48,6 +48,7 @@ VALID_PERMISSION_MODES: set[str] = {
     "auto",
     "read-only",
     "full-access",
+    "ask",
 }
 
 # Normalizes human-readable option names (e.g. "Accept Edits") to our
