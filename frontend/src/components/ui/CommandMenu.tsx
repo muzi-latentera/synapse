@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/primitives/Input';
 import { createPortal } from 'react-dom';
 import {
   MessagesSquare,
+  MessageSquarePlus,
   Code,
   SquareTerminal,
   KeyRound,
@@ -25,6 +26,7 @@ import {
   File,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useNavigate, type NavigateFunction } from 'react-router-dom';
 import { useUIStore } from '@/store/uiStore';
 import { useChatStore } from '@/store/chatStore';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -84,6 +86,7 @@ const VIEW_COMMANDS: ViewCommandItem[] = [
 ];
 
 const ACTION_COMMANDS: ActionCommandItem[] = [
+  { type: 'action', id: 'new-thread', label: 'New thread', icon: MessageSquarePlus, shortcut: 'w' },
   { type: 'action', id: 'new-sub-thread', label: 'New sub-thread', icon: GitBranch, shortcut: 'n' },
   {
     type: 'action',
@@ -209,7 +212,12 @@ function executeGitRemoteCommand(
     .catch(() => toast.error(`${label} failed`));
 }
 
-export function executeCommand(cmd: CommandItem, queryClient: QueryClient, toggle: boolean) {
+export function executeCommand(
+  cmd: CommandItem,
+  queryClient: QueryClient,
+  navigate: NavigateFunction,
+  toggle: boolean,
+) {
   const ui = useUIStore.getState();
 
   if (cmd.type === 'view') {
@@ -219,6 +227,8 @@ export function executeCommand(cmd: CommandItem, queryClient: QueryClient, toggl
     } else {
       ui.handleViewClick(cmd.id, true);
     }
+  } else if (cmd.id === 'new-thread') {
+    navigate('/');
   } else if (cmd.id === 'new-sub-thread') {
     const chat = useChatStore.getState().currentChat;
     if (!chat || chat.parent_chat_id) {
@@ -285,6 +295,7 @@ export function CommandMenu() {
   const activeLeaves = useActiveViews();
   const activeLeafSet = useMemo(() => new Set(activeLeaves), [activeLeaves]);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { fileStructure } = useChatContext();
 
   const flatFiles = useMemo(() => flattenFiles(fileStructure), [fileStructure]);
@@ -338,10 +349,10 @@ export function CommandMenu() {
 
   const handleSelectItem = useCallback(
     (cmd: CommandItem) => {
-      executeCommand(cmd, queryClient, false);
+      executeCommand(cmd, queryClient, navigate, false);
       close();
     },
-    [close, queryClient],
+    [close, queryClient, navigate],
   );
 
   const handleSelectFile = useCallback(
