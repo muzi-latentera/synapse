@@ -212,6 +212,17 @@ class SearchService:
         if char_start > len(line):
             char_start = len(line)
 
+        # Strip leading whitespace so deeply-indented code doesn't push the
+        # match off-screen in the narrow sidebar. Shift offsets by the amount
+        # trimmed; if the match sat inside the stripped whitespace (rare),
+        # clamp to 0 so the highlight stays valid.
+        trimmed = line.lstrip()
+        leading = len(line) - len(trimmed)
+        if leading:
+            line = trimmed
+            char_start = max(0, char_start - leading)
+            char_end = max(char_start, char_end - leading)
+
         if len(line) <= MAX_LINE_LENGTH:
             return line, char_start, char_end
 
