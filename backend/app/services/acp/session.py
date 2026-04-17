@@ -161,7 +161,7 @@ class AcpSession:
             file_path = att.get("file_path")
             if not isinstance(file_path, str) or not file_path:
                 continue
-            sandbox_path = SANDBOX_HOME_DIR + "/" + Path(file_path).name
+            sandbox_path = SANDBOX_WORKSPACE_DIR + "/" + Path(file_path).name
             filename = att.get("filename")
             label = (
                 filename

@@ -16,6 +16,7 @@ from app.constants import (
     SANDBOX_BINARY_EXTENSIONS,
     SANDBOX_DEFAULT_COMMAND_TIMEOUT,
     SANDBOX_HOME_DIR,
+    SANDBOX_WORKSPACE_DIR,
     TERMINAL_TYPE,
 )
 from app.services.exceptions import SandboxException
@@ -54,14 +55,18 @@ class LocalDockerProvider(SandboxProvider):
         self._docker: aiodocker.Docker | None = None
 
     @staticmethod
-    def _normalize_path(file_path: str, base: str = SANDBOX_HOME_DIR) -> str:
-        # Convert a relative or absolute path into an absolute container path
-        # under the base directory — Docker's tar APIs (get_archive/put_archive)
-        # require absolute paths.
+    def _normalize_path(file_path: str, base: str = SANDBOX_WORKSPACE_DIR) -> str:
+        # Convert a relative or absolute path into an absolute container path —
+        # Docker's tar APIs (get_archive/put_archive) require absolute paths.
+        # Base defaults to the workspace dir because that's where list_files
+        # roots, so relative paths from the file tree (e.g. ".worktrees/.../foo")
+        # must resolve under /home/user/workspace, not /home/user.
         path = PurePosixPath(file_path)
         if path.is_absolute():
             path_str = str(path)
-            if path_str.startswith(base):
+            # Preserve any absolute path already under /home/user/ (covers both
+            # workspace paths and sibling home-dir paths like /home/user/.bashrc).
+            if path_str.startswith(SANDBOX_HOME_DIR):
                 return posixpath.normpath(path_str)
             return posixpath.normpath(f"{base}{path}")
         return posixpath.normpath(f"{base}/{path}")
