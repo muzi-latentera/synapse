@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { useUIStore } from '@/store/uiStore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,6 +12,7 @@ function isEmbeddedEditor(target: EventTarget | null): boolean {
 
 export function useCommandMenu() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   useMountEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -34,7 +36,7 @@ export function useCommandMenu() {
       if (cmd.hideOnMobile && window.innerWidth < MOBILE_BREAKPOINT) return;
 
       e.preventDefault();
-      executeCommand(cmd, queryClient, true);
+      executeCommand(cmd, queryClient, navigate, true);
     };
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
