@@ -58,7 +58,11 @@ export function InputProvider({
   const modelMap = useModelMap();
   const agentKind =
     modelMap.get(selectedModelId)?.agent_kind ?? getAgentKindForModelId(selectedModelId);
-  const visibleContextUsage = agentKind === 'copilot' ? undefined : contextUsage;
+  // Hide the context-usage indicator for agents whose ACP servers never emit
+  // UsageUpdate notifications (copilot-cli, cursor-agent) — without those
+  // events the value stays 0 and the bar is misleading.
+  const visibleContextUsage =
+    agentKind === 'copilot' || agentKind === 'cursor' ? undefined : contextUsage;
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [previewDismissed, setPreviewDismissed] = useState(false);
