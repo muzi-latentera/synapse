@@ -193,7 +193,7 @@ interface UseStreamCallbacksResult {
   ) => void;
   onError: (error: Error, messageId?: string, streamId?: string) => void;
   onQueueProcess: (data: QueueProcessingData) => void;
-  startStream: (request: StreamOptions['request']) => Promise<string>;
+  startStream: (request: StreamOptions['request'], signal?: AbortSignal) => Promise<string>;
   replayStream: (messageId: string, afterSeq?: number) => Promise<string>;
   stopStream: (messageId: string) => Promise<void>;
   updateMessageInCache: ReturnType<typeof useMessageCache>['updateMessageInCache'];
@@ -782,23 +782,27 @@ export function useStreamCallbacks({
       : null;
   }, [chatId, onEnvelope, onComplete, onError, onQueueProcess]);
 
-  const startStream = useCallback(async (request: StreamOptions['request']): Promise<string> => {
-    const currentOptions = optionsRef.current;
-    if (!currentOptions) {
-      throw new Error('Stream options not available');
-    }
+  const startStream = useCallback(
+    async (request: StreamOptions['request'], signal?: AbortSignal): Promise<string> => {
+      const currentOptions = optionsRef.current;
+      if (!currentOptions) {
+        throw new Error('Stream options not available');
+      }
 
-    const streamOptions: StreamOptions = {
-      chatId: currentOptions.chatId,
-      request,
-      onEnvelope: currentOptions.onEnvelope,
-      onComplete: currentOptions.onComplete,
-      onError: currentOptions.onError,
-      onQueueProcess: currentOptions.onQueueProcess,
-    };
+      const streamOptions: StreamOptions = {
+        chatId: currentOptions.chatId,
+        request,
+        signal,
+        onEnvelope: currentOptions.onEnvelope,
+        onComplete: currentOptions.onComplete,
+        onError: currentOptions.onError,
+        onQueueProcess: currentOptions.onQueueProcess,
+      };
 
-    return streamService.startStream(streamOptions);
-  }, []);
+      return streamService.startStream(streamOptions);
+    },
+    [],
+  );
 
   const replayStream = useCallback(
     async (messageId: string, afterSeq?: number): Promise<string> => {
