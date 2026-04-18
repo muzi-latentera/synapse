@@ -23,7 +23,9 @@ export interface ThemeState {
 
 export interface ModelSelectionState {
   modelByChat: Record<string, string>;
+  favoriteModelIds: string[];
   selectModel: (chatId: string, modelId: string) => void;
+  toggleFavoriteModel: (modelId: string) => void;
 }
 
 export type ViewType = 'agent' | 'diff' | 'editor' | 'prReview' | 'terminal' | 'secrets';
