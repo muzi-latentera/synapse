@@ -13,11 +13,13 @@ const sidecarDir = join(rootDir, 'frontend', 'backend-sidecar');
 const PYTHON_VERSION = '3.12.12';
 const RELEASE_TAG = '20260211';
 const GET_PIP_URL = 'https://bootstrap.pypa.io/get-pip.py';
+const RIPGREP_VERSION = '14.1.1';
 
 const platform = process.platform;
 const arch = process.arch;
 const forceClean = process.argv.includes('--clean');
 const PYTHON_STAMP_VALUE = `${PYTHON_VERSION}+${RELEASE_TAG}-${arch}-${platform}`;
+const RG_STAMP_VALUE = `${RIPGREP_VERSION}-${arch}-${platform}`;
 
 const archMap = {
   arm64: 'aarch64',
@@ -168,6 +170,67 @@ async function installDeps() {
   writeFileSync(depsStampPath(), depsStampValue());
 }
 
+function ripgrepRelease() {
+  const mappedArch = archMap[arch];
+  const mappedPlatform = platformMap[platform];
+  if (!mappedArch || !mappedPlatform) {
+    throw new Error(`Unsupported platform for ripgrep: ${arch}/${platform}`);
+  }
+  const triple = `${mappedArch}-${mappedPlatform}`;
+  return {
+    url: `https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-${triple}.tar.gz`,
+    innerDir: `ripgrep-${RIPGREP_VERSION}-${triple}`,
+  };
+}
+
+function rgBin() {
+  return join(sidecarDir, 'bin', 'rg');
+}
+
+function rgStampPath() {
+  return join(sidecarDir, '.rg-stamp');
+}
+
+function rgUpToDate() {
+  const stamp = rgStampPath();
+  if (!existsSync(rgBin()) || !existsSync(stamp)) return false;
+  return readFileSync(stamp, 'utf-8').trim() === RG_STAMP_VALUE;
+}
+
+async function downloadRipgrep() {
+  const { url, innerDir } = ripgrepRelease();
+  const archivePath = join(sidecarDir, 'rg.tar.gz');
+  // Extract into a scratch dir so we can pluck out just the `rg` binary and
+  // drop the accompanying docs/completions — only the binary is needed at
+  // runtime, and keeping the tree lean keeps the .dmg smaller.
+  const extractDir = join(sidecarDir, '_rg-extract');
+  const binDir = join(sidecarDir, 'bin');
+
+  console.log(`Downloading ripgrep ${RIPGREP_VERSION}...`);
+  await downloadFile(url, archivePath);
+
+  try {
+    rmSync(extractDir, { recursive: true, force: true });
+    mkdirSync(extractDir, { recursive: true });
+    execFileSync('tar', ['-xzf', archivePath, '-C', extractDir], {
+      stdio: 'inherit',
+    });
+
+    const rgSource = join(extractDir, innerDir, 'rg');
+    if (!existsSync(rgSource)) {
+      throw new Error(`rg binary not found at ${rgSource}`);
+    }
+    mkdirSync(binDir, { recursive: true });
+    copyFileSync(rgSource, rgBin());
+    chmodSync(rgBin(), 0o755);
+  } finally {
+    rmSync(archivePath, { force: true });
+    rmSync(extractDir, { recursive: true, force: true });
+  }
+
+  writeFileSync(rgStampPath(), `${RG_STAMP_VALUE}\n`);
+}
+
 function copySource() {
   console.log('Copying source...');
   const pycacheFilter = (src) => !src.includes('__pycache__') && !src.endsWith('.pyc');
@@ -189,11 +252,17 @@ function copySource() {
 
 function writeLauncher() {
   const launcher = join(sidecarDir, 'agentrove-backend');
+  // Prepend the bundled bin dir to PATH so the user's shell (spawned via
+  // `bash -lc` by the host sandbox provider) can find our bundled `rg`
+  // without any extra install step. Login shells still run the user's rc
+  // files afterwards, so any user-installed `rg` earlier in PATH keeps
+  // precedence — this is a floor, not a ceiling.
   writeFileSync(
     launcher,
     '#!/bin/bash\n' +
       'SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\n' +
       'export PYTHONPATH="$SCRIPT_DIR"\n' +
+      'export PATH="$SCRIPT_DIR/bin:$PATH"\n' +
       'exec "$SCRIPT_DIR/python/bin/python3" "$SCRIPT_DIR/entry.py" "$@"\n'
   );
   chmodSync(launcher, 0o755);
@@ -221,6 +290,12 @@ async function run() {
     console.log('Dependencies up to date, skipping install.');
   } else {
     await installDeps();
+  }
+
+  if (rgUpToDate()) {
+    console.log('ripgrep already installed, skipping download.');
+  } else {
+    await downloadRipgrep();
   }
 
   copySource();

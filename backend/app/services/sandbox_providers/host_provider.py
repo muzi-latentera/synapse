@@ -37,6 +37,10 @@ class LocalHostProvider(SandboxProvider):
         self._workspace = Path(workspace_path).expanduser().resolve()
         self._pty_sessions: dict[str, dict[str, Any]] = {}
 
+    @property
+    def workspace_root(self) -> str:
+        return str(self._workspace)
+
     def _resolve_path(self, path: str) -> Path:
         # Turn a relative path from the frontend into an absolute host path,
         # rejecting anything that would escape the workspace via ../ or symlinks.

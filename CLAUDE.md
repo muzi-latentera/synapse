@@ -55,6 +55,7 @@
 - Avoid no-op pass-through wrappers (e.g., a function that only calls another function with identical args/return)
 - If a wrapper exists, it must add concrete value (validation, transformation, error handling, compatibility boundary, or stable public API surface)
 - Prefer direct imports/calls over indirection when behavior is unchanged
+- Do not create a new utility file for a single constant or one-line expression duplicated across only 2 call sites — inline duplication is cheaper than a new file plus two imports when no existing utility module is a natural home; only extract when there are 3+ call sites or an obvious existing file fits
 - Do not call private methods (`_method`) from outside the file where they are defined; if cross-file usage is needed, make the method public and rename it accordingly
 - Do not define helper functions in endpoint files — endpoint files should only contain route handlers; no-op exception-translation wrappers (e.g., `_raise_foo_http_exception`) should be inlined at each call site, reusable access-check or service-construction helpers should be moved to `deps.py` as `Depends()` dependencies, and pure utility functions should be moved to `utils/`
 - When a caller passes a value to a function that already stores/registers it internally, do not call a second function to store/register the same value again — one code path, one registration

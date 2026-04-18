@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import (
     get_git_service,
     get_sandbox_service,
+    get_search_service,
     get_user_service,
     validate_sandbox_ownership,
 )
@@ -26,6 +27,7 @@ from app.models.schemas.sandbox import (
     GitDiffResponse,
     GitRemoteUrlResponse,
     SandboxFilesMetadataResponse,
+    SearchResponse,
     UpdateFileRequest,
     UpdateFileResponse,
     UpdateSecretRequest,
@@ -38,6 +40,7 @@ from app.models.schemas.secrets import (
 from app.services.exceptions import SandboxException
 from app.services.git import GitService
 from app.services.sandbox import SandboxService
+from app.services.search import SearchService
 from app.services.user import UserService
 from app.utils.sandbox import normalize_sandbox_file_path
 
@@ -309,6 +312,36 @@ async def get_git_remote_url(
 ) -> GitRemoteUrlResponse:
     try:
         return await git_service.get_remote_url(sandbox_id, cwd)
+    except (ValueError, SandboxException) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/{sandbox_id}/search", response_model=SearchResponse)
+async def search_in_files(
+    sandbox_id: str = Depends(validate_sandbox_ownership),
+    search_service: SearchService = Depends(get_search_service),
+    q: str = Query(..., min_length=1, max_length=500),
+    cwd: str | None = Query(None),
+    case_sensitive: bool = Query(False),
+    regex: bool = Query(False),
+    whole_word: bool = Query(False),
+    include: str | None = Query(None, max_length=200),
+    exclude: str | None = Query(None, max_length=200),
+) -> SearchResponse:
+    try:
+        return await search_service.search(
+            sandbox_id,
+            q,
+            cwd,
+            case_sensitive=case_sensitive,
+            regex=regex,
+            whole_word=whole_word,
+            include_glob=include,
+            exclude_glob=exclude,
+        )
     except (ValueError, SandboxException) as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

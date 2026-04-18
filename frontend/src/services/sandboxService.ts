@@ -12,6 +12,8 @@ import type {
   GitDiffData,
   GitPushPullResult,
   GitRemoteUrlData,
+  SearchParams,
+  SearchResponse,
   Secret,
   UpdateFileResult,
 } from '@/types/sandbox.types';
@@ -236,6 +238,25 @@ async function getGitRemoteUrl(sandboxId: string, cwd?: string): Promise<GitRemo
   });
 }
 
+async function searchInFiles(sandboxId: string, params: SearchParams): Promise<SearchResponse> {
+  validateRequired(sandboxId, 'Sandbox ID');
+  validateRequired(params.query, 'Search query');
+
+  return serviceCall(async () => {
+    const qs = buildQueryString({
+      q: params.query,
+      cwd: params.cwd,
+      case_sensitive: params.caseSensitive || undefined,
+      regex: params.regex || undefined,
+      whole_word: params.wholeWord || undefined,
+      include: params.include || undefined,
+      exclude: params.exclude || undefined,
+    });
+    const response = await apiClient.get<SearchResponse>(`/sandbox/${sandboxId}/search${qs}`);
+    return ensureResponse(response, 'Failed to search files');
+  });
+}
+
 export const sandboxService = {
   getSandboxFilesMetadata,
   getFileContent,
@@ -253,4 +274,5 @@ export const sandboxService = {
   gitPull,
   gitCreateBranch,
   getGitRemoteUrl,
+  searchInFiles,
 };

@@ -1,13 +1,16 @@
-import { memo, useState, useCallback, useRef } from 'react';
+import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
-import { Tree } from '../file-tree/Tree';
+import { CodeSidebar } from '../code-sidebar/CodeSidebar';
+import type { SidebarTab } from '../code-sidebar/CodeSidebar';
 import { View } from '../editor-view/View';
 import type { FileStructure } from '@/types/file-system.types';
 import { cn } from '@/utils/cn';
-import { getAncestorFolderPaths } from '@/utils/file';
+import { findFileInStructure, getAncestorFolderPaths } from '@/utils/file';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useMountEffect } from '@/hooks/useMountEffect';
+
+const IS_MAC = navigator.platform.toUpperCase().startsWith('MAC');
 
 export interface CodeViewProps {
   files: FileStructure[];
@@ -18,6 +21,7 @@ export interface CodeViewProps {
   theme: string;
   sandboxId?: string;
   chatId?: string;
+  cwd?: string;
   onDownload?: () => void;
   isDownloading?: boolean;
   isSandboxSyncing?: boolean;
@@ -45,6 +49,7 @@ export const CodeView = memo(function CodeView({
   theme,
   sandboxId,
   chatId,
+  cwd,
   onDownload,
   isDownloading,
   isSandboxSyncing = false,
@@ -57,6 +62,13 @@ export const CodeView = memo(function CodeView({
   const fileTreePanelRef = useRef<ImperativePanelHandle>(null);
   const fileTreeContainerRef = useRef<HTMLDivElement>(null);
   const [isFileTreeCollapsed, setIsFileTreeCollapsed] = useState(true);
+  const [activeTab, setActiveTab] = useState<SidebarTab>('files');
+  const [focusSignal, setFocusSignal] = useState(0);
+  const [targetLine, setTargetLine] = useState<{
+    path: string;
+    line: number;
+    nonce: number;
+  } | null>(null);
 
   useMountEffect(() => {
     // Sync the flag with the panel's actual restored state: autoSaveId can override defaultSize,
@@ -104,6 +116,70 @@ export const CodeView = memo(function CodeView({
     [onFileSelect],
   );
 
+  // Read the latest file tree through a ref so handleOpenResult stays
+  // stable across file-tree refreshes — keeps the memo'd CodeSidebar from
+  // re-rendering every time files change.
+  const filesRef = useRef(files);
+  filesRef.current = files;
+
+  const handleOpenResult = useCallback(
+    (path: string, lineNumber: number) => {
+      const file = findFileInStructure(filesRef.current, path);
+      if (!file) return;
+      onFileSelect(file);
+      // Each click re-navigates even when path+line match the last one,
+      // so re-clicking a result re-reveals it after the user scrolls away.
+      setTargetLine((prev) => ({
+        path,
+        line: lineNumber,
+        nonce: (prev?.nonce ?? 0) + 1,
+      }));
+      if (isMobile) setShowMobileTree(false);
+    },
+    [onFileSelect, isMobile],
+  );
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const modifier = IS_MAC ? e.metaKey : e.ctrlKey;
+      if (!modifier || !e.shiftKey || e.key.toLowerCase() !== 'f') return;
+      const active = document.activeElement as HTMLElement | null;
+      const tag = active?.tagName;
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
+      // Skip when typing in an unrelated field so we don't hijack the
+      // browser's own find dialog mid-edit; re-focus when already inside
+      // the sidebar input so the shortcut still works as a "jump here".
+      if (inInput && !active?.closest('[data-code-sidebar]')) return;
+      e.preventDefault();
+      if (isMobile) setShowMobileTree(true);
+      else if (fileTreePanelRef.current?.isCollapsed()) fileTreePanelRef.current.expand();
+      setActiveTab('search');
+      setFocusSignal((n) => n + 1);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isMobile]);
+
+  // Shared sidebar props — mobile and desktop differ only in the file-select
+  // handler and close callback, so everything else is hoisted once here.
+  const sharedSidebarProps = {
+    files,
+    selectedFile,
+    expandedFolders,
+    onToggleFolder: toggleFolder,
+    onOpenResult: handleOpenResult,
+    onDownload,
+    isDownloading,
+    isSandboxSyncing,
+    onRefresh,
+    isRefreshing,
+    sandboxId,
+    cwd,
+    activeTab,
+    onActiveTabChange: setActiveTab,
+    focusSignal,
+  };
+
   if (isMobile) {
     return (
       <div className={cn('relative flex min-h-0 flex-1 flex-col overflow-hidden', backgroundClass)}>
@@ -118,23 +194,16 @@ export const CodeView = memo(function CodeView({
               role="presentation"
             />
             <div
+              data-code-sidebar
               className={cn(
                 'absolute left-0 top-0 z-30 h-full w-72',
                 'border-r border-border dark:border-border-dark',
                 backgroundClass,
               )}
             >
-              <Tree
-                files={files}
-                selectedFile={selectedFile}
-                expandedFolders={expandedFolders}
+              <CodeSidebar
+                {...sharedSidebarProps}
                 onFileSelect={handleMobileFileSelect}
-                onToggleFolder={toggleFolder}
-                onDownload={onDownload}
-                isDownloading={isDownloading}
-                isSandboxSyncing={isSandboxSyncing}
-                onRefresh={onRefresh}
-                isRefreshing={isRefreshing}
                 onClose={() => setShowMobileTree(false)}
               />
             </div>
@@ -148,6 +217,7 @@ export const CodeView = memo(function CodeView({
             sandboxId={sandboxId}
             chatId={chatId}
             onToggleFileTree={() => setShowMobileTree(true)}
+            targetLine={targetLine}
           />
         </div>
       </div>
@@ -169,19 +239,12 @@ export const CodeView = memo(function CodeView({
         >
           <div
             ref={fileTreeContainerRef}
+            data-code-sidebar
             className={`h-full overflow-hidden border-r border-border dark:border-border-dark ${backgroundClass}`}
           >
-            <Tree
-              files={files}
-              selectedFile={selectedFile}
-              expandedFolders={expandedFolders}
+            <CodeSidebar
+              {...sharedSidebarProps}
               onFileSelect={onFileSelect}
-              onToggleFolder={toggleFolder}
-              onDownload={onDownload}
-              isDownloading={isDownloading}
-              isSandboxSyncing={isSandboxSyncing}
-              onRefresh={onRefresh}
-              isRefreshing={isRefreshing}
               onClose={handleToggleFileTree}
             />
           </div>
@@ -206,6 +269,7 @@ export const CodeView = memo(function CodeView({
               sandboxId={sandboxId}
               chatId={chatId}
               onToggleFileTree={isFileTreeCollapsed ? handleToggleFileTree : undefined}
+              targetLine={targetLine}
             />
           </div>
         </Panel>
