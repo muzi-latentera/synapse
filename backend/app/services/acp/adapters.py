@@ -14,6 +14,20 @@ class AgentKind(str, Enum):
     CURSOR = "cursor"
 
 
+# File types each agent can consume inline in the ACP prompt (base64-embedded as
+# ImageContentBlock/EmbeddedResourceContentBlock). For these, the agent never
+# reads from the sandbox path, so a sandbox-side copy of the upload is dead data.
+# Copilot advertises ACP `embeddedContext: true` but routes to multiple backend
+# models (Claude, GPT, etc.) — PDF parsing depends on the runtime model, so we
+# stay conservative and only declare image as guaranteed-inline for Copilot.
+NATIVE_FILE_TYPES: dict[AgentKind, frozenset[str]] = {
+    AgentKind.CLAUDE: frozenset({"image", "pdf"}),
+    AgentKind.CODEX: frozenset({"image"}),
+    AgentKind.COPILOT: frozenset({"image"}),
+    AgentKind.CURSOR: frozenset({"image"}),
+}
+
+
 # Claude uses MAX_THINKING_TOKENS env var (not a CLI arg) to cap the
 # extended-thinking budget. These map the UI's named tiers to token counts.
 THINKING_MODE_TOKENS: dict[str, int] = {

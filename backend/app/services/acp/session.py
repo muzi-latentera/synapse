@@ -23,7 +23,12 @@ from acp.schema import (
 
 from app.constants import SANDBOX_HOME_DIR, SANDBOX_WORKSPACE_DIR, TERMINAL_TYPE
 from app.core.config import get_settings
-from app.services.acp.adapters import AGENT_ADAPTERS, AgentKind, LaunchConfig
+from app.services.acp.adapters import (
+    AGENT_ADAPTERS,
+    NATIVE_FILE_TYPES,
+    AgentKind,
+    LaunchConfig,
+)
 from app.services.acp.client import AcpClientHandler
 from app.services.sandbox_providers import SandboxProviderType
 from app.services.sandbox_providers.docker_provider import (
@@ -53,15 +58,6 @@ NON_IMAGE_MIME: dict[str, str] = {
 }
 
 EMPTY_FROZENSET: frozenset[str] = frozenset()
-
-# File types each agent can consume natively in the ACP prompt —
-# no sandbox-path note needed for these since the content is inline.
-NATIVE_FILE_TYPES: dict[AgentKind, frozenset[str]] = {
-    AgentKind.CLAUDE: frozenset({"image", "pdf"}),
-    AgentKind.CODEX: frozenset({"image"}),
-    AgentKind.COPILOT: frozenset({"image", "pdf"}),
-    AgentKind.CURSOR: frozenset({"image"}),
-}
 
 
 @dataclass

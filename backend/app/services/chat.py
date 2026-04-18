@@ -776,11 +776,13 @@ class ChatService(BaseDbService[Chat]):
         attachments: list[MessageAttachmentDict] | None = None
         if request.attached_files:
             file_storage = StorageService(ws_sandbox)
+            agent_kind = MODELS[request.model_id].agent_kind
             attachments = list(
                 await asyncio.gather(
                     *[
                         file_storage.save_file(
                             file,
+                            agent_kind=agent_kind,
                             sandbox_id=chat.workspace.sandbox_id,
                             user_id=str(current_user.id),
                         )

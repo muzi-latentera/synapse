@@ -6,6 +6,7 @@ from fastapi import UploadFile
 
 from app.core.config import get_settings
 from app.models.types import MessageAttachmentDict
+from app.services.acp.adapters import NATIVE_FILE_TYPES, AgentKind
 from app.services.exceptions import StorageException
 from app.services.sandbox import SandboxService
 from app.utils.attachment_urls import AttachmentURL
@@ -26,6 +27,7 @@ class StorageService:
     async def save_file(
         self,
         file: UploadFile,
+        agent_kind: AgentKind,
         sandbox_id: str | None = None,
         attachment_id: str | None = None,
         user_id: str | None = None,
@@ -82,9 +84,12 @@ class StorageService:
         else:
             file_url = AttachmentURL.build_temp_preview_url(relative_file_path)
 
-        if sandbox_id:
+        if sandbox_id and file_type not in NATIVE_FILE_TYPES[agent_kind]:
             # Attachments are advertised to the agent as readable from the
             # sandbox, so fail the upload if the sandbox copy is unavailable.
+            # Skip the write when the agent consumes this file type inline
+            # (base64-embedded in the ACP prompt) — the sandbox copy would be
+            # dead data and, in desktop mode, would pollute the user's workspace.
             # Pass a relative filename so both providers resolve it under the
             # workspace dir (absolute paths are rejected by Host).
             await self.sandbox_service.provider.write_file(

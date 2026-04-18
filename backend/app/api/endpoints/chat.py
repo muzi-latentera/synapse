@@ -18,6 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sse_starlette.sse import EventSourceResponse
 
 from app.constants import (
+    MODELS,
     REDIS_KEY_CHAT_CONTEXT_USAGE,
 )
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME
@@ -445,11 +446,13 @@ async def queue_message(
     if files:
         ws_sandbox = ChatService.sandbox_for_workspace(chat.workspace)
         file_storage = StorageService(ws_sandbox)
+        agent_kind = MODELS[model_id].agent_kind
         attachments = list(
             await asyncio.gather(
                 *[
                     file_storage.save_file(
                         file,
+                        agent_kind=agent_kind,
                         sandbox_id=chat.workspace.sandbox_id,
                         user_id=str(current_user.id),
                     )
