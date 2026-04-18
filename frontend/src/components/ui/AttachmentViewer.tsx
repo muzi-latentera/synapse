@@ -10,6 +10,7 @@ import { cn } from '@/utils/cn';
 import { apiClient } from '@/lib/api';
 import { fetchAttachmentBlob, downloadAttachmentFile } from '@/utils/file';
 import { isBrowserObjectUrl } from '@/utils/attachmentUrl';
+import { ImagePreviewModal } from './ImagePreviewModal';
 
 interface AttachmentViewerProps {
   attachments: MessageAttachment[];
@@ -25,6 +26,7 @@ interface ImageState {
 interface ThumbnailWrapperProps {
   attachment: MessageAttachment;
   onDownload: (url: string, filename: string) => void;
+  onPreview?: () => void;
   children: ReactNode;
 }
 
@@ -88,11 +90,36 @@ const LoadingProgressOverlay = memo(function LoadingProgressOverlay() {
 const downloadButtonClass =
   'h-5 w-5 rounded-full bg-black/60 text-white shadow-md backdrop-blur-sm hover:bg-black/70 focus-visible:ring-white/70';
 
-function ThumbnailWrapper({ attachment, onDownload, children }: ThumbnailWrapperProps) {
+const DEFAULT_IMAGE_STATE: ImageState = { isLoading: true, error: false, imageSrc: '' };
+
+function ThumbnailWrapper({ attachment, onDownload, onPreview, children }: ThumbnailWrapperProps) {
   const filename = attachment.filename || getDefaultFilename(attachment.file_type, 0);
+  const isInteractive = Boolean(onPreview);
 
   return (
-    <div className="group/thumbnail relative">
+    <div
+      className={cn(
+        'group/thumbnail relative rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-quaternary/30',
+        isInteractive && 'cursor-zoom-in',
+      )}
+      onClick={onPreview}
+      onKeyDown={
+        isInteractive
+          ? (e) => {
+              // Only react to keys on the wrapper itself — avoid double-firing when the nested
+              // download button is focused and the user presses Enter/Space on it.
+              if (e.target !== e.currentTarget) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onPreview?.();
+              }
+            }
+          : undefined
+      }
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      aria-label={isInteractive ? `Preview ${filename}` : undefined}
+    >
       {children}
       <div className="absolute right-1 top-1 opacity-0 transition-opacity group-hover/thumbnail:opacity-100">
         <Button
@@ -100,9 +127,8 @@ function ThumbnailWrapper({ attachment, onDownload, children }: ThumbnailWrapper
           size="icon"
           variant="ghost"
           onClick={(e) => {
-            if (attachment.file_type === 'image') {
-              e.stopPropagation();
-            }
+            // Stop propagation so the wrapper's preview click handler (images) doesn't fire.
+            e.stopPropagation();
             onDownload(attachment.file_url, filename);
           }}
           className={cn('p-0', downloadButtonClass)}
@@ -170,7 +196,7 @@ function ImageThumbnail({
         <img
           src={state.imageSrc}
           alt={filename}
-          className="block h-10 w-10 cursor-default rounded object-cover"
+          className="block h-10 w-10 rounded object-cover"
           loading="lazy"
         />
         {isUploading && <LoadingProgressOverlay />}
@@ -183,6 +209,8 @@ function ImageThumbnail({
 
 function AttachmentViewerInner({ attachments, uploadingAttachmentIds }: AttachmentViewerProps) {
   const [imageStates, setImageStates] = useState<Record<string, ImageState>>({});
+  // Index into imageAttachments of the image currently shown in the lightbox; null means closed.
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const loadedIdsRef = useRef<Set<string>>(new Set());
   const ownedObjectUrlsRef = useRef<Set<string>>(new Set());
   const uploadingIdSet = useMemo(
@@ -204,10 +232,16 @@ function AttachmentViewerInner({ attachments, uploadingAttachmentIds }: Attachme
     () => attachments.filter((a) => a.file_type === 'image'),
     [attachments],
   );
+  const imageIndexMap = useMemo(
+    () => new Map(imageAttachments.map((a, i) => [a.id, i])),
+    [imageAttachments],
+  );
   const imageIdKey = useMemo(
     () => imageAttachments.map((a) => a.id).join('\0'),
     [imageAttachments],
   );
+
+  const handleClosePreview = useCallback(() => setPreviewIndex(null), []);
 
   useEffect(() => {
     if (imageAttachments.length === 0) return;
@@ -293,48 +327,61 @@ function AttachmentViewerInner({ attachments, uploadingAttachmentIds }: Attachme
   }
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {attachments.map((attachment, index) => {
-        const isUploadingAttachment = uploadingIdSet.has(attachment.id);
+    <>
+      <div className="flex flex-wrap gap-1.5">
+        {attachments.map((attachment, index) => {
+          const isUploadingAttachment = uploadingIdSet.has(attachment.id);
 
-        if (attachment.file_type === 'image') {
-          const state = imageStates[attachment.id] || {
-            isLoading: true,
-            error: false,
-            imageSrc: '',
-          };
+          if (attachment.file_type === 'image') {
+            const state = imageStates[attachment.id] || DEFAULT_IMAGE_STATE;
+            // Preview is only meaningful once the image has finished loading successfully —
+            // don't open the lightbox on a still-loading or errored thumbnail.
+            const canPreview = !isUploadingAttachment && !state.isLoading && !state.error;
+            // Safe non-null: every 'image' attachment is in imageAttachments, so the map always has it.
+            const imageIndex = imageIndexMap.get(attachment.id)!;
 
-          return (
-            <ThumbnailWrapper
-              key={attachment.id}
-              attachment={attachment}
-              onDownload={handleDownload}
-            >
-              <ImageThumbnail
+            return (
+              <ThumbnailWrapper
+                key={attachment.id}
                 attachment={attachment}
-                state={state}
-                index={index}
-                isUploading={isUploadingAttachment}
-              />
-            </ThumbnailWrapper>
-          );
-        }
+                onDownload={handleDownload}
+                onPreview={canPreview ? () => setPreviewIndex(imageIndex) : undefined}
+              >
+                <ImageThumbnail
+                  attachment={attachment}
+                  state={state}
+                  index={index}
+                  isUploading={isUploadingAttachment}
+                />
+              </ThumbnailWrapper>
+            );
+          }
 
-        if (attachment.file_type === 'pdf' || attachment.file_type === 'xlsx') {
-          return (
-            <ThumbnailWrapper
-              key={attachment.id}
-              attachment={attachment}
-              onDownload={handleDownload}
-            >
-              <IconThumbnail attachment={attachment} isLoading={isUploadingAttachment} />
-            </ThumbnailWrapper>
-          );
-        }
+          if (attachment.file_type === 'pdf' || attachment.file_type === 'xlsx') {
+            return (
+              <ThumbnailWrapper
+                key={attachment.id}
+                attachment={attachment}
+                onDownload={handleDownload}
+              >
+                <IconThumbnail attachment={attachment} isLoading={isUploadingAttachment} />
+              </ThumbnailWrapper>
+            );
+          }
 
-        return null;
-      })}
-    </div>
+          return null;
+        })}
+      </div>
+      <ImagePreviewModal
+        isOpen={previewIndex !== null}
+        onClose={handleClosePreview}
+        attachments={imageAttachments}
+        imageStates={imageStates}
+        currentIndex={previewIndex ?? 0}
+        onIndexChange={setPreviewIndex}
+        onDownload={handleDownload}
+      />
+    </>
   );
 }
 
