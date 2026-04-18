@@ -8,6 +8,7 @@ import { ClaudeIcon } from '@/components/ui/icons/ClaudeIcon';
 import { CodexIcon } from '@/components/ui/icons/CodexIcon';
 import { CopilotIcon } from '@/components/ui/icons/CopilotIcon';
 import { CursorIcon } from '@/components/ui/icons/CursorIcon';
+import { OpencodeIcon } from '@/components/ui/icons/OpencodeIcon';
 import { formatNumberCompact } from '@/utils/format';
 import type { AgentKind, Model } from '@/types/chat.types';
 
@@ -16,6 +17,7 @@ const AGENT_LABELS: Record<AgentKind, string> = {
   codex: 'Codex',
   copilot: 'Copilot',
   cursor: 'Cursor',
+  opencode: 'OpenCode',
 };
 
 const AGENT_ICONS: Record<AgentKind, ComponentType<SVGProps<SVGSVGElement>>> = {
@@ -23,6 +25,7 @@ const AGENT_ICONS: Record<AgentKind, ComponentType<SVGProps<SVGSVGElement>>> = {
   codex: CodexIcon,
   copilot: CopilotIcon,
   cursor: CursorIcon,
+  opencode: OpencodeIcon,
 };
 
 export interface ModelSelectorProps {

@@ -4,6 +4,7 @@ PermissionMode: TypeAlias = Literal[
     "default",
     "acceptEdits",
     "plan",
+    "build",
     "bypassPermissions",
     "agent",
     "autopilot",

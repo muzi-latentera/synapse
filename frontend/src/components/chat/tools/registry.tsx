@@ -25,6 +25,26 @@ const cursorToolLoaders: Record<string, ToolModuleLoader> = {
   edit: () => import('./cursor/EditTool').then((m) => ({ default: m.EditTool })),
 };
 
+// OpenCode uses the raw tool names (bash, read, edit, write, grep, glob,
+// webfetch, task, todowrite, skill, question) rather than ACP kinds — the
+// backend's tool-name extractor picks these out of the ACP `title` field for
+// opencode sessions, since opencode's ACP kinds collapse distinct tools
+// (edit/write/patch all share kind "edit").
+const opencodeToolLoaders: Record<string, ToolModuleLoader> = {
+  bash: () => import('./opencode/BashTool').then((m) => ({ default: m.BashTool })),
+  read: () => import('./opencode/ReadTool').then((m) => ({ default: m.ReadTool })),
+  write: () => import('./opencode/WriteTool').then((m) => ({ default: m.WriteTool })),
+  edit: () => import('./opencode/EditTool').then((m) => ({ default: m.EditTool })),
+  patch: () => import('./opencode/EditTool').then((m) => ({ default: m.EditTool })),
+  grep: () => import('./opencode/GrepTool').then((m) => ({ default: m.GrepTool })),
+  glob: () => import('./opencode/GlobTool').then((m) => ({ default: m.GlobTool })),
+  webfetch: () => import('./opencode/WebFetchTool').then((m) => ({ default: m.WebFetchTool })),
+  task: () => import('./opencode/TaskTool').then((m) => ({ default: m.TaskTool })),
+  todowrite: () => import('./opencode/TodoWriteTool').then((m) => ({ default: m.TodoWriteTool })),
+  skill: () => import('./opencode/SkillTool').then((m) => ({ default: m.SkillTool })),
+  question: () => import('./opencode/QuestionTool').then((m) => ({ default: m.QuestionTool })),
+};
+
 const toolLoaders: Record<string, ToolModuleLoader> = {
   // Claude Code tools
   Agent: () => import('./claude/AgentTool').then((m) => ({ default: m.AgentTool })),
@@ -85,6 +105,10 @@ export const getToolComponent = (toolName: string, agentKind?: AgentKind): ToolC
 
   if (agentKind === 'cursor' && cursorToolLoaders[toolName]) {
     return getOrCreateLazy(`cursor:${toolName}`, cursorToolLoaders[toolName]);
+  }
+
+  if (agentKind === 'opencode' && opencodeToolLoaders[toolName]) {
+    return getOrCreateLazy(`opencode:${toolName}`, opencodeToolLoaders[toolName]);
   }
 
   if (toolLoaders[toolName]) {

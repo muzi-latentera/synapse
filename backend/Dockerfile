@@ -26,6 +26,12 @@ RUN curl -fsS https://cursor.com/install | bash && \
     cp /root/.local/bin/cursor-agent /usr/local/bin/cursor-agent && \
     chmod +x /usr/local/bin/cursor-agent
 
+# OpenCode CLI — used for the OpenCode ACP server (`opencode acp`). The install
+# script downloads the binary to /root/.opencode/bin.
+RUN curl -fsSL https://opencode.ai/install | bash && \
+    cp /root/.opencode/bin/opencode /usr/local/bin/opencode && \
+    chmod +x /usr/local/bin/opencode
+
 # Install uv package manager
 RUN curl -LsSf https://astral.sh/uv/install.sh | bash
 

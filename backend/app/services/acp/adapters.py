@@ -12,6 +12,7 @@ class AgentKind(str, Enum):
     CODEX = "codex"
     COPILOT = "copilot"
     CURSOR = "cursor"
+    OPENCODE = "opencode"
 
 
 # File types each agent can consume inline in the ACP prompt (base64-embedded as
@@ -25,6 +26,7 @@ NATIVE_FILE_TYPES: dict[AgentKind, frozenset[str]] = {
     AgentKind.CODEX: frozenset({"image"}),
     AgentKind.COPILOT: frozenset({"image"}),
     AgentKind.CURSOR: frozenset({"image"}),
+    AgentKind.OPENCODE: frozenset({"image"}),
 }
 
 
@@ -64,6 +66,10 @@ COPILOT_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "xhigh"})
 
 # Cursor CLI exposes three ACP session modes (see https://cursor.com/docs/cli/acp).
 CURSOR_SESSION_MODES = frozenset({"agent", "plan", "ask"})
+
+# OpenCode's built-in primary agents double as ACP session modes; `plan`
+# restricts edits to `.opencode/plans/*.md`, `build` has full tool access.
+OPENCODE_SESSION_MODES = frozenset({"build", "plan"})
 
 
 def coerce_thinking_mode(mode: str | None, valid_modes: frozenset[str]) -> str:
@@ -393,9 +399,65 @@ class CursorAgentAdapter(AgentAdapter):
         return model_id.removeprefix("cursor:")
 
 
+class OpencodeAgentAdapter(AgentAdapter):
+    # OpenCode CLI runs as an ACP server via `opencode acp` and speaks the same
+    # ACP transport as the other adapters. OpenCode's "primary agents" (build,
+    # plan) map to ACP session modes; reasoning effort is controlled per-model
+    # by the underlying provider (opencode itself doesn't expose a uniform
+    # reasoning dial via ACP), so there's no separate thinking-mode control —
+    # the UI's thinking selector is hidden for this adapter.
+
+    def __init__(self) -> None:
+        super().__init__(kind=AgentKind.OPENCODE)
+
+    def build_launch_config(
+        self,
+        *,
+        system_prompt: str | None,
+        system_prompt_is_full_replace: bool,
+        reasoning_effort: str | None,
+        permission_mode: str | None,
+        launch_approval_policy: str | None,
+    ) -> LaunchConfig:
+        return LaunchConfig(binary="opencode", cli_args=["acp"])
+
+    def build_session_config(
+        self,
+        *,
+        system_prompt: str | None,
+        system_prompt_is_full_replace: bool,
+        thinking_mode: str | None,
+        permission_mode: str,
+    ) -> SessionConfig:
+        meta = build_system_prompt_meta(system_prompt, system_prompt_is_full_replace)
+        return SessionConfig(
+            meta=meta,
+            permission=PermissionConfig(
+                session_mode=self.map_session_mode(permission_mode)
+            ),
+        )
+
+    def map_session_mode(self, permission_mode: str) -> str:
+        # Persisted settings may still carry mode strings from a different
+        # previous agent. Default to the restrictive mode (plan) so switching
+        # agents never silently widens permissions — e.g. a chat left in
+        # Codex's read-only mode shouldn't become opencode full-access just
+        # because the string doesn't map.
+        if permission_mode not in OPENCODE_SESSION_MODES:
+            return "plan"
+        return permission_mode
+
+    def map_model_id(self, model_id: str) -> str:
+        # Internal keys use "opencode:" prefix to namespace; opencode expects
+        # the raw provider/model ID (e.g. "openai/gpt-5.4" not
+        # "opencode:openai/gpt-5.4").
+        return model_id.removeprefix("opencode:")
+
+
 AGENT_ADAPTERS: dict[AgentKind, AgentAdapter] = {
     AgentKind.CLAUDE: ClaudeAgentAdapter(),
     AgentKind.CODEX: CodexAgentAdapter(),
     AgentKind.COPILOT: CopilotCliAdapter(),
     AgentKind.CURSOR: CursorAgentAdapter(),
+    AgentKind.OPENCODE: OpencodeAgentAdapter(),
 }

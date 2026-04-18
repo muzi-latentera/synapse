@@ -79,11 +79,25 @@ export const CURSOR_PERMISSION_MODES: PermissionModeOption[] = [
   },
 ];
 
+export const OPENCODE_PERMISSION_MODES: PermissionModeOption[] = [
+  {
+    value: 'build',
+    label: 'Build',
+    description: 'Full tool access for development work',
+  },
+  {
+    value: 'plan',
+    label: 'Plan',
+    description: 'Read-only analysis; edits restricted to .opencode/plans/',
+  },
+];
+
 export const MODES_BY_AGENT: Record<AgentKind, PermissionModeOption[]> = {
   claude: CLAUDE_PERMISSION_MODES,
   codex: CODEX_PERMISSION_MODES,
   copilot: COPILOT_PERMISSION_MODES,
   cursor: CURSOR_PERMISSION_MODES,
+  opencode: OPENCODE_PERMISSION_MODES,
 };
 
 const DEFAULT_BY_AGENT: Record<AgentKind, PermissionMode> = {
@@ -91,6 +105,7 @@ const DEFAULT_BY_AGENT: Record<AgentKind, PermissionMode> = {
   codex: 'full-access',
   copilot: 'agent',
   cursor: 'agent',
+  opencode: 'build',
 };
 
 export function coercePermissionModeForAgent(

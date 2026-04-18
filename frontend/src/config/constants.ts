@@ -25,4 +25,5 @@ export const EMPTY_BUILTIN_COMMANDS: Record<AgentKind, SlashCommand[]> = {
   codex: [],
   copilot: [],
   cursor: [],
+  opencode: [],
 };

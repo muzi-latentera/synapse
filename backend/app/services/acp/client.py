@@ -29,6 +29,7 @@ from acp.schema import (
 
 from app.models.types import PermissionMode
 from app.models.db_models.enums import ToolStatus
+from app.services.acp.adapters import AgentKind
 from app.services.streaming.types import StreamEvent, StreamEventType, ToolPayload
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ VALID_PERMISSION_MODES: set[str] = {
     "default",
     "acceptEdits",
     "plan",
+    "build",
     "bypassPermissions",
     "agent",
     "autopilot",
@@ -57,6 +59,7 @@ PERMISSION_MODE_BY_OPTION_NAME: dict[str, PermissionMode] = {
     "default": "default",
     "accept edits": "acceptEdits",
     "plan": "plan",
+    "build": "build",
     "agent": "agent",
     "bypass permissions": "bypassPermissions",
     "autopilot": "autopilot",
@@ -72,7 +75,8 @@ class AcpClientHandler:
     # permission requests, usage updates). Each method translates the ACP event
     # into a StreamEvent and enqueues it for the SSE layer to forward to the frontend.
 
-    def __init__(self) -> None:
+    def __init__(self, agent_kind: AgentKind) -> None:
+        self.agent_kind = agent_kind
         self.event_queue: asyncio.Queue[StreamEvent | object] = asyncio.Queue()
         self._active_tools: dict[str, ToolPayload] = {}
         self._pending_permissions: dict[str, asyncio.Future[dict[str, Any]]] = {}
@@ -436,15 +440,20 @@ class AcpClientHandler:
             return str(parent_id)
         return None
 
-    @staticmethod
-    def _extract_tool_name(tc: Any) -> str:
+    def _extract_tool_name(self, tc: Any) -> str:
         # Claude embeds the tool name in field_meta.claudeCode.toolName (e.g.
-        # "Read", "Edit"). Codex uses the top-level `kind` field instead (e.g.
-        # "execute", "read", "edit"). Falls back to title for unknown agents.
+        # "Read", "Edit"). OpenCode puts the raw tool name (bash, read, edit,
+        # write, grep, glob, webfetch, task, todowrite, skill, question) in
+        # `title` — its ACP `kind` collapses distinct tools (edit/write/patch
+        # all become "edit"), so title is the only way to distinguish them.
+        # Codex/Copilot/Cursor use the top-level `kind` field.
         meta = getattr(tc, "field_meta", None) or {}
         claude_meta = meta.get("claudeCode", {})
         if tool_name := claude_meta.get("toolName"):
             return str(tool_name)
+        if self.agent_kind == AgentKind.OPENCODE:
+            if title := getattr(tc, "title", None):
+                return str(title)
         kind = getattr(tc, "kind", None)
         if kind:
             return str(kind)
@@ -517,7 +526,14 @@ class AcpClientHandler:
     def _extract_tool_error(cls, tc: ToolCallProgress) -> str:
         if tc.raw_output is not None:
             if isinstance(tc.raw_output, dict):
-                return str(tc.raw_output.get("formatted_output", str(tc.raw_output)))
+                # Codex wraps the error in formatted_output; opencode uses a
+                # top-level `error` string. Fall through to stringifying the
+                # dict only if neither is present.
+                for key in ("formatted_output", "error"):
+                    value = tc.raw_output.get(key)
+                    if value:
+                        return str(value)
+                return str(tc.raw_output)
             return str(tc.raw_output)
         texts = cls._extract_content_texts(tc)
         return "\n".join(texts) if texts else "Tool execution failed"

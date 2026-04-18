@@ -92,7 +92,12 @@ export const AssistantMessage = memo(function AssistantMessage({
     if (!modelId) return null;
     const model = modelMap.get(modelId);
     if (model?.name) return model.name;
-    return modelId.includes(':') ? modelId.split(':').pop()! : modelId;
+    // Strip only the agent prefix (everything up to and including the first
+    // colon). Using split(':').pop() would drop anything after later colons
+    // — e.g. opencode IDs like `opencode:openrouter/x-ai/grok-4:free` would
+    // become "free" instead of "openrouter/x-ai/grok-4:free".
+    const colonIdx = modelId.indexOf(':');
+    return colonIdx === -1 ? modelId : modelId.slice(colonIdx + 1);
   }, [modelId, modelMap]);
 
   // modelId tells us which agent produced the tool calls embedded in this

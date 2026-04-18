@@ -53,7 +53,13 @@ const MessageRendererInner: React.FC<MessageRendererProps> = ({
   const agentTools = React.useMemo(
     () =>
       segments.reduce<ToolAggregate[]>((acc, seg) => {
-        if (seg.kind === 'tool' && seg.tool.name === 'Agent') acc.push(seg.tool);
+        // Collect subagent-spawning tools across agents so the expand-modal
+        // sibling list works for all of them: Claude's `Agent`, opencode's
+        // `task`. Codex/Copilot/Cursor don't surface subagent spawns as
+        // named tool calls.
+        if (seg.kind === 'tool' && (seg.tool.name === 'Agent' || seg.tool.name === 'task')) {
+          acc.push(seg.tool);
+        }
         return acc;
       }, []),
     [segments],

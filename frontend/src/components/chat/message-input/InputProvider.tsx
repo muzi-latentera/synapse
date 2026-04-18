@@ -30,7 +30,15 @@ import {
 } from './InputContext';
 import type { InputProps } from './Input';
 import type { MentionItem, SlashCommand } from '@/types/ui.types';
-import { getAgentKindForModelId } from '@/types/chat.types';
+import { getAgentKindForModelId, type AgentKind } from '@/types/chat.types';
+
+// Agents whose ACP servers don't emit UsageUpdate notifications — the context
+// window indicator stays at 0 for these, so we hide it entirely.
+const AGENTS_WITHOUT_USAGE_UPDATE: ReadonlySet<AgentKind> = new Set([
+  'copilot',
+  'cursor',
+  'opencode',
+]);
 
 export function InputProvider({
   message,
@@ -59,10 +67,9 @@ export function InputProvider({
   const agentKind =
     modelMap.get(selectedModelId)?.agent_kind ?? getAgentKindForModelId(selectedModelId);
   // Hide the context-usage indicator for agents whose ACP servers never emit
-  // UsageUpdate notifications (copilot-cli, cursor-agent) — without those
-  // events the value stays 0 and the bar is misleading.
-  const visibleContextUsage =
-    agentKind === 'copilot' || agentKind === 'cursor' ? undefined : contextUsage;
+  // UsageUpdate notifications — without those events the value stays 0 and
+  // the bar is misleading.
+  const visibleContextUsage = AGENTS_WITHOUT_USAGE_UPDATE.has(agentKind) ? undefined : contextUsage;
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [previewDismissed, setPreviewDismissed] = useState(false);
