@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 # Create a non-root user because claude-code causes permission issues when using bypassPermissions mode
 # see https://github.com/anthropics/claude-code-sdk-python/issues/30

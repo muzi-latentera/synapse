@@ -14,8 +14,8 @@ exclude = [
     ".venv",
 ]
 
-# Assume Python 3.13
-target-version = "py313"
+# Assume Python 3.12
+target-version = "py312"
 
 [tool.ruff.lint]
 # Enable flake8-bugbear (`B`) rules.
@@ -40,7 +40,7 @@ max-complexity = 10
 "__init__.py" = ["E402", "F401"]
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 strict_optional = true
 check_untyped_defs = true
 warn_return_any = true
