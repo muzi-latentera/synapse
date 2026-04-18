@@ -11,7 +11,8 @@ type PermissionMode =
   | 'auto'
   | 'read-only'
   | 'full-access'
-  | 'ask';
+  | 'ask'
+  | 'build';
 
 const DEFAULT_KEY = '__default__';
 export const DEFAULT_PERMISSION_MODE: PermissionMode = 'bypassPermissions';

@@ -63,6 +63,12 @@ RUN . "$NVM_DIR/nvm.sh" && \
 # Cursor CLI (installs `cursor-agent` to ~/.local/bin, which is already on PATH).
 RUN curl -fsS https://cursor.com/install | bash
 
+# OpenCode CLI (installs `opencode` to ~/.opencode/bin; symlink into ~/.local/bin
+# so the ACP binary resolves without modifying PATH).
+RUN curl -fsSL https://opencode.ai/install | bash && \
+    mkdir -p /home/user/.local/bin && \
+    ln -sf /home/user/.opencode/bin/opencode /home/user/.local/bin/opencode
+
 RUN python3 -m pip install --user --upgrade pip && \
     python3 -m pip install --user \
     uv

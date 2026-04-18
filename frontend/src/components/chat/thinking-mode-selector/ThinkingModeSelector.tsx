@@ -28,16 +28,17 @@ const CODEX_THINKING_MODES: ThinkingModeOption[] = [
   { value: 'xhigh', label: 'XHigh' },
 ];
 
-// Cursor bakes reasoning effort into the model ID itself (e.g. `-low`,
-// `-thinking-high`, `-max`), so it has no separate thinking-mode control.
-// An empty list causes the selector to render nothing.
-const CURSOR_THINKING_MODES: ThinkingModeOption[] = [];
+// Cursor bakes reasoning effort into the model ID; OpenCode delegates to the
+// per-model provider. Neither exposes a uniform thinking-mode dial via ACP,
+// so an empty list hides the selector.
+const EMPTY_THINKING_MODES: ThinkingModeOption[] = [];
 
 export const THINKING_MODES_BY_AGENT: Record<AgentKind, ThinkingModeOption[]> = {
   claude: CLAUDE_THINKING_MODES,
   codex: CODEX_THINKING_MODES,
   copilot: CODEX_THINKING_MODES,
-  cursor: CURSOR_THINKING_MODES,
+  cursor: EMPTY_THINKING_MODES,
+  opencode: EMPTY_THINKING_MODES,
 };
 
 const DEFAULT_BY_AGENT: Record<AgentKind, string> = {
@@ -45,6 +46,7 @@ const DEFAULT_BY_AGENT: Record<AgentKind, string> = {
   codex: 'medium',
   copilot: 'medium',
   cursor: 'medium',
+  opencode: 'medium',
 };
 
 export function coerceThinkingModeForAgent(thinkingMode: string, agentKind: AgentKind): string {

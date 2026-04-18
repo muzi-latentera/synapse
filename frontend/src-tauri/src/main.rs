@@ -136,6 +136,9 @@ fn spawn_backend(
     let backend_bin = resolve_backend_binary(app_handle);
     let mut backend_path = std::env::var("PATH").unwrap_or_default();
     if let Some(home) = dirs::home_dir() {
+        // OpenCode installs to ~/.opencode/bin on macOS and updates shell rc
+        // files, but the desktop backend gets an explicit PATH from Tauri.
+        backend_path.push_str(&format!(":{}/.opencode/bin", home.display()));
         backend_path.push_str(&format!(":{}/.local/bin", home.display()));
     }
     backend_path.push_str(":/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin");

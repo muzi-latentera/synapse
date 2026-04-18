@@ -273,7 +273,7 @@ class AcpSession:
 
     @classmethod
     async def create(cls, config: AcpSessionConfig) -> AcpSession:
-        handler = AcpClientHandler()
+        handler = AcpClientHandler(agent_kind=config.agent_kind)
         process = await cls._spawn_process(config)
 
         if process.stdin is None or process.stdout is None:
