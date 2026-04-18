@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { logger } from '@/utils/logger';
 import { createAttachmentsFromFiles } from '@/utils/message';
@@ -31,7 +31,7 @@ interface UseMessageActionsParams {
   setWasAborted: (aborted: boolean) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   addMessageToCache: (message: Message, userMessage?: Message) => void;
-  startStream: (request: ChatRequest) => Promise<string>;
+  startStream: (request: ChatRequest, signal?: AbortSignal) => Promise<string>;
   storeBlobUrl: (file: File, url: string) => void;
   setPendingUserMessageId: (id: string | null) => void;
   isLoading: boolean;
@@ -69,6 +69,7 @@ export function useMessageActions({
 }: UseMessageActionsParams) {
   const { personas } = useChatContext();
   const modelMap = useModelMap();
+  const pendingStartControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
     async (
@@ -92,6 +93,9 @@ export function useMessageActions({
       if (filesToSend && filesToSend.length > 0 && userMessage?.id) {
         setPendingUserMessageId(userMessage.id);
       }
+
+      const startController = new AbortController();
+      pendingStartControllerRef.current = startController;
 
       try {
         const personaKey = chatId ?? DEFAULT_CHAT_SETTINGS_KEY;
@@ -118,7 +122,8 @@ export function useMessageActions({
           selected_persona_name: validPersona,
         };
 
-        const messageId = await startStream(request);
+        const messageId = await startStream(request, startController.signal);
+        pendingStartControllerRef.current = null;
 
         setCurrentMessageId(messageId);
         setStreamState('streaming');
@@ -148,8 +153,15 @@ export function useMessageActions({
         });
         addMessageToCache(initialMessage, userMessage);
       } catch (streamStartError) {
+        pendingStartControllerRef.current = null;
         setPendingUserMessageId(null);
         setStreamState('idle');
+        // The service layer wraps abort errors inconsistently (direct ServiceError
+        // pre-check vs. wrapped DOMException mid-fetch), so trust the controller
+        // signal as the authoritative source of "did we cancel this".
+        if (startController.signal.aborted) {
+          return;
+        }
         const error =
           streamStartError instanceof Error
             ? streamStartError
@@ -176,6 +188,13 @@ export function useMessageActions({
       setPendingUserMessageId,
     ],
   );
+
+  const cancelPendingStart = useCallback(() => {
+    // Loading-state stop has no stream/message ID yet, so abort the in-flight
+    // start request directly instead of going through the post-registration stop path.
+    pendingStartControllerRef.current?.abort();
+    pendingStartControllerRef.current = null;
+  }, []);
 
   const handleMessageSend = useCallback(
     async (inputMessage: string, inputFiles: File[]) => {
@@ -242,5 +261,6 @@ export function useMessageActions({
   return {
     sendMessage,
     handleMessageSend,
+    cancelPendingStart,
   };
 }

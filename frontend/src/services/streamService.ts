@@ -10,6 +10,7 @@ import { chatStorage } from '@/utils/storage';
 export interface StreamOptions {
   chatId: string;
   request: ChatRequest;
+  signal?: AbortSignal;
   onEnvelope?: (envelope: StreamEnvelope) => void;
   onComplete?: (
     messageId?: string,
@@ -245,7 +246,10 @@ class StreamService {
     const streamId = crypto.randomUUID();
 
     try {
-      const { source, messageId } = await chatService.createCompletion(options.request);
+      const { source, messageId } = await chatService.createCompletion(
+        options.request,
+        options.signal,
+      );
 
       const activeStream: ActiveStream = {
         id: streamId,

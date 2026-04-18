@@ -226,7 +226,11 @@ export function useChatStreaming({
     return () => unsubscribe();
   }, [chatId]);
 
-  const { sendMessage, handleMessageSend: handleMessageSendAction } = useMessageActions({
+  const {
+    sendMessage,
+    handleMessageSend: handleMessageSendAction,
+    cancelPendingStart,
+  } = useMessageActions({
     chatId,
     selectedModelId,
     permissionMode,
@@ -266,6 +270,13 @@ export function useChatStreaming({
     replayStream,
   });
 
+  const markStreamIdleAfterAbort = useCallback(() => {
+    setStreamState('idle');
+    setCurrentMessageId(null);
+    setWasAborted(true);
+    setPendingUserMessageId(null);
+  }, [setPendingUserMessageId]);
+
   // Sends stop requests for one or all active streams in the current chat.
   // Immediately marks the UI as idle (optimistic) and tracks pending stops
   // so incoming envelopes for the stopping stream are ignored.
@@ -285,10 +296,7 @@ export function useChatStreaming({
         });
       }
       pendingStopRef.current = pendingIds;
-      setStreamState('idle');
-      setCurrentMessageId(null);
-      setWasAborted(true);
-      setPendingUserMessageId(null);
+      markStreamIdleAfterAbort();
 
       const results = await Promise.allSettled(stopPromises);
       let anyFailed = false;
@@ -302,7 +310,7 @@ export function useChatStreaming({
         pendingStopRef.current.clear();
       }
     },
-    [chatId, setPendingUserMessageId, stopStream],
+    [chatId, markStreamIdleAfterAbort, stopStream],
   );
 
   useEffect(() => {
@@ -310,9 +318,15 @@ export function useChatStreaming({
   }, [currentMessageId]);
 
   const handleStop = useCallback(() => {
+    if (streamState === 'loading') {
+      cancelPendingStart();
+      markStreamIdleAfterAbort();
+      clearInput();
+      return;
+    }
     void stopActiveStreams(currentMessageIdRef.current || undefined);
     clearInput();
-  }, [stopActiveStreams, clearInput]);
+  }, [cancelPendingStart, clearInput, markStreamIdleAfterAbort, stopActiveStreams, streamState]);
 
   useMountEffect(() => {
     cleanupExpiredPdfBlobs();
