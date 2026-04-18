@@ -598,6 +598,11 @@ export function useStreamCallbacks({
         queryClient.removeQueries({
           queryKey: ['sandbox', currentChat.sandbox_id, 'file-content'],
         });
+        // Agent may have switched/created a branch during the turn (e.g. `git checkout -b`),
+        // so refresh the branch list to keep the UI in sync with HEAD.
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sandbox.gitBranchesAll(currentChat.sandbox_id),
+        });
       }
 
       timerIdsRef.current.forEach(clearTimeout);
