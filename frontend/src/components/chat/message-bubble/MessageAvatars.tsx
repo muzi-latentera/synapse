@@ -15,7 +15,7 @@ export const UserAvatarCircle = memo(
       <div
         className={cn(
           sizeClasses,
-          'rounded-full bg-surface-active dark:bg-surface-dark-hover',
+          'rounded-full bg-surface-hover dark:bg-surface-dark-hover',
           'flex items-center justify-center text-2xs font-medium text-text-secondary dark:text-text-dark-secondary',
           'transition-all duration-200',
         )}
