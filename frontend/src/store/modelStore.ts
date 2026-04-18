@@ -6,6 +6,7 @@ export const useModelStore = create<ModelSelectionState>()(
   persist(
     (set, get) => ({
       modelByChat: {},
+      favoriteModelIds: [],
       selectModel: (chatId: string, modelId: string) => {
         const trimmedId = modelId?.trim();
         if (trimmedId && get().modelByChat[chatId] !== trimmedId) {
@@ -13,6 +14,16 @@ export const useModelStore = create<ModelSelectionState>()(
             modelByChat: { ...state.modelByChat, [chatId]: trimmedId },
           }));
         }
+      },
+      toggleFavoriteModel: (modelId: string) => {
+        set((state) => {
+          const exists = state.favoriteModelIds.includes(modelId);
+          return {
+            favoriteModelIds: exists
+              ? state.favoriteModelIds.filter((id) => id !== modelId)
+              : [...state.favoriteModelIds, modelId],
+          };
+        });
       },
     }),
     { name: 'model-storage' },
