@@ -105,8 +105,10 @@ export const useGitBranchesQuery = (
     queryKey: queryKeys.sandbox.gitBranches(sandboxId, cwd),
     queryFn: () => sandboxService.getGitBranches(sandboxId, cwd),
     enabled: !!sandboxId && enabled,
-    // Branch lists change infrequently, and branch-changing mutations already invalidate this query.
-    staleTime: 300_000,
+    // Branches can change out-of-band (terminal `git checkout`, external tools), so refetch on
+    // window focus with a short stale window to pick those up without aggressive polling.
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 };
 
