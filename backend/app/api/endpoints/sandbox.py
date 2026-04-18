@@ -26,6 +26,7 @@ from app.models.schemas.sandbox import (
     GitCreateBranchResponse,
     GitDiffResponse,
     GitRemoteUrlResponse,
+    GitRestoreFileRequest,
     SandboxFilesMetadataResponse,
     SearchResponse,
     UpdateFileRequest,
@@ -280,6 +281,38 @@ async def git_commit(
 ) -> GitCommandResponse:
     try:
         return await git_service.commit(sandbox_id, request.message, request.cwd)
+    except (ValueError, SandboxException) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post("/{sandbox_id}/git/restore-file", response_model=GitCommandResponse)
+async def git_restore_file(
+    request: GitRestoreFileRequest,
+    sandbox_id: str = Depends(validate_sandbox_ownership),
+    git_service: GitService = Depends(get_git_service),
+) -> GitCommandResponse:
+    try:
+        return await git_service.restore_file(
+            sandbox_id, request.file_path, request.old_path, request.cwd
+        )
+    except (ValueError, SandboxException) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post("/{sandbox_id}/git/restore-all", response_model=GitCommandResponse)
+async def git_restore_all(
+    sandbox_id: str = Depends(validate_sandbox_ownership),
+    git_service: GitService = Depends(get_git_service),
+    cwd: str | None = Query(None),
+) -> GitCommandResponse:
+    try:
+        return await git_service.restore_all(sandbox_id, cwd)
     except (ValueError, SandboxException) as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

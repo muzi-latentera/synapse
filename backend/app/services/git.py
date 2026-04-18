@@ -1,4 +1,6 @@
 import re
+import shlex
+from string import Template
 from typing import Literal
 
 from app.models.schemas.sandbox import (
@@ -17,6 +19,114 @@ GITHUB_REMOTE_RE = re.compile(
     r"(?:https?://github\.com/|git@github\.com:)([^/]+)/([^/]+?)(?:\.git)?$"
 )
 
+GIT_IS_REPO_CMD = "git rev-parse --is-inside-work-tree 2>/dev/null"
+GIT_CURRENT_BRANCH_CMD = "git rev-parse --abbrev-ref HEAD 2>/dev/null"
+GIT_PUSH_CMD = "git push -u origin HEAD"
+GIT_PULL_CMD = "git pull"
+GIT_REMOTE_URL_CMD = "git remote get-url origin 2>/dev/null"
+# Detached HEAD (e.g. checking out a tag/SHA) — revert to the previous branch
+# so the UI always has a named branch to display.
+GIT_CHECKOUT_PREV_CMD = "git checkout - 2>/dev/null"
+
+# Segmented with explicit markers so one exec result can be parsed
+# deterministically without depending on `git branch` output formatting.
+GIT_LIST_BRANCHES_CMD = (
+    "git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 2; "
+    "git rev-parse --abbrev-ref HEAD 2>/dev/null; "
+    "printf '__BRANCHES_LOCAL__\\n'; "
+    "git for-each-ref --format='%(refname:short)' refs/heads; "
+    "printf '__BRANCHES_REMOTE__\\n'; "
+    "git for-each-ref --format='%(refname:short)' refs/remotes/origin"
+)
+
+GIT_CHECKOUT_TEMPLATE = Template("git checkout '$branch' 2>&1")
+GIT_CHECKOUT_FROM_REMOTE_TEMPLATE = Template(
+    "git checkout -b '$branch' 'origin/$branch' 2>&1"
+)
+GIT_COMMIT_TEMPLATE = Template("git add -A && git commit -m $msg")
+# $base expands to either "" or " '<base_branch>'" so a single template covers
+# both the "create from current HEAD" and "create from base" call shapes.
+GIT_CREATE_BRANCH_TEMPLATE = Template("git checkout -b '$name'$base 2>&1")
+GIT_CREATE_BRANCH_FROM_REMOTE_TEMPLATE = Template(
+    "git checkout -b '$name' 'origin/$base' 2>&1"
+)
+
+# Idempotent: a previous attempt may have created the worktree but failed to
+# persist it; the dir-exists check lets us skip `git worktree add` instead of
+# failing on a duplicate branch or path.
+GIT_WORKTREE_ADD_TEMPLATE = Template(
+    "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && "
+    "if [ -e '$worktree_dir/.git' ]; then echo 'exists'; exit 0; fi && "
+    "mkdir -p '$base_worktrees_dir' && "
+    "git worktree add '$worktree_dir' -b '$branch_name' 2>&1"
+)
+
+GIT_DIFF_STAGED_TEMPLATE = Template("git diff$ctx --cached 2>/dev/null")
+GIT_DIFF_UNSTAGED_TEMPLATE = Template("git diff$ctx 2>/dev/null;$untracked")
+# "all" mode: try `git diff HEAD` first (combined staged+unstaged in one pass);
+# falls back to separate staged + unstaged when HEAD doesn't exist (initial
+# commit).
+GIT_DIFF_ALL_TEMPLATE = Template(
+    "{ git diff$ctx HEAD 2>/dev/null"
+    " || { git diff$ctx --cached 2>/dev/null; git diff$ctx 2>/dev/null; }; };"
+    "$untracked"
+)
+GIT_UNTRACKED_DIFF_TEMPLATE = Template(
+    " git ls-files --others --exclude-standard -z"
+    " | xargs -0 -I{} git diff$ctx --no-index -- /dev/null {} 2>/dev/null"
+)
+# Diff HEAD against the merge-base with the default branch. Default branch is
+# detected via the remote HEAD symref, falling back to main/master/develop/
+# trunk. Exits 2 when no base can be determined so the caller can surface a
+# distinct error. `$$` escapes literal `$` (shell vars and command subs) so
+# `string.Template` only substitutes the `$ctx` placeholder.
+GIT_DIFF_BRANCH_TEMPLATE = Template(
+    "base=$$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/||');"
+    " [ -z \"$$base\" ] && base=$$(git branch -r 2>/dev/null | grep -oE 'origin/(main|master|develop|trunk)' | head -1 | tr -d ' ');"
+    ' [ -z "$$base" ] && for b in main master develop trunk; do'
+    " git rev-parse --verify $$b >/dev/null 2>&1 && base=$$b && break; done;"
+    ' if [ -z "$$base" ]; then exit 2; fi;'
+    ' merge_base=$$(git merge-base "$$base" HEAD 2>/dev/null || echo "$$base");'
+    ' git diff$ctx "$$merge_base" HEAD 2>/dev/null'
+)
+
+# Diff pathspecs are repo-root-relative and `git clean -fd` only cleans below
+# the current directory, so restore commands hop to the repo root before
+# running to keep pathspecs resolving and clean sweeps workspace-wide.
+GIT_CD_REPO_ROOT = 'cd "$(git rev-parse --show-toplevel)" && '
+
+# `git reset --hard` (not `git checkout HEAD -- .`) is required so newly-added
+# files drop out of the index and become untracked for `git clean` to sweep.
+# Initial repo has no HEAD to reset to, so we empty the index directly and let
+# `git clean` do the same job. Gitignored files (.env, etc.) are preserved.
+RESTORE_ALL_CMD = (
+    GIT_CD_REPO_ROOT + "if git rev-parse --verify HEAD >/dev/null 2>&1; then "
+    "git reset --hard HEAD && git clean -fd; "
+    "else "
+    "git rm --cached -rf --ignore-unmatch -q . >/dev/null 2>&1; "
+    "git clean -fd; "
+    "fi"
+)
+
+# Rename: restore the original path, drop the new one. Cleanup of `new` is
+# gated on the checkout of `old` with `&&` — not `;` — so a failed checkout
+# (old_path not in HEAD) doesn't silently turn a committed rename into a
+# fresh deletion.
+RESTORE_RENAME_TEMPLATE = Template(
+    "git checkout HEAD -- $op && { git reset -- $fp >/dev/null 2>&1; rm -f -- $fp; }"
+)
+
+# Branch on HEAD membership: `git checkout HEAD --` fails for paths not in
+# HEAD, so untracked/new-staged files need an unstage + rm instead.
+RESTORE_FILE_TEMPLATE = Template(
+    "if git cat-file -e HEAD:$fp 2>/dev/null; then "
+    "git checkout HEAD -- $fp; "
+    "else "
+    "git reset -- $fp >/dev/null 2>&1; "
+    "rm -f -- $fp; "
+    "fi"
+)
+
 
 class GitService:
     def __init__(self, sandbox_service: SandboxService) -> None:
@@ -32,7 +142,7 @@ class GitService:
         cd_prefix = git_cd_prefix(cwd)
         check = await self.sandbox_service.execute_command(
             sandbox_id,
-            f"{cd_prefix}git rev-parse --is-inside-work-tree 2>/dev/null",
+            f"{cd_prefix}{GIT_IS_REPO_CMD}",
         )
         if check.exit_code != 0:
             return GitDiffResponse(diff="", has_changes=False, is_git_repo=False)
@@ -40,38 +150,18 @@ class GitService:
         # Large context window so the patch includes the entire file,
         # enabling full-file diff view
         ctx = " -U99999" if full_context else ""
-
-        untracked_diff = (
-            " git ls-files --others --exclude-standard -z"
-            f" | xargs -0 -I{{}} git diff{ctx} --no-index -- /dev/null {{}} 2>/dev/null"
-        )
+        untracked_diff = GIT_UNTRACKED_DIFF_TEMPLATE.substitute(ctx=ctx)
 
         if mode == "branch":
-            # Diff current HEAD against the merge-base with the default branch.
-            # Detect default branch via the remote HEAD symref, falling back
-            # to main/master.
-            cmd = (
-                "base=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/||');"
-                " [ -z \"$base\" ] && base=$(git branch -r 2>/dev/null | grep -oE 'origin/(main|master|develop|trunk)' | head -1 | tr -d ' ');"
-                ' [ -z "$base" ] && for b in main master develop trunk; do'
-                " git rev-parse --verify $b >/dev/null 2>&1 && base=$b && break; done;"
-                ' if [ -z "$base" ]; then exit 2; fi;'
-                ' merge_base=$(git merge-base "$base" HEAD 2>/dev/null || echo "$base");'
-                f' git diff{ctx} "$merge_base" HEAD 2>/dev/null'
-            )
+            cmd = GIT_DIFF_BRANCH_TEMPLATE.substitute(ctx=ctx)
         elif mode == "staged":
-            cmd = f"git diff{ctx} --cached 2>/dev/null"
+            cmd = GIT_DIFF_STAGED_TEMPLATE.substitute(ctx=ctx)
         elif mode == "unstaged":
-            cmd = f"git diff{ctx} 2>/dev/null;{untracked_diff}"
-        else:
-            # "all" mode: try `git diff HEAD` first (combined staged+unstaged
-            # in one pass); falls back to separate staged + unstaged when HEAD
-            # doesn't exist (initial commit).
-            cmd = (
-                f"{{ git diff{ctx} HEAD 2>/dev/null"
-                f" || {{ git diff{ctx} --cached 2>/dev/null; git diff{ctx} 2>/dev/null; }}; }};"
-                f"{untracked_diff}"
+            cmd = GIT_DIFF_UNSTAGED_TEMPLATE.substitute(
+                ctx=ctx, untracked=untracked_diff
             )
+        else:
+            cmd = GIT_DIFF_ALL_TEMPLATE.substitute(ctx=ctx, untracked=untracked_diff)
 
         result = await self.sandbox_service.execute_command(
             sandbox_id, f"{cd_prefix}{cmd}"
@@ -101,14 +191,7 @@ class GitService:
         cd_prefix = git_cd_prefix(cwd)
         result = await self.sandbox_service.provider.execute_command(
             sandbox_id,
-            (
-                f"{cd_prefix}git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 2; "
-                "git rev-parse --abbrev-ref HEAD 2>/dev/null; "
-                "printf '__BRANCHES_LOCAL__\\n'; "
-                "git for-each-ref --format='%(refname:short)' refs/heads; "
-                "printf '__BRANCHES_REMOTE__\\n'; "
-                "git for-each-ref --format='%(refname:short)' refs/remotes/origin"
-            ),
+            f"{cd_prefix}{GIT_LIST_BRANCHES_CMD}",
         )
         if result.exit_code != 0:
             return GitBranchesResponse(
@@ -120,9 +203,6 @@ class GitService:
             local_marker = lines.index("__BRANCHES_LOCAL__")
             remote_marker = lines.index("__BRANCHES_REMOTE__")
         except ValueError:
-            # The shell output is segmented with explicit markers so we can
-            # parse one exec result deterministically instead of depending on
-            # `git branch` formatting.
             raise SandboxException("Failed to parse git branches output")
         current_branch = "\n".join(lines[:local_marker]).strip()
 
@@ -161,13 +241,13 @@ class GitService:
 
         result = await self.sandbox_service.execute_command(
             sandbox_id,
-            f"{cd_prefix}git checkout '{branch}' 2>&1",
+            f"{cd_prefix}{GIT_CHECKOUT_TEMPLATE.substitute(branch=branch)}",
         )
         if result.exit_code != 0:
             # Branch might only exist as a remote tracking branch
             result = await self.sandbox_service.execute_command(
                 sandbox_id,
-                f"{cd_prefix}git checkout -b '{branch}' 'origin/{branch}' 2>&1",
+                f"{cd_prefix}{GIT_CHECKOUT_FROM_REMOTE_TEMPLATE.substitute(branch=branch)}",
             )
 
         if result.exit_code != 0:
@@ -179,15 +259,13 @@ class GitService:
 
         head_result = await self.sandbox_service.execute_command(
             sandbox_id,
-            f"{cd_prefix}git rev-parse --abbrev-ref HEAD 2>/dev/null",
+            f"{cd_prefix}{GIT_CURRENT_BRANCH_CMD}",
         )
         current = head_result.stdout.strip()
         if current == "HEAD":
-            # Detached HEAD (e.g. checking out a tag or SHA) — revert to the
-            # previous branch so the UI always has a named branch to display
             await self.sandbox_service.execute_command(
                 sandbox_id,
-                f"{cd_prefix}git checkout - 2>/dev/null",
+                f"{cd_prefix}{GIT_CHECKOUT_PREV_CMD}",
             )
             return GitCheckoutResponse(
                 success=False,
@@ -202,7 +280,6 @@ class GitService:
         command: str,
         cwd: str | None = None,
     ) -> GitCommandResponse:
-        # Execute a simple git command and return success/failure with output.
         cd_prefix = git_cd_prefix(cwd)
         result = await self.sandbox_service.execute_command(
             sandbox_id,
@@ -217,20 +294,41 @@ class GitService:
         return GitCommandResponse(success=True, output=result.stdout.strip())
 
     async def push(self, sandbox_id: str, cwd: str | None = None) -> GitCommandResponse:
-        return await self.run_command(sandbox_id, "git push -u origin HEAD", cwd)
+        return await self.run_command(sandbox_id, GIT_PUSH_CMD, cwd)
 
     async def pull(self, sandbox_id: str, cwd: str | None = None) -> GitCommandResponse:
-        return await self.run_command(sandbox_id, "git pull", cwd)
+        return await self.run_command(sandbox_id, GIT_PULL_CMD, cwd)
 
     async def commit(
         self, sandbox_id: str, message: str, cwd: str | None = None
     ) -> GitCommandResponse:
-        # Shell-escape single quotes so the commit message can contain
-        # apostrophes
-        msg = message.replace("'", "'\\''")
-        return await self.run_command(
-            sandbox_id, f"git add -A && git commit -m '{msg}'", cwd
-        )
+        cmd = GIT_COMMIT_TEMPLATE.substitute(msg=shlex.quote(message))
+        return await self.run_command(sandbox_id, cmd, cwd)
+
+    async def restore_file(
+        self,
+        sandbox_id: str,
+        file_path: str,
+        old_path: str | None = None,
+        cwd: str | None = None,
+    ) -> GitCommandResponse:
+        self._validate_relative_path(file_path)
+        if old_path:
+            self._validate_relative_path(old_path)
+        fp = shlex.quote(file_path)
+        if old_path and old_path != file_path:
+            op = shlex.quote(old_path)
+            tail = RESTORE_RENAME_TEMPLATE.substitute(fp=fp, op=op)
+        else:
+            tail = RESTORE_FILE_TEMPLATE.substitute(fp=fp)
+        return await self.run_command(sandbox_id, GIT_CD_REPO_ROOT + tail, cwd)
+
+    async def restore_all(
+        self,
+        sandbox_id: str,
+        cwd: str | None = None,
+    ) -> GitCommandResponse:
+        return await self.run_command(sandbox_id, RESTORE_ALL_CMD, cwd)
 
     async def create_branch(
         self,
@@ -247,13 +345,16 @@ class GitService:
         base = f" '{base_branch}'" if base_branch else ""
         result = await self.sandbox_service.execute_command(
             sandbox_id,
-            f"{cd_prefix}git checkout -b '{name}'{base} 2>&1",
+            f"{cd_prefix}{GIT_CREATE_BRANCH_TEMPLATE.substitute(name=name, base=base)}",
         )
         if result.exit_code != 0 and base_branch:
             # Base branch might only exist as a remote tracking branch
+            remote_cmd = GIT_CREATE_BRANCH_FROM_REMOTE_TEMPLATE.substitute(
+                name=name, base=base_branch
+            )
             result = await self.sandbox_service.execute_command(
                 sandbox_id,
-                f"{cd_prefix}git checkout -b '{name}' 'origin/{base_branch}' 2>&1",
+                f"{cd_prefix}{remote_cmd}",
             )
         if result.exit_code != 0:
             return GitCreateBranchResponse(
@@ -264,7 +365,7 @@ class GitService:
 
         head_result = await self.sandbox_service.execute_command(
             sandbox_id,
-            f"{cd_prefix}git rev-parse --abbrev-ref HEAD 2>/dev/null",
+            f"{cd_prefix}{GIT_CURRENT_BRANCH_CMD}",
         )
         return GitCreateBranchResponse(
             success=True,
@@ -279,7 +380,7 @@ class GitService:
         cd_prefix = git_cd_prefix(cwd)
         result = await self.sandbox_service.execute_command(
             sandbox_id,
-            f"{cd_prefix}git remote get-url origin 2>/dev/null",
+            f"{cd_prefix}{GIT_REMOTE_URL_CMD}",
         )
         if result.exit_code != 0:
             raise SandboxException("No git remote origin found", status_code=404)
@@ -310,16 +411,11 @@ class GitService:
         short_id = chat_id[:8]
         worktree_dir = f"{base_cwd}/.worktrees/{short_id}"
         branch_name = f"worktree-{short_id}"
-        # Idempotent: if a previous attempt created the worktree but the DB
-        # persist failed, the directory already exists. Check first so we
-        # don't fail on a duplicate branch/path from git worktree add.
         cd_prefix = git_cd_prefix(base_cwd)
-        cmd = (
-            f"{cd_prefix}"
-            f"git rev-parse --is-inside-work-tree >/dev/null 2>&1 && "
-            f"if [ -e '{worktree_dir}/.git' ]; then echo 'exists'; exit 0; fi && "
-            f"mkdir -p '{base_cwd}/.worktrees' && "
-            f"git worktree add '{worktree_dir}' -b '{branch_name}' 2>&1"
+        cmd = cd_prefix + GIT_WORKTREE_ADD_TEMPLATE.substitute(
+            worktree_dir=worktree_dir,
+            base_worktrees_dir=f"{base_cwd}/.worktrees",
+            branch_name=branch_name,
         )
         # Local git operation — no user secrets needed, so bypass
         # SandboxService.execute_command and call the provider directly.
@@ -343,3 +439,18 @@ class GitService:
             or name.startswith("-")
         ):
             raise ValueError(f"Invalid {label} name")
+
+    @staticmethod
+    def _validate_relative_path(path: str) -> None:
+        # Defense-in-depth against shell interpolation escape even after the
+        # `--` separator: reject absolutes (escape cwd), `..` (escape repo),
+        # `-` prefix (option injection), and newlines/NULs (command chaining).
+        if (
+            not path
+            or path.startswith("/")
+            or path.startswith("-")
+            or ".." in path.split("/")
+            or "\n" in path
+            or "\x00" in path
+        ):
+            raise ValueError("Invalid file path")

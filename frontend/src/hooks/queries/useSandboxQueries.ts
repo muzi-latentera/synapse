@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import type { UseQueryOptions } from '@tanstack/react-query';
+import type { QueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { sandboxService } from '@/services/sandboxService';
 import type {
   DiffMode,
@@ -229,6 +229,40 @@ export const useSearchInFilesQuery = (
     ...options,
   });
 };
+
+// Diff paths are cwd-relative while the editor caches workspace-root-relative
+// paths (e.g. `.worktrees/<id>/src/App.tsx`), so targeting a specific
+// `fileContent` key would miss worktree entries. Invalidate the whole
+// file-content space under this sandbox instead.
+const invalidateAfterGitRestore = (queryClient: QueryClient, sandboxId: string) =>
+  Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.gitDiffAll(sandboxId) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.filesMetadata(sandboxId) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.sandbox.fileContentAll(sandboxId) }),
+  ]);
+
+export const useGitRestoreFileMutation = createMutation<
+  GitCommitResult,
+  Error,
+  { sandboxId: string; filePath: string; oldPath?: string; cwd?: string }
+>(
+  ({ sandboxId, filePath, oldPath, cwd }) =>
+    sandboxService.gitRestoreFile(sandboxId, filePath, oldPath, cwd),
+  async (queryClient, _data, variables) => {
+    await invalidateAfterGitRestore(queryClient, variables.sandboxId);
+  },
+);
+
+export const useGitRestoreAllMutation = createMutation<
+  GitCommitResult,
+  Error,
+  { sandboxId: string; cwd?: string }
+>(
+  ({ sandboxId, cwd }) => sandboxService.gitRestoreAll(sandboxId, cwd),
+  async (queryClient, _data, variables) => {
+    await invalidateAfterGitRestore(queryClient, variables.sandboxId);
+  },
+);
 
 export const useGitCreateBranchMutation = createMutation<
   GitCreateBranchResult,

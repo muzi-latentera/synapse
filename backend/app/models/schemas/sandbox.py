@@ -85,6 +85,13 @@ class GitCommitRequest(BaseModel):
     cwd: str | None = None
 
 
+class GitRestoreFileRequest(BaseModel):
+    file_path: str = Field(..., min_length=1, max_length=4096)
+    # Pre-rename path, when the change is a rename; None otherwise.
+    old_path: str | None = Field(default=None, min_length=1, max_length=4096)
+    cwd: str | None = None
+
+
 class GitCommandResponse(BaseModel):
     success: bool
     output: str

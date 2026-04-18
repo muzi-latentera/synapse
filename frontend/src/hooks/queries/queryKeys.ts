@@ -14,6 +14,7 @@ export const queryKeys = {
   sandbox: {
     fileContent: (sandboxId?: string, filePath?: string) =>
       ['sandbox', sandboxId, 'file-content', filePath] as const,
+    fileContentAll: (sandboxId?: string) => ['sandbox', sandboxId, 'file-content'] as const,
     filesMetadata: (sandboxId?: string) => ['sandbox', sandboxId, 'files-metadata'] as const,
     secrets: (sandboxId?: string) => ['sandbox', sandboxId, 'secrets'] as const,
     gitDiff: (
