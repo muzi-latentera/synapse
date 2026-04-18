@@ -35,6 +35,7 @@ import { queryKeys } from '@/hooks/queries/queryKeys';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useActiveViews } from '@/hooks/useActiveViews';
 import { useChatContext } from '@/hooks/useChatContext';
+import { useGitBranchesQuery, useCheckoutBranchMutation } from '@/hooks/queries/useSandboxQueries';
 import { fuzzySearch } from '@/utils/fuzzySearch';
 import { getLeaves } from '@/utils/mosaicHelpers';
 import { traverseFileStructure, getFileName } from '@/utils/file';
@@ -42,6 +43,7 @@ import { HighlightMatch } from '@/components/editor/file-tree/HighlightMatch';
 import { cn } from '@/utils/cn';
 import type { ViewType, MosaicDirection } from '@/types/ui.types';
 import type { FileStructure } from '@/types/file-system.types';
+import type { GitBranchesData } from '@/types/sandbox.types';
 
 const rowClass = cn(
   'flex w-full items-center gap-3 px-3 py-2 text-xs transition-colors duration-200',
@@ -103,6 +105,7 @@ const ACTION_COMMANDS: ActionCommandItem[] = [
     shortcut: 'l',
   },
   { type: 'action', id: 'create-branch', label: 'Create branch', icon: GitBranch, shortcut: 'h' },
+  { type: 'action', id: 'switch-branch', label: 'Switch branch', icon: GitBranch, shortcut: 'b' },
   {
     type: 'action',
     id: 'push-remote',
@@ -166,7 +169,7 @@ export const SHORTCUT_MAP = new Map<string, CommandItem>(
   ]),
 );
 
-type MenuMode = 'commands' | 'files';
+type MenuMode = 'commands' | 'files' | 'branches';
 
 let pendingMenuMode: MenuMode | null = null;
 
@@ -273,6 +276,23 @@ export function executeCommand(
   } else if (cmd.id === 'search-files') {
     pendingMenuMode = 'files';
     ui.setCommandMenuOpen(true);
+  } else if (cmd.id === 'switch-branch') {
+    const chat = useChatStore.getState().currentChat;
+    if (!chat?.sandbox_id) {
+      toast.error('No sandbox connected');
+      return;
+    }
+    // Bail out only if we know the repo state and it's unavailable; if the cache is cold,
+    // let the menu open and fall through to its loading/empty states.
+    const cached = queryClient.getQueryData<GitBranchesData>(
+      queryKeys.sandbox.gitBranches(chat.sandbox_id, chat.worktree_cwd ?? undefined),
+    );
+    if (cached && (!cached.is_git_repo || cached.branches.length === 0)) {
+      toast.error('No git branches available');
+      return;
+    }
+    pendingMenuMode = 'branches';
+    ui.setCommandMenuOpen(true);
   }
 }
 
@@ -286,6 +306,7 @@ export function CommandMenu() {
   const stateRef = useRef({ activeIndex: 0, mode: 'commands' as MenuMode });
   const filteredFilesRef = useRef<FlatFileItem[]>([]);
   const filteredCommandsRef = useRef<CommandItem[]>([]);
+  const filteredBranchesRef = useRef<string[]>([]);
   const listLengthRef = useRef(0);
   const listId = 'command-menu-list';
 
@@ -296,7 +317,16 @@ export function CommandMenu() {
   const activeLeafSet = useMemo(() => new Set(activeLeaves), [activeLeaves]);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { fileStructure } = useChatContext();
+  const { fileStructure, sandboxId } = useChatContext();
+  const worktreeCwd = useChatStore((s) => s.currentChat?.worktree_cwd) ?? undefined;
+
+  // Fetch branches whenever the menu is open so we can both render the branches mode and
+  // filter the switch-branch command out of the list for chats without a repo. Cache is
+  // usually warm from BranchSelector so this rarely triggers a real fetch.
+  const { data: branchesData } = useGitBranchesQuery(sandboxId, isOpen && !!sandboxId, worktreeCwd);
+  const checkoutBranch = useCheckoutBranchMutation();
+
+  const canSwitchBranch = !!branchesData?.is_git_repo && branchesData.branches.length > 0;
 
   const flatFiles = useMemo(() => flattenFiles(fileStructure), [fileStructure]);
 
@@ -311,8 +341,13 @@ export function CommandMenu() {
   );
 
   const visibleCommands = useMemo(
-    () => ALL_COMMANDS.filter((cmd) => !isMobile || !cmd.hideOnMobile),
-    [isMobile],
+    () =>
+      ALL_COMMANDS.filter((cmd) => {
+        if (isMobile && cmd.hideOnMobile) return false;
+        if (cmd.id === 'switch-branch' && !canSwitchBranch) return false;
+        return true;
+      }),
+    [isMobile, canSwitchBranch],
   );
 
   const filteredCommands = useMemo(
@@ -323,7 +358,24 @@ export function CommandMenu() {
     [query, visibleCommands, mode],
   );
 
-  const listLength = mode === 'files' ? filteredFiles.length : filteredCommands.length;
+  const orderedBranches = useMemo(() => {
+    if (!branchesData) return [];
+    const current = branchesData.current_branch;
+    const others = branchesData.branches.filter((b) => b !== current);
+    return current ? [current, ...others] : others;
+  }, [branchesData]);
+
+  const filteredBranches = useMemo(
+    () => (mode !== 'branches' ? [] : fuzzySearch(query, orderedBranches, { limit: 30 })),
+    [mode, query, orderedBranches],
+  );
+
+  const listLength =
+    mode === 'files'
+      ? filteredFiles.length
+      : mode === 'branches'
+        ? filteredBranches.length
+        : filteredCommands.length;
 
   const switchMode = useCallback((next: MenuMode) => {
     setMode(next);
@@ -363,6 +415,36 @@ export function CommandMenu() {
     [close],
   );
 
+  const handleSelectBranch = useCallback(
+    (branch: string) => {
+      if (!sandboxId) {
+        toast.error('No sandbox connected');
+        return;
+      }
+      if (branch === branchesData?.current_branch) {
+        close();
+        return;
+      }
+      checkoutBranch.mutate(
+        { sandboxId, branch, cwd: worktreeCwd },
+        {
+          onSuccess: (data) => {
+            if (data.success) {
+              toast.success(`Switched to ${branch}`);
+            } else {
+              toast.error(data.error ?? 'Failed to switch branch');
+            }
+          },
+          onError: (err) => {
+            toast.error(err instanceof Error ? err.message : 'Failed to switch branch');
+          },
+        },
+      );
+      close();
+    },
+    [sandboxId, worktreeCwd, branchesData, checkoutBranch, close],
+  );
+
   const handleSplit = useCallback(
     (viewId: ViewType, direction: MosaicDirection) => {
       useUIStore.getState().addTileToMosaic(viewId, direction);
@@ -375,6 +457,7 @@ export function CommandMenu() {
   stateRef.current.mode = mode;
   filteredFilesRef.current = filteredFiles;
   filteredCommandsRef.current = filteredCommands;
+  filteredBranchesRef.current = filteredBranches;
   listLengthRef.current = listLength;
 
   useEffect(() => {
@@ -392,7 +475,7 @@ export function CommandMenu() {
         case 'Escape':
           e.preventDefault();
           e.stopImmediatePropagation();
-          if (m === 'files') {
+          if (m === 'files' || m === 'branches') {
             switchMode('commands');
           } else {
             close();
@@ -415,11 +498,16 @@ export function CommandMenu() {
           if (m === 'files') {
             const file = filteredFilesRef.current[idx];
             if (file) handleSelectFile(file);
+          } else if (m === 'branches') {
+            const branch = filteredBranchesRef.current[idx];
+            if (branch) handleSelectBranch(branch);
           } else {
             const cmd = filteredCommandsRef.current[idx];
             if (cmd) {
               if (cmd.id === 'search-files') {
                 switchMode('files');
+              } else if (cmd.id === 'switch-branch') {
+                switchMode('branches');
               } else {
                 handleSelectItem(cmd);
               }
@@ -431,7 +519,7 @@ export function CommandMenu() {
 
     window.addEventListener('keydown', handleKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
-  }, [isOpen, handleSelectItem, handleSelectFile, switchMode, close]);
+  }, [isOpen, handleSelectItem, handleSelectFile, handleSelectBranch, switchMode, close]);
 
   if (!isOpen) return null;
 
@@ -454,14 +542,14 @@ export function CommandMenu() {
         onKeyDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-border/50 px-3 dark:border-border-dark/50">
-          {mode === 'files' && (
+          {(mode === 'files' || mode === 'branches') && (
             <Button
               variant="unstyled"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => switchMode('commands')}
               className="shrink-0 rounded-md bg-surface-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary dark:bg-surface-dark-hover dark:text-text-dark-secondary"
             >
-              Files
+              {mode === 'files' ? 'Files' : 'Branches'}
             </Button>
           )}
           <Search className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
@@ -473,7 +561,13 @@ export function CommandMenu() {
               setQuery(e.target.value);
               setActiveIndex(0);
             }}
-            placeholder={mode === 'files' ? 'Search files...' : 'Search...'}
+            placeholder={
+              mode === 'files'
+                ? 'Search files...'
+                : mode === 'branches'
+                  ? 'Search branches...'
+                  : 'Search...'
+            }
             className="h-10 w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-quaternary dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary"
             role="combobox"
             aria-expanded="true"
@@ -483,9 +577,13 @@ export function CommandMenu() {
                 ? filteredFiles[activeIndex]
                   ? `file-item-${activeIndex}`
                   : undefined
-                : filteredCommands[activeIndex]
-                  ? `command-item-${filteredCommands[activeIndex].id}`
-                  : undefined
+                : mode === 'branches'
+                  ? filteredBranches[activeIndex]
+                    ? `branch-item-${activeIndex}`
+                    : undefined
+                  : filteredCommands[activeIndex]
+                    ? `command-item-${filteredCommands[activeIndex].id}`
+                    : undefined
             }
           />
         </div>
@@ -534,6 +632,59 @@ export function CommandMenu() {
                 </p>
               )}
             </>
+          ) : mode === 'branches' ? (
+            <>
+              {filteredBranches.map((branch, index) => {
+                const isCurrent = branch === branchesData?.current_branch;
+                return (
+                  <div
+                    key={branch}
+                    ref={index === activeIndex ? activeItemRef : undefined}
+                    className={cn(
+                      rowClass,
+                      index === activeIndex
+                        ? 'bg-surface-active dark:bg-surface-dark-active'
+                        : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                    )}
+                    onMouseEnter={() => setActiveIndex(index)}
+                  >
+                    <Button
+                      variant="unstyled"
+                      id={`branch-item-${index}`}
+                      role="option"
+                      aria-selected={index === activeIndex}
+                      className="flex flex-1 items-center gap-3 overflow-hidden"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSelectBranch(branch)}
+                      disabled={checkoutBranch.isPending}
+                    >
+                      <GitBranch className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+                      <HighlightMatch
+                        text={branch}
+                        searchQuery={query}
+                        className="flex-1 truncate text-left font-mono"
+                      />
+                      {isCurrent && (
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+              {filteredBranches.length === 0 && (
+                <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
+                  {!sandboxId
+                    ? 'No sandbox connected'
+                    : !branchesData
+                      ? 'Loading branches…'
+                      : !branchesData.is_git_repo
+                        ? 'Not a git repository'
+                        : branchesData.branches.length === 0
+                          ? 'No branches in this repository'
+                          : 'No matching branches'}
+                </p>
+              )}
+            </>
           ) : (
             <>
               {filteredCommands.map((cmd, index) => {
@@ -563,6 +714,8 @@ export function CommandMenu() {
                       onClick={() => {
                         if (cmd.id === 'search-files') {
                           switchMode('files');
+                        } else if (cmd.id === 'switch-branch') {
+                          switchMode('branches');
                         } else {
                           handleSelectItem(cmd);
                         }
@@ -623,7 +776,9 @@ export function CommandMenu() {
             <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
               {mode === 'files'
                 ? '↵ Open file · Esc to go back'
-                : '↵ Select · Split via icons · Shortcuts work globally · Esc to close'}
+                : mode === 'branches'
+                  ? '↵ Switch branch · Esc to go back'
+                  : '↵ Select · Split via icons · Shortcuts work globally · Esc to close'}
             </span>
           </div>
         )}
