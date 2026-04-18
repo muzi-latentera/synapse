@@ -208,6 +208,40 @@ async function gitPull(sandboxId: string, cwd?: string): Promise<GitPushPullResu
   });
 }
 
+async function gitRestoreFile(
+  sandboxId: string,
+  filePath: string,
+  oldPath?: string,
+  cwd?: string,
+): Promise<GitCommitResult> {
+  validateRequired(sandboxId, 'Sandbox ID');
+  validateRequired(filePath, 'File path');
+
+  return serviceCall(async () => {
+    const response = await apiClient.post<GitCommitResult>(
+      `/sandbox/${sandboxId}/git/restore-file`,
+      {
+        file_path: filePath,
+        old_path: oldPath ?? null,
+        cwd: cwd ?? null,
+      },
+    );
+    return ensureResponse(response, 'Restore file failed');
+  });
+}
+
+async function gitRestoreAll(sandboxId: string, cwd?: string): Promise<GitCommitResult> {
+  validateRequired(sandboxId, 'Sandbox ID');
+
+  return serviceCall(async () => {
+    const qs = buildQueryString({ cwd });
+    const response = await apiClient.post<GitCommitResult>(
+      `/sandbox/${sandboxId}/git/restore-all${qs}`,
+    );
+    return ensureResponse(response, 'Restore all failed');
+  });
+}
+
 async function gitCreateBranch(
   sandboxId: string,
   name: string,
@@ -273,6 +307,8 @@ export const sandboxService = {
   gitPush,
   gitPull,
   gitCreateBranch,
+  gitRestoreFile,
+  gitRestoreAll,
   getGitRemoteUrl,
   searchInFiles,
 };

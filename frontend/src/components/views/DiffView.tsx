@@ -1,12 +1,27 @@
 import { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import toast from 'react-hot-toast';
 import { useToggleSet } from '@/hooks/useToggleSet';
-import { AlertCircle, ChevronRight, GitCompareArrows, RotateCcw } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronRight,
+  ChevronsUpDown,
+  GitCompareArrows,
+  MoreHorizontal,
+  RotateCcw,
+  Undo2,
+} from 'lucide-react';
 import { FileIcon } from '@/components/editor/file-tree/FileIcon';
 import { Button } from '@/components/ui/primitives/Button';
 import { SegmentedControl } from '@/components/ui/primitives/SegmentedControl';
 import { Spinner } from '@/components/ui/primitives/Spinner';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
-import { useGitDiffQuery } from '@/hooks/queries/useSandboxQueries';
+import {
+  useGitDiffQuery,
+  useGitRestoreAllMutation,
+  useGitRestoreFileMutation,
+} from '@/hooks/queries/useSandboxQueries';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import type { FileDiffMetadata, FileContents } from '@pierre/diffs';
 import type { DiffMode } from '@/types/sandbox.types';
@@ -47,6 +62,11 @@ const STATUS_COLORS: Record<string, string> = {
   'rename-changed':
     'bg-warning-600/15 text-warning-600 dark:bg-warning-400/15 dark:text-warning-400',
 };
+
+const MENU_ITEM_CLASS =
+  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-text-secondary transition-colors duration-200 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50 dark:text-text-dark-secondary dark:hover:bg-surface-dark-hover';
+
+const isRenameFileType = (type?: string) => type === 'rename-pure' || type === 'rename-changed';
 
 // Extract old/new file contents from a full-context parsed diff. The hunk lines
 // include trailing '\n' (from parsePatchFiles's SPLIT_WITH_NEWLINES split), so
@@ -153,7 +173,7 @@ function FileStats({ file }: { file: FileDiffMetadata }) {
   if (additions === 0 && deletions === 0) return null;
 
   return (
-    <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-2xs">
+    <span className="flex shrink-0 items-center gap-1.5 pr-3 font-mono text-2xs">
       {additions > 0 && (
         <span className="text-success-600 dark:text-success-400">+{additions}</span>
       )}
@@ -191,13 +211,92 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
   const [parsingDone, setParsingDone] = useState(false);
   const [mode, setMode] = useState<DiffMode>('all');
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
+  const [discardTarget, setDiscardTarget] = useState<FileDiffMetadata | null>(null);
+  const [discardAllOpen, setDiscardAllOpen] = useState(false);
 
   const {
     data: diffData,
     isFetching,
     isError,
+    isPlaceholderData,
     refetch,
   } = useGitDiffQuery(sandboxId, mode, true, cwd, { enabled: !!sandboxId });
+
+  const restoreFile = useGitRestoreFileMutation();
+  const restoreAll = useGitRestoreAllMutation();
+
+  // Portal + fixed-position menu — the toolbar's `overflow-x-auto` creates a
+  // clip region on both axes (per CSS spec), so an absolute-positioned menu
+  // inside it gets hidden. Portaling to <body> with fixed coords escapes it.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuPanelRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
+
+  const toggleMenu = useCallback(() => {
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+    setMenuOpen(true);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuPanelRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  const handleDiscard = useCallback(async () => {
+    if (!sandboxId || !discardTarget) return;
+    const file = discardTarget;
+    try {
+      const result = await restoreFile.mutateAsync({
+        sandboxId,
+        filePath: file.name,
+        oldPath: isRenameFileType(file.type) ? file.prevName : undefined,
+        cwd,
+      });
+      if (result.success) {
+        toast.success('Changes discarded');
+      } else {
+        toast.error(result.error || 'Failed to discard changes');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to discard changes');
+    }
+  }, [sandboxId, discardTarget, cwd, restoreFile]);
+
+  const handleDiscardAll = useCallback(async () => {
+    if (!sandboxId) return;
+    try {
+      const result = await restoreAll.mutateAsync({ sandboxId, cwd });
+      if (result.success) {
+        toast.success('All changes discarded');
+      } else {
+        toast.error(result.error || 'Failed to discard all changes');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to discard all changes');
+    }
+  }, [sandboxId, cwd, restoreAll]);
 
   const diffContent = diffData?.diff ?? '';
   const prevFileNamesRef = useRef<string>('');
@@ -271,6 +370,13 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
   const hasChanges = diffData?.has_changes ?? false;
   const diffError = diffData?.error ?? null;
   const showFiles = !isLoading && !isError && isGitRepo && hasChanges && parsedFiles.length > 0;
+  // Discard restores against HEAD, which only matches what the user sees in
+  // `all` mode. In staged/unstaged it would wipe the other side too, and in
+  // branch mode it wouldn't touch the committed diff at all.
+  // `!isPlaceholderData` guards the window where `keepPreviousData` still
+  // shows rows from the previous mode while the `all`-mode fetch is pending.
+  const canDiscardAll =
+    !isLoading && !isError && isGitRepo && hasChanges && mode === 'all' && !isPlaceholderData;
 
   return (
     <div className="flex h-full w-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
@@ -297,17 +403,63 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
 
         <div className="min-w-0 flex-1" />
 
-        {showFiles && (
+        {(showFiles || canDiscardAll) && (
           <>
             <Button
-              onClick={toggleAll}
+              ref={triggerRef}
+              onClick={toggleMenu}
               variant="unstyled"
-              className="shrink-0 whitespace-nowrap text-2xs text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
-              title={allExpanded ? 'Collapse all' : 'Expand all'}
-              aria-label={allExpanded ? 'Collapse all' : 'Expand all'}
+              className="shrink-0 rounded-md p-1 text-text-quaternary transition-colors duration-200 hover:text-text-secondary dark:text-text-dark-quaternary dark:hover:text-text-dark-secondary"
+              title="More actions"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
             >
-              {allExpanded ? 'Collapse all' : 'Expand all'}
+              <MoreHorizontal className="h-3 w-3" />
             </Button>
+            {menuOpen &&
+              createPortal(
+                <div
+                  ref={menuPanelRef}
+                  role="menu"
+                  style={{ top: menuPos.top, right: menuPos.right }}
+                  className="fixed z-50 min-w-[180px] animate-fade-in space-y-px rounded-xl border border-border bg-surface-secondary/95 p-1 shadow-medium backdrop-blur-xl backdrop-saturate-150 dark:border-border-dark dark:bg-surface-dark-secondary/95"
+                >
+                  {showFiles && (
+                    <Button
+                      variant="unstyled"
+                      role="menuitem"
+                      onClick={() => {
+                        toggleAll();
+                        setMenuOpen(false);
+                      }}
+                      className={MENU_ITEM_CLASS}
+                    >
+                      <ChevronsUpDown className="h-3 w-3 text-text-tertiary dark:text-text-dark-tertiary" />
+                      {allExpanded ? 'Collapse all files' : 'Expand all files'}
+                    </Button>
+                  )}
+                  {showFiles && canDiscardAll && (
+                    <div className="my-1 h-px bg-border/50 dark:bg-border-dark/50" />
+                  )}
+                  {canDiscardAll && (
+                    <Button
+                      variant="unstyled"
+                      role="menuitem"
+                      disabled={restoreAll.isPending}
+                      onClick={() => {
+                        setDiscardAllOpen(true);
+                        setMenuOpen(false);
+                      }}
+                      className={MENU_ITEM_CLASS}
+                    >
+                      <Undo2 className="h-3 w-3 text-text-tertiary dark:text-text-dark-tertiary" />
+                      Discard all changes
+                    </Button>
+                  )}
+                </div>,
+                document.body,
+              )}
             <div className="h-3 w-px shrink-0 bg-border/50 dark:bg-border-dark/50" />
           </>
         )}
@@ -375,40 +527,55 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
           <div className="divide-y divide-border/30 dark:divide-border-dark/30">
             {parsedFiles.map((file, i) => {
               const isExpanded = expandedFiles.has(i);
-              const isRenamed = file.type === 'rename-pure' || file.type === 'rename-changed';
+              const isRenamed = isRenameFileType(file.type);
               return (
                 <div key={i}>
-                  <Button
-                    variant="unstyled"
-                    type="button"
-                    onClick={() => toggleFile(i)}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover"
-                  >
-                    <ChevronRight
-                      className={cn(
-                        'h-3 w-3 shrink-0 text-text-quaternary transition-transform duration-200 dark:text-text-dark-quaternary',
-                        isExpanded && 'rotate-90',
-                      )}
-                    />
-                    <FileIcon name={file.name} className="h-3 w-3" />
-                    <span className="min-w-0 truncate font-mono text-2xs text-text-secondary dark:text-text-dark-secondary">
-                      {isRenamed && file.prevName ? (
-                        <>
-                          <span className="text-text-quaternary dark:text-text-dark-quaternary">
-                            {file.prevName}
-                          </span>
-                          <span className="mx-1 text-text-quaternary dark:text-text-dark-quaternary">
-                            &rarr;
-                          </span>
-                          {file.name}
-                        </>
-                      ) : (
-                        file.name
-                      )}
-                    </span>
-                    <FileStatusBadge type={file.type} />
+                  <div className="group flex w-full items-center transition-colors duration-200 hover:bg-surface-hover dark:hover:bg-surface-dark-hover">
+                    <Button
+                      variant="unstyled"
+                      type="button"
+                      onClick={() => toggleFile(i)}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left"
+                    >
+                      <ChevronRight
+                        className={cn(
+                          'h-3 w-3 shrink-0 text-text-quaternary transition-transform duration-200 dark:text-text-dark-quaternary',
+                          isExpanded && 'rotate-90',
+                        )}
+                      />
+                      <FileIcon name={file.name} className="h-3 w-3" />
+                      <span className="min-w-0 truncate font-mono text-2xs text-text-secondary dark:text-text-dark-secondary">
+                        {isRenamed && file.prevName ? (
+                          <>
+                            <span className="text-text-quaternary dark:text-text-dark-quaternary">
+                              {file.prevName}
+                            </span>
+                            <span className="mx-1 text-text-quaternary dark:text-text-dark-quaternary">
+                              &rarr;
+                            </span>
+                            {file.name}
+                          </>
+                        ) : (
+                          file.name
+                        )}
+                      </span>
+                      <FileStatusBadge type={file.type} />
+                    </Button>
+                    {canDiscardAll && (
+                      <Button
+                        variant="unstyled"
+                        type="button"
+                        onClick={() => setDiscardTarget(file)}
+                        disabled={restoreFile.isPending}
+                        className="mr-1 shrink-0 rounded-md p-1 text-text-quaternary opacity-0 transition-opacity duration-200 hover:text-text-primary focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-50 group-hover:opacity-100 dark:text-text-dark-quaternary dark:hover:text-text-dark-primary"
+                        title="Discard changes"
+                        aria-label={`Discard changes for ${file.name}`}
+                      >
+                        <Undo2 className="h-3 w-3" />
+                      </Button>
+                    )}
                     <FileStats file={file} />
-                  </Button>
+                  </div>
                   {isExpanded && <FileDiffRenderer file={file} options={options} />}
                 </div>
               );
@@ -444,6 +611,28 @@ export const DiffView = memo(function DiffView({ sandboxId, cwd }: DiffViewProps
             </div>
           )}
       </div>
+
+      <ConfirmDialog
+        isOpen={discardTarget !== null}
+        onClose={() => setDiscardTarget(null)}
+        onConfirm={handleDiscard}
+        title="Discard changes?"
+        message={
+          discardTarget
+            ? `All changes to ${discardTarget.name} will be reverted to the last committed version. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Discard"
+      />
+
+      <ConfirmDialog
+        isOpen={discardAllOpen}
+        onClose={() => setDiscardAllOpen(false)}
+        onConfirm={handleDiscardAll}
+        title="Discard all changes?"
+        message="All modified, staged, and untracked files in the workspace will be reverted to the last committed version. This cannot be undone."
+        confirmLabel="Discard all"
+      />
     </div>
   );
 });
