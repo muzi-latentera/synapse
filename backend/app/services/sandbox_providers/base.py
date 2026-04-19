@@ -1,9 +1,10 @@
 import base64
 import logging
+import posixpath
 from pathlib import Path
 from typing import Any
 
-from app.constants import SANDBOX_BINARY_EXTENSIONS, SANDBOX_HOME_DIR
+from app.constants import SANDBOX_BINARY_EXTENSIONS
 from app.core.config import get_settings
 from app.services.sandbox_providers.types import (
     CommandResult,
@@ -14,6 +15,7 @@ from app.services.sandbox_providers.types import (
     PtySize,
     SandboxProviderType,
 )
+from app.utils.sandbox import normalize_relative_path
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -32,6 +34,13 @@ class SandboxProvider:
         # workspace-relative paths (e.g. mapping search results back to
         # file-tree entries).
         raise NotImplementedError
+
+    def resolve_workspace_path(self, rel_path: str | None) -> str:
+        # Workspace-relative path → runtime-absolute path. Used for agent cwd,
+        # file reads/writes, and list-files targets — any path the app hands
+        # to runtime that needs grounding in the provider's workspace root.
+        rel = normalize_relative_path(rel_path)
+        return posixpath.join(self.workspace_root, rel) if rel else self.workspace_root
 
     @staticmethod
     def create_provider(
@@ -100,8 +109,9 @@ class SandboxProvider:
     async def list_files(
         self,
         sandbox_id: str,
-        path: str = SANDBOX_HOME_DIR,
+        path: str = "",
     ) -> list[FileMetadata]:
+        # `path` is workspace-relative. Empty string means the workspace root.
         raise NotImplementedError
 
     async def create_pty(

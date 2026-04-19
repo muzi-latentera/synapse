@@ -8,11 +8,7 @@ from uuid import UUID
 from sqlalchemy import update
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.constants import (
-    SANDBOX_GIT_ASKPASS_PATH,
-    SANDBOX_HOME_DIR,
-    SANDBOX_WORKSPACE_DIR,
-)
+from app.constants import SANDBOX_GIT_ASKPASS_PATH
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.db_models.chat import Chat
@@ -93,9 +89,9 @@ class AgentService:
         sandbox_provider = chat.sandbox_provider
         sandbox_id: str = chat.sandbox_id or ""
         workspace_path = chat.workspace_path
-        cwd = SANDBOX_HOME_DIR
-        if workspace_path:
-            cwd = SANDBOX_WORKSPACE_DIR
+        # "" is the canonical workspace-relative root cwd; providers resolve
+        # it to a runtime-absolute cwd at the edge.
+        cwd = ""
 
         agent_kind = MODELS[model_id].agent_kind
         stored_agent_kind = getattr(chat, "session_agent_kind", None)
@@ -316,12 +312,14 @@ class AgentService:
             sandbox_id = chat.sandbox_id
             sandbox_provider = chat.sandbox_provider
             workspace_path = chat.workspace_path
-            cwd = SANDBOX_WORKSPACE_DIR if workspace_path else SANDBOX_HOME_DIR
         else:
+            # No chat/sandbox (title/commit-message/etc. one-shot calls) — use
+            # $HOME as the workspace root so the session-create edge still
+            # resolves cwd uniformly via the provider.
             sandbox_id = ""
             sandbox_provider = SandboxProviderType.HOST.value
-            workspace_path = None
-            cwd = os.environ.get("HOME", "/tmp")
+            workspace_path = os.environ.get("HOME", "/tmp")
+        cwd = ""
 
         config = AcpSessionConfig(
             sandbox_id=sandbox_id,
@@ -383,7 +381,7 @@ class AgentService:
         model_id: str,
         session_id: str | None,
         thinking_mode: str | None = None,
-        cwd: str = SANDBOX_HOME_DIR,
+        cwd: str = "",
         sandbox_provider: str = SandboxProviderType.DOCKER.value,
         sandbox_id: str = "",
         workspace_path: str | None = None,

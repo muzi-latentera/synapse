@@ -1,16 +1,9 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class UpdateFileRequest(BaseModel):
-    file_path: str = Field(..., min_length=1)
+    file_path: str = Field(..., min_length=1, max_length=4096)
     content: str
-
-    @field_validator("file_path")
-    @classmethod
-    def normalize_file_path(cls, v: str) -> str:
-        if not v.startswith("/"):
-            return f"/{v.lstrip('/')}"
-        return v
 
 
 class UpdateFileResponse(BaseModel):

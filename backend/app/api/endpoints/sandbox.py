@@ -43,7 +43,7 @@ from app.services.git import GitService
 from app.services.sandbox import SandboxService
 from app.services.search import SearchService
 from app.services.user import UserService
-from app.utils.sandbox import normalize_sandbox_file_path
+from app.utils.sandbox import normalize_relative_path
 
 
 router = APIRouter()
@@ -70,10 +70,14 @@ async def get_file_content(
     sandbox_service: SandboxService = Depends(get_sandbox_service),
 ) -> FileContentResponse:
     try:
-        file_data = await sandbox_service.get_file_content(
-            sandbox_id, normalize_sandbox_file_path(file_path)
-        )
+        normalized_path = normalize_relative_path(file_path)
+        file_data = await sandbox_service.get_file_content(sandbox_id, normalized_path)
         return FileContentResponse(**file_data)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except SandboxException as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -88,14 +92,14 @@ async def update_file_in_sandbox(
     sandbox_service: SandboxService = Depends(get_sandbox_service),
 ) -> UpdateFileResponse:
     try:
-        normalized_path = normalize_sandbox_file_path(request.file_path)
+        normalized_path = normalize_relative_path(request.file_path)
         await sandbox_service.provider.write_file(
             sandbox_id, normalized_path, request.content
         )
         return UpdateFileResponse(
             success=True, message=f"File {normalized_path} updated successfully"
         )
-    except SandboxException as e:
+    except (ValueError, SandboxException) as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),

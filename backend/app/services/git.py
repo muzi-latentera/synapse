@@ -1,3 +1,4 @@
+import posixpath
 import re
 import shlex
 from string import Template
@@ -407,14 +408,16 @@ class GitService:
     ) -> str:
         # The caller only opts into this path when it explicitly requested
         # worktree isolation, so setup failures must surface instead of
-        # silently reusing the shared workspace.
+        # silently reusing the shared workspace. Returned cwd stays
+        # workspace-relative so it slots straight into chat.worktree_cwd.
         short_id = chat_id[:8]
-        worktree_dir = f"{base_cwd}/.worktrees/{short_id}"
+        rel_base_worktrees = posixpath.join(base_cwd, ".worktrees")
+        rel_worktree = posixpath.join(rel_base_worktrees, short_id)
         branch_name = f"worktree-{short_id}"
         cd_prefix = git_cd_prefix(base_cwd)
         cmd = cd_prefix + GIT_WORKTREE_ADD_TEMPLATE.substitute(
-            worktree_dir=worktree_dir,
-            base_worktrees_dir=f"{base_cwd}/.worktrees",
+            worktree_dir=rel_worktree,
+            base_worktrees_dir=rel_base_worktrees,
             branch_name=branch_name,
         )
         # Local git operation — no user secrets needed, so bypass
@@ -424,7 +427,7 @@ class GitService:
             cmd,
         )
         if result.exit_code == 0:
-            return worktree_dir
+            return rel_worktree
         error_output = (result.stdout or result.stderr).strip()
         if not error_output:
             error_output = "Worktree mode requires a git workspace"

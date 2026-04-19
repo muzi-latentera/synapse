@@ -5,7 +5,7 @@ import base64
 import logging
 import os
 import shlex
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +31,7 @@ from app.services.acp.adapters import (
 )
 from app.services.acp.client import AcpClientHandler
 from app.services.sandbox_providers import SandboxProviderType
+from app.services.sandbox_providers.base import SandboxProvider
 from app.services.sandbox_providers.docker_provider import (
     DOCKER_SANDBOX_CONTAINER_PREFIX,
 )
@@ -274,7 +275,14 @@ class AcpSession:
     @classmethod
     async def create(cls, config: AcpSessionConfig) -> AcpSession:
         handler = AcpClientHandler(agent_kind=config.agent_kind)
-        process = await cls._spawn_process(config)
+        # Resolve the workspace-relative cwd to a runtime-absolute path via the
+        # provider — the single edge where relative → absolute translation lives.
+        provider = SandboxProvider.create_provider(
+            SandboxProviderType(config.sandbox_provider),
+            workspace_path=config.workspace_path,
+        )
+        spawn_config = replace(config, cwd=provider.resolve_workspace_path(config.cwd))
+        process = await cls._spawn_process(spawn_config)
 
         if process.stdin is None or process.stdout is None:
             process.kill()
@@ -292,7 +300,6 @@ class AcpSession:
         try:
             await conn.initialize(protocol_version=ACP_PROTOCOL_VERSION)
 
-            session_cwd = cls._resolve_cwd(config)
             mcp_servers = cls._build_mcp_servers(config.mcp_servers)
             session_meta = config.session_meta
 
@@ -302,7 +309,7 @@ class AcpSession:
                 handler.muted = True
                 try:
                     await conn.load_session(
-                        cwd=session_cwd,
+                        cwd=spawn_config.cwd,
                         session_id=config.resume_session_id,
                         mcp_servers=mcp_servers,
                         **session_meta,
@@ -313,7 +320,7 @@ class AcpSession:
                 acp_session_id = config.resume_session_id
             else:
                 response = await conn.new_session(
-                    cwd=session_cwd,
+                    cwd=spawn_config.cwd,
                     mcp_servers=mcp_servers,
                     **session_meta,
                 )
@@ -468,8 +475,6 @@ class AcpSession:
             env.update(config.env)
         env.setdefault("TERM", TERMINAL_TYPE)
 
-        cwd = config.workspace_path or config.cwd
-
         return await asyncio.create_subprocess_exec(
             launch.binary,
             *launch.cli_args,
@@ -478,35 +483,8 @@ class AcpSession:
             stderr=asyncio.subprocess.PIPE,
             limit=STDIO_BUFFER_LIMIT,
             env=env,
-            cwd=cwd,
+            cwd=config.cwd,
         )
-
-    @staticmethod
-    def _is_virtual_prefix(cwd: str, prefix: str) -> bool:
-        # Exact match or prefix followed by "/" — avoids false positives
-        # on real Linux paths like /home/username/... when the virtual
-        # prefix is /home/user.
-        return cwd == prefix or cwd.startswith(prefix + "/")
-
-    @staticmethod
-    def _resolve_cwd(config: AcpSessionConfig) -> str:
-        # Host mode needs the real filesystem path since the virtual
-        # sandbox path (/home/user/workspace) doesn't exist on the host.
-        if config.sandbox_provider == SandboxProviderType.HOST.value:
-            host_base = f"{settings.get_host_sandbox_base_dir()}/{config.sandbox_id}"
-            # Rewrite virtual sandbox paths (and sub-paths like worktrees)
-            # to real host paths. Check workspace first — its prefix is
-            # longer so it must win over the home-dir prefix.
-            if config.workspace_path and AcpSession._is_virtual_prefix(
-                config.cwd, SANDBOX_WORKSPACE_DIR
-            ):
-                return config.cwd.replace(
-                    SANDBOX_WORKSPACE_DIR, config.workspace_path, 1
-                )
-            if AcpSession._is_virtual_prefix(config.cwd, SANDBOX_HOME_DIR):
-                return config.cwd.replace(SANDBOX_HOME_DIR, host_base, 1)
-            return config.cwd
-        return config.cwd
 
     @staticmethod
     def _build_mcp_servers(
