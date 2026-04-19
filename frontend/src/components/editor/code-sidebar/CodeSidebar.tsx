@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo } from 'react';
 import { Download, Loader2, PanelLeftClose } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { RefreshButton } from '@/components/ui/shared/RefreshButton';
@@ -27,10 +27,6 @@ export interface CodeSidebarProps {
   cwd?: string;
   activeTab: SidebarTab;
   onActiveTabChange: (tab: SidebarTab) => void;
-  // Bumped counter from the parent: each bump switches to the search tab
-  // and focuses the input — used for Cmd+Shift+F without letting the sidebar
-  // own the global shortcut.
-  focusSignal: number;
 }
 
 export const CodeSidebar = memo(function CodeSidebar({
@@ -51,23 +47,7 @@ export const CodeSidebar = memo(function CodeSidebar({
   cwd,
   activeTab,
   onActiveTabChange,
-  focusSignal,
 }: CodeSidebarProps) {
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    // Skip the initial mount bump — only react when the parent increments.
-    if (focusSignal === 0) return;
-    // Parent bumped focusSignal (Cmd+Shift+F). Switch to search and focus the
-    // input; selecting existing text lets the user type over it immediately.
-    onActiveTabChange('search');
-    const id = requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [focusSignal, onActiveTabChange]);
-
   return (
     <div className="flex h-full flex-col bg-surface-secondary dark:bg-surface-dark-secondary">
       <div className="flex flex-none items-center justify-between border-b border-border/50 px-2 py-1 dark:border-border-dark/50">
@@ -140,12 +120,7 @@ export const CodeSidebar = memo(function CodeSidebar({
           />
         </div>
         <div className={cn('h-full', activeTab !== 'search' && 'hidden')}>
-          <SearchPanel
-            sandboxId={sandboxId}
-            cwd={cwd}
-            onOpenResult={onOpenResult}
-            inputRef={searchInputRef}
-          />
+          <SearchPanel sandboxId={sandboxId} cwd={cwd} onOpenResult={onOpenResult} />
         </div>
       </div>
     </div>

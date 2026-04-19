@@ -9,8 +9,7 @@ import { cn } from '@/utils/cn';
 import { findFileInStructure, getAncestorFolderPaths } from '@/utils/file';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useMountEffect } from '@/hooks/useMountEffect';
-
-const IS_MAC = navigator.platform.toUpperCase().startsWith('MAC');
+import { useUIStore } from '@/store/uiStore';
 
 export interface CodeViewProps {
   files: FileStructure[];
@@ -63,7 +62,6 @@ export const CodeView = memo(function CodeView({
   const fileTreeContainerRef = useRef<HTMLDivElement>(null);
   const [isFileTreeCollapsed, setIsFileTreeCollapsed] = useState(true);
   const [activeTab, setActiveTab] = useState<SidebarTab>('files');
-  const [focusSignal, setFocusSignal] = useState(0);
   const [targetLine, setTargetLine] = useState<{
     path: string;
     line: number;
@@ -139,26 +137,19 @@ export const CodeView = memo(function CodeView({
     [onFileSelect, isMobile],
   );
 
+  // Consume jumps dispatched from outside the editor (e.g. command menu search).
+  // ChatPage handles the file selection via pendingFilePath; we only translate the
+  // line nonce into local targetLine so View scrolls/highlights the line.
+  const pendingFileJump = useUIStore((s) => s.pendingFileJump);
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const modifier = IS_MAC ? e.metaKey : e.ctrlKey;
-      if (!modifier || !e.shiftKey || e.key.toLowerCase() !== 'f') return;
-      const active = document.activeElement as HTMLElement | null;
-      const tag = active?.tagName;
-      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || active?.isContentEditable;
-      // Skip when typing in an unrelated field so we don't hijack the
-      // browser's own find dialog mid-edit; re-focus when already inside
-      // the sidebar input so the shortcut still works as a "jump here".
-      if (inInput && !active?.closest('[data-code-sidebar]')) return;
-      e.preventDefault();
-      if (isMobile) setShowMobileTree(true);
-      else if (fileTreePanelRef.current?.isCollapsed()) fileTreePanelRef.current.expand();
-      setActiveTab('search');
-      setFocusSignal((n) => n + 1);
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isMobile]);
+    if (!pendingFileJump) return;
+    setTargetLine({
+      path: pendingFileJump.path,
+      line: pendingFileJump.line,
+      nonce: pendingFileJump.nonce,
+    });
+    useUIStore.getState().consumeFileJump();
+  }, [pendingFileJump]);
 
   // Shared sidebar props — mobile and desktop differ only in the file-select
   // handler and close callback, so everything else is hoisted once here.
@@ -177,7 +168,6 @@ export const CodeView = memo(function CodeView({
     cwd,
     activeTab,
     onActiveTabChange: setActiveTab,
-    focusSignal,
   };
 
   if (isMobile) {
