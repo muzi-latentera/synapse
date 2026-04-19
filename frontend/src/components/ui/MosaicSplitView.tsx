@@ -54,7 +54,6 @@ export function MosaicSplitView({ mosaicLayout, renderView }: MosaicSplitViewPro
                       'h-5 w-5 rounded-md',
                       'text-text-tertiary dark:text-text-dark-tertiary',
                       'hover:text-text-primary dark:hover:text-text-dark-primary',
-                      'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
                       'transition-colors duration-200',
                     )}
                     title="Close tile"
