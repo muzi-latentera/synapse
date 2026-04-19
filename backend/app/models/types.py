@@ -34,7 +34,7 @@ class PersonaDict(TypedDict):
     content: str
 
 
-class MessageAttachmentDict(TypedDict, total=False):
+class MessageAttachmentDict(TypedDict):
     file_url: str
     file_path: str | None
     file_type: str

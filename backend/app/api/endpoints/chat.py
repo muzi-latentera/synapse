@@ -242,9 +242,7 @@ async def get_chat_context_usage(
         logger.warning("Failed to get context usage from cache: %s", e)
 
     tokens_used = chat.context_token_usage
-    context_window = (
-        await chat_service.get_model_context_window(chat_id, current_user.id) or 0
-    )
+    context_window = await chat_service.get_model_context_window(chat_id) or 0
     percentage = 0.0
     if context_window > 0:
         percentage = min((tokens_used / context_window) * 100, 100.0)

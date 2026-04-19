@@ -4,25 +4,24 @@ import json
 import logging
 
 from fastapi import APIRouter, WebSocket
-from sqlalchemy import select
 from starlette.websockets import WebSocketDisconnect
 
 from app.constants import (
     DEFAULT_PTY_COLS,
     DEFAULT_PTY_ROWS,
+    DEFAULT_TERMINAL_ID,
     WS_CLOSE_AUTH_FAILED,
-    WS_CLOSE_SANDBOX_NOT_FOUND,
     WS_MSG_CLOSE,
     WS_MSG_DETACH,
     WS_MSG_INIT,
     WS_MSG_PING,
     WS_MSG_RESIZE,
 )
-from app.db.session import SessionLocal
-from app.models.db_models.workspace import Workspace
-from app.services.sandbox_providers import SandboxProviderType
+from app.core.security import (
+    resolve_websocket_sandbox_access,
+    wait_for_websocket_auth,
+)
 from app.services.terminal import terminal_session_registry
-from app.core.security import wait_for_websocket_auth
 from app.utils.parsing import parse_pty_dimension
 
 router = APIRouter()
@@ -34,6 +33,11 @@ async def terminal_websocket(
     websocket: WebSocket,
     sandbox_id: str,
 ) -> None:
+    # Client protocol: after accept, the first frame must be an auth message
+    # (handled by wait_for_websocket_auth). Subsequent frames are either raw
+    # bytes (forwarded to the PTY stdin) or JSON control messages
+    # (init / resize / close / detach). A 30s receive-timeout drives a
+    # server→client ping so idle connections keep NAT/LB state alive.
     await websocket.accept()
 
     user, _ = await wait_for_websocket_auth(websocket)
@@ -41,30 +45,12 @@ async def terminal_websocket(
         await websocket.close(code=WS_CLOSE_AUTH_FAILED, reason="Authentication failed")
         return
 
-    async with SessionLocal() as db:
-        query = select(Workspace.sandbox_provider, Workspace.workspace_path).where(
-            Workspace.sandbox_id == sandbox_id,
-            Workspace.user_id == user.id,
-            Workspace.deleted_at.is_(None),
-        )
-        result = await db.execute(query)
-        row = result.one_or_none()
-        if not row:
-            await websocket.close(
-                code=WS_CLOSE_SANDBOX_NOT_FOUND, reason="Sandbox not found"
-            )
-            return
-        sandbox_provider_type = row.sandbox_provider
-        workspace_path = row.workspace_path
-
-    try:
-        provider_type = SandboxProviderType(sandbox_provider_type)
-    except ValueError:
-        await websocket.close(
-            code=WS_CLOSE_SANDBOX_NOT_FOUND, reason="Invalid sandbox provider"
-        )
+    access = await resolve_websocket_sandbox_access(websocket, sandbox_id, user)
+    if access is None:
         return
-    terminal_id = websocket.query_params.get("terminalId") or "terminal-1"
+    provider_type, workspace_path = access
+
+    terminal_id = websocket.query_params.get("terminalId") or DEFAULT_TERMINAL_ID
     session = await terminal_session_registry.get_or_create(
         user_id=str(user.id),
         sandbox_id=sandbox_id,

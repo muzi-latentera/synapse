@@ -12,28 +12,29 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import func, select, update
 
+from app.constants import BUILTIN_SLASH_COMMANDS
 from app.core.config import get_settings
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.user import User
 from app.models.db_models.workspace import Workspace
-from app.models.schemas.workspace import WorkspaceCreate, WorkspaceUpdate
+from app.models.schemas.pagination import PaginatedResponse, PaginationParams
 from app.models.schemas.workspace import (
     BuiltinSlashCommand,
     CustomSkill,
     Workspace as WorkspaceSchema,
+    WorkspaceCreate,
     WorkspaceResources,
+    WorkspaceUpdate,
 )
-from app.models.schemas.pagination import PaginatedResponse, PaginationParams
+from app.services.acp.adapters import AgentKind
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import ErrorCode, WorkspaceException
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.base import SandboxProvider
 from app.services.sandbox_providers.types import SandboxProviderType
-from app.services.acp.adapters import AgentKind
-from app.constants import BUILTIN_SLASH_COMMANDS
+from app.services.session_registry import session_registry
 from app.services.skill import SkillService
 from app.services.user import UserService
-from app.services.session_registry import session_registry
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -54,6 +55,8 @@ class WorkspaceService(BaseDbService[Workspace]):
         self._base_dir.mkdir(parents=True, exist_ok=True)
 
     async def create_workspace(self, user: User, data: WorkspaceCreate) -> Workspace:
+        # Sandbox is provisioned before the DB insert so a persistence failure
+        # can trigger teardown via the except block — never leave an orphan.
         user_settings = await self.user_service.get_user_settings(user.id)
         user_workspace_dir = (self._base_dir / str(user.id)).resolve()
         user_workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -138,6 +141,8 @@ class WorkspaceService(BaseDbService[Workspace]):
                 await db.refresh(workspace)
                 return workspace
         except Exception:
+            # Broad catch so any persistence failure still triggers sandbox
+            # teardown — otherwise we leak the container provisioned above.
             logger.error(
                 "Failed to persist workspace, cleaning up sandbox %s", sandbox_id
             )
@@ -147,6 +152,8 @@ class WorkspaceService(BaseDbService[Workspace]):
     async def get_user_workspaces(
         self, user: User, pagination: PaginationParams | None = None
     ) -> PaginatedResponse[WorkspaceSchema]:
+        # Annotates each workspace with chat_count and last_chat_at so the UI
+        # can sort by recency in a single round trip.
         async with self._session_factory() as db:
             chat_count_col = func.count(Chat.id).label("chat_count")
             last_chat_at_col = func.max(Chat.updated_at).label("last_chat_at")
@@ -171,7 +178,7 @@ class WorkspaceService(BaseDbService[Workspace]):
                 count_query = select(func.count(Workspace.id)).filter(
                     Workspace.user_id == user.id, Workspace.deleted_at.is_(None)
                 )
-                total = (await db.execute(count_query)).scalar()
+                total = (await db.execute(count_query)).scalar() or 0
                 offset = (pagination.page - 1) * pagination.per_page
                 query = query.offset(offset).limit(pagination.per_page)
             else:
@@ -208,7 +215,7 @@ class WorkspaceService(BaseDbService[Workspace]):
                 page=page,
                 per_page=per_page,
                 total=total,
-                pages=math.ceil(total / per_page) if total > 0 else 0,
+                pages=math.ceil(total / per_page),
             )
 
     async def get_workspace(self, workspace_id: UUID, user: User) -> Workspace:
@@ -233,6 +240,8 @@ class WorkspaceService(BaseDbService[Workspace]):
     async def update_workspace(
         self, workspace_id: UUID, user: User, data: WorkspaceUpdate
     ) -> Workspace:
+        # db.merge re-attaches the detached instance from get_workspace so
+        # ORM-tracked mutations flush as an UPDATE.
         workspace = await self.get_workspace(workspace_id, user)
         async with self._session_factory() as db:
             managed: Workspace = await db.merge(workspace)
@@ -245,6 +254,8 @@ class WorkspaceService(BaseDbService[Workspace]):
     def _build_workspace_resources(
         skill_service: SkillService,
     ) -> WorkspaceResources:
+        # Synchronous so the caller can offload to a thread — SkillService
+        # does blocking filesystem reads.
         return WorkspaceResources(
             skills=[CustomSkill(**skill) for skill in skill_service.list_all()],
             builtin_slash_commands={
@@ -259,6 +270,7 @@ class WorkspaceService(BaseDbService[Workspace]):
     async def get_workspace_resources(
         self, workspace_id: UUID, user: User
     ) -> WorkspaceResources:
+        # Thread-offloaded: SkillService walks the filesystem synchronously.
         workspace = await self.get_workspace(workspace_id, user)
         workspace_path = Path(workspace.workspace_path)
         skill_service = SkillService(workspace_path=workspace_path)
@@ -266,6 +278,8 @@ class WorkspaceService(BaseDbService[Workspace]):
         return await asyncio.to_thread(self._build_workspace_resources, skill_service)
 
     async def delete_workspace(self, workspace_id: UUID, user: User) -> None:
+        # DB commit lands before the session/sandbox teardown tasks so the DB
+        # stays consistent even if those fire-and-forget cleanups fail.
         workspace = await self.get_workspace(workspace_id, user)
         async with self._session_factory() as db:
             workspace = await db.merge(workspace)
@@ -318,6 +332,8 @@ class WorkspaceService(BaseDbService[Workspace]):
         git_url: str,
         github_token: str | None = None,
     ) -> str:
+        # Tokens go through a temporary GIT_ASKPASS script rather than the URL
+        # or CLI args to keep them out of process listings and git's own logs.
         repo_name = self._extract_repo_name(git_url)
         workspace_dir = user_workspace_dir / f"{repo_name}-{uuid4().hex[:8]}"
 
@@ -393,6 +409,8 @@ class WorkspaceService(BaseDbService[Workspace]):
 
     @staticmethod
     def _normalize_git_url(git_url: str) -> str:
+        # SSH passes through unmodified — auth is at the transport layer, not
+        # the URL. HTTPS must not embed credentials (supplied via GIT_ASKPASS).
         candidate = git_url.strip()
         if not candidate:
             raise WorkspaceException(

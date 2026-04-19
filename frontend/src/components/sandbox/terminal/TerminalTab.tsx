@@ -23,6 +23,10 @@ type SessionState = 'idle' | 'connecting' | 'ready' | 'error';
 
 const encoder = new TextEncoder();
 
+// Mirrors backend WS_CLOSE_* codes in app/constants.py
+const WS_CLOSE_AUTH_FAILED = 4001;
+const WS_CLOSE_SANDBOX_NOT_FOUND = 4004;
+
 export const TerminalTab: FC<TerminalTabProps> = ({
   isVisible,
   sandboxId,
@@ -32,6 +36,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
 }) => {
   const theme = useResolvedTheme();
   const [sessionState, setSessionState] = useState<SessionState>('idle');
+  const [closeReason, setCloseReason] = useState<string | null>(null);
 
   const lastSentSizeRef = useRef<TerminalSize | null>(null);
   const hasSentInitRef = useRef(false);
@@ -100,6 +105,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
     const wsUrl = `${WS_BASE_URL}/${sandboxId}/terminal${terminalParam}`;
 
     setSessionState('connecting');
+    setCloseReason(null);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -130,8 +136,8 @@ export const TerminalTab: FC<TerminalTabProps> = ({
       }
       try {
         const message = JSON.parse(event.data) as Record<string, unknown>;
+        // Server ping is a NAT/LB keepalive — no pong is expected.
         if (message.type === 'ping') {
-          ws.send(JSON.stringify({ type: 'pong' }));
           return;
         }
         if (message.type === 'stdout' && typeof message.data === 'string') {
@@ -146,10 +152,6 @@ export const TerminalTab: FC<TerminalTabProps> = ({
             lastSentSizeRef.current = { rows, cols };
           }
           setSessionState('ready');
-          return;
-        }
-        if (message.type === 'error') {
-          setSessionState('error');
         }
       } catch (error) {
         logger.error('Terminal write failed', 'TerminalTab', error);
@@ -160,8 +162,16 @@ export const TerminalTab: FC<TerminalTabProps> = ({
       setSessionState('error');
     };
 
-    const handleClose = () => {
+    const handleClose = (event: CloseEvent) => {
       resetWsRefs();
+      // The server closes with WS_CLOSE_AUTH_FAILED / WS_CLOSE_SANDBOX_NOT_FOUND
+      // and a human-readable reason. Surface both so the overlay can tell the
+      // user why the connection dropped instead of showing a generic message.
+      if (event.code === WS_CLOSE_AUTH_FAILED || event.code === WS_CLOSE_SANDBOX_NOT_FOUND) {
+        setCloseReason(event.reason || null);
+        setSessionState('error');
+        return;
+      }
       setSessionState((prev) => (prev === 'error' ? prev : 'idle'));
     };
 
@@ -226,7 +236,7 @@ export const TerminalTab: FC<TerminalTabProps> = ({
     : sessionState === 'connecting'
       ? 'Connecting to sandbox terminal...'
       : sessionState === 'error'
-        ? 'Terminal connection interrupted'
+        ? (closeReason ?? 'Terminal connection interrupted')
         : null;
 
   return (

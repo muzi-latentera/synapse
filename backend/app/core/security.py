@@ -16,9 +16,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..constants import WS_MSG_AUTH
+from ..constants import WS_CLOSE_SANDBOX_NOT_FOUND, WS_MSG_AUTH
 from ..db.session import SessionLocal, get_db
 from ..models.db_models.user import User
+from ..models.db_models.workspace import Workspace
 from ..services.exceptions import UserException
 from ..services.sandbox_providers import SandboxProviderType
 from ..services.user import UserService
@@ -177,3 +178,39 @@ async def wait_for_websocket_auth(
         return NO_WS_AUTH
 
     return await authenticate_websocket_user(token)
+
+
+async def resolve_websocket_sandbox_access(
+    websocket: WebSocket,
+    sandbox_id: str,
+    user: User,
+) -> tuple[SandboxProviderType, str] | None:
+    # Verifies the sandbox belongs to the authenticated user and resolves its
+    # provider type + workspace path. Closes the WS with a SANDBOX_NOT_FOUND
+    # code on failure and returns None so the caller can short-circuit. Lives
+    # here rather than as a FastAPI Depends because the WebSocket handshake
+    # requires accept→auth→access ordering that Depends can't enforce.
+    async with SessionLocal() as db:
+        query = select(Workspace.sandbox_provider, Workspace.workspace_path).where(
+            Workspace.sandbox_id == sandbox_id,
+            Workspace.user_id == user.id,
+            Workspace.deleted_at.is_(None),
+        )
+        result = await db.execute(query)
+        row = result.one_or_none()
+
+    if not row:
+        await websocket.close(
+            code=WS_CLOSE_SANDBOX_NOT_FOUND, reason="Sandbox not found"
+        )
+        return None
+
+    try:
+        provider_type = SandboxProviderType(row.sandbox_provider)
+    except ValueError:
+        await websocket.close(
+            code=WS_CLOSE_SANDBOX_NOT_FOUND, reason="Invalid sandbox provider"
+        )
+        return None
+
+    return provider_type, row.workspace_path

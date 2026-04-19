@@ -1,20 +1,19 @@
 import logging
-import json
 from datetime import datetime, timezone
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import case, select, update, or_, and_, insert
-from sqlalchemy.orm import selectinload
+from sqlalchemy import and_, case, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.db_models.chat import Chat, Message, MessageAttachment, MessageEvent
 from app.models.db_models.enums import MessageRole, MessageStreamStatus
-from app.models.schemas.pagination import CursorPaginatedResponse
 from app.models.schemas.chat import Message as MessageSchema
+from app.models.schemas.pagination import CursorPaginatedResponse
 from app.models.types import MessageAttachmentDict
 from app.services.db import BaseDbService, SessionFactoryType
-from app.services.exceptions import MessageException, ErrorCode
+from app.services.exceptions import ErrorCode, MessageException
 from app.utils.attachment_urls import AttachmentURL
 from app.utils.cursor import Cursor, InvalidCursorError
 
@@ -24,38 +23,6 @@ logger = logging.getLogger(__name__)
 class MessageService(BaseDbService[Message]):
     def __init__(self, session_factory: SessionFactoryType | None = None) -> None:
         super().__init__(session_factory)
-
-    @staticmethod
-    def extract_user_text_content(content: str) -> str:
-        # User messages can arrive as plain text or as a JSON array of typed
-        # content blocks (e.g. [{type: "user_text", text: "..."}, ...]) when
-        # the frontend sends multi-part input. Extract just the text portions
-        # for storage in content_text, which is used for title generation and search.
-        stripped = content.strip()
-        if not stripped:
-            return ""
-        if not stripped.startswith("["):
-            return content
-
-        try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError:
-            return content
-
-        if not isinstance(parsed, list):
-            return content
-
-        parts: list[str] = []
-        for item in parsed:
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("type") or "").lower() != "user_text":
-                continue
-            text = item.get("text")
-            if isinstance(text, str):
-                parts.append(text)
-
-        return "".join(parts) if parts else content
 
     @staticmethod
     def serialize_attachments(
@@ -87,16 +54,17 @@ class MessageService(BaseDbService[Message]):
         session_id: str | None = None,
         stream_status: MessageStreamStatus | None = None,
     ) -> Message:
+        # Assistant messages start empty and get populated by the streaming
+        # pipeline via update_message_snapshot; user messages go in whole.
         async with self.session_factory() as db:
-            is_assistant = role == MessageRole.ASSISTANT
-            content_text = ""
-            content_render: dict[str, Any] = {"events": []}
-            if not is_assistant:
-                content_text = self.extract_user_text_content(content)
-                if content_text:
-                    content_render = {
-                        "events": [{"type": "user_text", "text": content_text}],
-                    }
+            if role == MessageRole.ASSISTANT:
+                content_text = ""
+                content_render: dict[str, Any] = {"events": []}
+            else:
+                content_text = content
+                content_render = {
+                    "events": [{"type": "user_text", "text": content}],
+                }
 
             message_kwargs: dict[str, Any] = {
                 "chat_id": chat_id,
@@ -156,6 +124,8 @@ class MessageService(BaseDbService[Message]):
         stream_status: MessageStreamStatus | None = None,
         total_cost_usd: float | None = None,
     ) -> Message | None:
+        # Periodic snapshot write so reconnecting clients can hydrate without
+        # replaying every event. Returns None if the row was soft-deleted mid-stream.
         async with self.session_factory() as db:
             now = datetime.now(timezone.utc)
             values: dict[str, Any] = {
@@ -197,6 +167,8 @@ class MessageService(BaseDbService[Message]):
         render_payload: dict[str, Any],
         audit_payload: dict[str, Any] | None,
     ) -> int:
+        # Allocate a gapless chat-scoped seq atomically via UPDATE...RETURNING;
+        # clients use it as the SSE id for catch-up on reconnect.
         async with self.session_factory() as db:
             seq_result = await db.execute(
                 update(Chat)
@@ -241,6 +213,9 @@ class MessageService(BaseDbService[Message]):
         stream_id: UUID,
         events: list[tuple[str, dict[str, Any], dict[str, Any] | None]],
     ) -> int:
+        # Bulk variant: one UPDATE bumps Chat.last_event_seq by N and the
+        # contiguous range is assigned to the inserts — cuts write amplification
+        # during chunky agent output bursts.
         if not events:
             return 0
 
@@ -286,6 +261,8 @@ class MessageService(BaseDbService[Message]):
     async def get_chat_messages(
         self, chat_id: UUID, cursor: str | None = None, limit: int = 20
     ) -> CursorPaginatedResponse[MessageSchema]:
+        # (created_at, id) tiebreak matters — user + empty-assistant pairs
+        # created in the same tick share a timestamp.
         async with self.session_factory() as db:
             query = (
                 select(Message)
@@ -380,6 +357,8 @@ class MessageService(BaseDbService[Message]):
     async def get_attachment(
         self, attachment_id: UUID, db: AsyncSession
     ) -> MessageAttachment | None:
+        # Takes an explicit session so AttachmentService can share the
+        # request-scoped one. Eager-loads message.chat for the ownership check.
         result = await db.execute(
             select(MessageAttachment)
             .options(selectinload(MessageAttachment.message).selectinload(Message.chat))
