@@ -40,6 +40,7 @@ import { fuzzySearch } from '@/utils/fuzzySearch';
 import { getLeaves } from '@/utils/mosaicHelpers';
 import { traverseFileStructure, getFileName } from '@/utils/file';
 import { HighlightMatch } from '@/components/editor/file-tree/HighlightMatch';
+import { SearchPanel } from '@/components/editor/file-search/SearchPanel';
 import { cn } from '@/utils/cn';
 import type { ViewType, MosaicDirection } from '@/types/ui.types';
 import type { FileStructure } from '@/types/file-system.types';
@@ -153,10 +154,17 @@ const SETTING_COMMANDS: ActionCommandItem[] = [
   },
   {
     type: 'action',
-    id: 'search-files',
-    label: 'Search files',
-    icon: FileSearch,
+    id: 'search-in-files',
+    label: 'Search in files',
+    icon: Search,
     shortcut: 'f',
+  },
+  {
+    type: 'action',
+    id: 'go-to-file',
+    label: 'Go to file',
+    icon: FileSearch,
+    shortcut: 'o',
   },
 ];
 
@@ -169,7 +177,14 @@ export const SHORTCUT_MAP = new Map<string, CommandItem>(
   ]),
 );
 
-type MenuMode = 'commands' | 'files' | 'branches';
+type MenuMode = 'commands' | 'files' | 'branches' | 'search';
+
+// Commands that switch the menu into a sub-mode instead of dispatching an action.
+const COMMAND_TO_MODE: Partial<Record<string, MenuMode>> = {
+  'search-in-files': 'search',
+  'go-to-file': 'files',
+  'switch-branch': 'branches',
+};
 
 let pendingMenuMode: MenuMode | null = null;
 
@@ -273,7 +288,10 @@ export function executeCommand(
     ui.setSidebarOpen(!ui.sidebarOpen);
   } else if (cmd.id.startsWith('theme-')) {
     ui.setTheme(cmd.id.slice(6) as 'dark' | 'light' | 'system');
-  } else if (cmd.id === 'search-files') {
+  } else if (cmd.id === 'search-in-files') {
+    pendingMenuMode = 'search';
+    ui.setCommandMenuOpen(true);
+  } else if (cmd.id === 'go-to-file') {
     pendingMenuMode = 'files';
     ui.setCommandMenuOpen(true);
   } else if (cmd.id === 'switch-branch') {
@@ -301,6 +319,7 @@ export function CommandMenu() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [mode, setMode] = useState<MenuMode>('commands');
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const previousFocusRef = useRef<Element | null>(null);
   const activeItemRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ activeIndex: 0, mode: 'commands' as MenuMode });
@@ -381,14 +400,20 @@ export function CommandMenu() {
     setMode(next);
     setQuery('');
     setActiveIndex(0);
+    if (next === 'search') {
+      // SearchPanel owns its own input; focus it after React flushes the mode change.
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    } else {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
   }, []);
 
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement;
+      // switchMode also focuses the right input for the target mode.
       switchMode(pendingMenuMode ?? 'commands');
       pendingMenuMode = null;
-      requestAnimationFrame(() => inputRef.current?.focus());
     } else if (previousFocusRef.current instanceof HTMLElement) {
       previousFocusRef.current.focus();
       previousFocusRef.current = null;
@@ -410,6 +435,14 @@ export function CommandMenu() {
   const handleSelectFile = useCallback(
     (file: FlatFileItem) => {
       useUIStore.getState().openFileInEditor(file.path);
+      close();
+    },
+    [close],
+  );
+
+  const handleOpenSearchResult = useCallback(
+    (path: string, lineNumber: number) => {
+      useUIStore.getState().openFileInEditor(path, lineNumber);
       close();
     },
     [close],
@@ -471,6 +504,17 @@ export function CommandMenu() {
       const { activeIndex: idx, mode: m } = stateRef.current;
       const len = listLengthRef.current;
 
+      if (m === 'search') {
+        // SearchPanel handles its own typing + click-to-open; don't hijack
+        // Enter/arrows here. Only wire Escape to step back to commands.
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          switchMode('commands');
+        }
+        return;
+      }
+
       switch (e.key) {
         case 'Escape':
           e.preventDefault();
@@ -504,13 +548,9 @@ export function CommandMenu() {
           } else {
             const cmd = filteredCommandsRef.current[idx];
             if (cmd) {
-              if (cmd.id === 'search-files') {
-                switchMode('files');
-              } else if (cmd.id === 'switch-branch') {
-                switchMode('branches');
-              } else {
-                handleSelectItem(cmd);
-              }
+              const nextMode = COMMAND_TO_MODE[cmd.id];
+              if (nextMode) switchMode(nextMode);
+              else handleSelectItem(cmd);
             }
           }
           break;
@@ -533,7 +573,10 @@ export function CommandMenu() {
     >
       <div
         className={cn(
-          'mt-20 h-fit w-full max-w-md',
+          'mt-20 h-fit w-full',
+          // Widen for search mode so code snippets don't wrap; keep the compact
+          // dialog for every other mode.
+          mode === 'search' ? 'max-w-2xl' : 'max-w-md',
           'rounded-xl border border-border/50 shadow-strong dark:border-border-dark/50',
           'bg-surface/95 backdrop-blur-xl dark:bg-surface-dark/95',
           'animate-fade-in',
@@ -541,246 +584,271 @@ export function CommandMenu() {
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b border-border/50 px-3 dark:border-border-dark/50">
-          {(mode === 'files' || mode === 'branches') && (
-            <Button
-              variant="unstyled"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => switchMode('commands')}
-              className="shrink-0 rounded-md bg-surface-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary dark:bg-surface-dark-hover dark:text-text-dark-secondary"
-            >
-              {mode === 'files' ? 'Files' : 'Branches'}
-            </Button>
-          )}
-          <Search className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-          <Input
-            ref={inputRef}
-            variant="unstyled"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setActiveIndex(0);
-            }}
-            placeholder={
-              mode === 'files'
-                ? 'Search files...'
-                : mode === 'branches'
-                  ? 'Search branches...'
-                  : 'Search...'
-            }
-            className="h-10 w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-quaternary dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary"
-            role="combobox"
-            aria-expanded="true"
-            aria-controls={listId}
-            aria-activedescendant={
-              mode === 'files'
-                ? filteredFiles[activeIndex]
-                  ? `file-item-${activeIndex}`
-                  : undefined
-                : mode === 'branches'
-                  ? filteredBranches[activeIndex]
-                    ? `branch-item-${activeIndex}`
-                    : undefined
-                  : filteredCommands[activeIndex]
-                    ? `command-item-${filteredCommands[activeIndex].id}`
-                    : undefined
-            }
-          />
-        </div>
-
-        <div className="max-h-64 overflow-y-auto py-1" role="listbox" id={listId}>
-          {mode === 'files' ? (
-            <>
-              {filteredFiles.map((file, index) => (
-                <div
-                  key={file.path}
-                  ref={index === activeIndex ? activeItemRef : undefined}
-                  className={cn(
-                    rowClass,
-                    index === activeIndex
-                      ? 'bg-surface-active dark:bg-surface-dark-active'
-                      : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-                  )}
-                  onMouseEnter={() => setActiveIndex(index)}
+        {mode === 'search' ? (
+          <>
+            <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2 dark:border-border-dark/50">
+              <Button
+                variant="unstyled"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => switchMode('commands')}
+                className="shrink-0 rounded-md bg-surface-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary dark:bg-surface-dark-hover dark:text-text-dark-secondary"
+              >
+                Search in files
+              </Button>
+              <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+                Esc to go back
+              </span>
+            </div>
+            <div className="h-[28rem]">
+              <SearchPanel
+                sandboxId={sandboxId ?? undefined}
+                cwd={worktreeCwd}
+                onOpenResult={handleOpenSearchResult}
+                inputRef={searchInputRef}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 border-b border-border/50 px-3 dark:border-border-dark/50">
+              {(mode === 'files' || mode === 'branches') && (
+                <Button
+                  variant="unstyled"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => switchMode('commands')}
+                  className="shrink-0 rounded-md bg-surface-hover px-1.5 py-0.5 text-2xs font-medium text-text-secondary dark:bg-surface-dark-hover dark:text-text-dark-secondary"
                 >
-                  <Button
-                    variant="unstyled"
-                    id={`file-item-${index}`}
-                    role="option"
-                    aria-selected={index === activeIndex}
-                    className="flex flex-1 items-center gap-3 overflow-hidden"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelectFile(file)}
-                  >
-                    <File className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-                    <span className="truncate">
-                      <HighlightMatch
-                        text={file.name}
-                        searchQuery={query}
-                        className="font-medium"
-                      />
-                      <span className="ml-2 text-text-quaternary dark:text-text-dark-quaternary">
-                        {file.path}
-                      </span>
-                    </span>
-                  </Button>
-                </div>
-              ))}
-              {filteredFiles.length === 0 && (
-                <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
-                  No matching files
-                </p>
+                  {mode === 'files' ? 'Files' : 'Branches'}
+                </Button>
               )}
-            </>
-          ) : mode === 'branches' ? (
-            <>
-              {filteredBranches.map((branch, index) => {
-                const isCurrent = branch === branchesData?.current_branch;
-                return (
-                  <div
-                    key={branch}
-                    ref={index === activeIndex ? activeItemRef : undefined}
-                    className={cn(
-                      rowClass,
-                      index === activeIndex
-                        ? 'bg-surface-active dark:bg-surface-dark-active'
-                        : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-                    )}
-                    onMouseEnter={() => setActiveIndex(index)}
-                  >
-                    <Button
-                      variant="unstyled"
-                      id={`branch-item-${index}`}
-                      role="option"
-                      aria-selected={index === activeIndex}
-                      className="flex flex-1 items-center gap-3 overflow-hidden"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => handleSelectBranch(branch)}
-                      disabled={checkoutBranch.isPending}
-                    >
-                      <GitBranch className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-                      <HighlightMatch
-                        text={branch}
-                        searchQuery={query}
-                        className="flex-1 truncate text-left font-mono"
-                      />
-                      {isCurrent && (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-primary dark:bg-text-dark-primary" />
-                      )}
-                    </Button>
-                  </div>
-                );
-              })}
-              {filteredBranches.length === 0 && (
-                <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
-                  {!sandboxId
-                    ? 'No sandbox connected'
-                    : !branchesData
-                      ? 'Loading branches…'
-                      : !branchesData.is_git_repo
-                        ? 'Not a git repository'
-                        : branchesData.branches.length === 0
-                          ? 'No branches in this repository'
-                          : 'No matching branches'}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              {filteredCommands.map((cmd, index) => {
-                const Icon = cmd.icon;
-                const isActive =
-                  (cmd.type === 'view' && activeLeafSet.has(cmd.id)) || cmd.id === `theme-${theme}`;
+              <Search className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+              <Input
+                ref={inputRef}
+                variant="unstyled"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setActiveIndex(0);
+                }}
+                placeholder={
+                  mode === 'files'
+                    ? 'Search files...'
+                    : mode === 'branches'
+                      ? 'Search branches...'
+                      : 'Search...'
+                }
+                className="h-10 w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-quaternary dark:text-text-dark-primary dark:placeholder:text-text-dark-quaternary"
+                role="combobox"
+                aria-expanded="true"
+                aria-controls={listId}
+                aria-activedescendant={
+                  mode === 'files'
+                    ? filteredFiles[activeIndex]
+                      ? `file-item-${activeIndex}`
+                      : undefined
+                    : mode === 'branches'
+                      ? filteredBranches[activeIndex]
+                        ? `branch-item-${activeIndex}`
+                        : undefined
+                      : filteredCommands[activeIndex]
+                        ? `command-item-${filteredCommands[activeIndex].id}`
+                        : undefined
+                }
+              />
+            </div>
 
-                return (
-                  <div
-                    key={cmd.id}
-                    ref={index === activeIndex ? activeItemRef : undefined}
-                    className={cn(
-                      rowClass,
-                      index === activeIndex
-                        ? 'bg-surface-active dark:bg-surface-dark-active'
-                        : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
-                    )}
-                    onMouseEnter={() => setActiveIndex(index)}
-                  >
-                    <Button
-                      variant="unstyled"
-                      id={`command-item-${cmd.id}`}
-                      role="option"
-                      aria-selected={index === activeIndex}
-                      className="flex flex-1 items-center gap-3"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        if (cmd.id === 'search-files') {
-                          switchMode('files');
-                        } else if (cmd.id === 'switch-branch') {
-                          switchMode('branches');
-                        } else {
-                          handleSelectItem(cmd);
-                        }
-                      }}
-                    >
-                      <Icon className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
-                      <HighlightMatch
-                        text={cmd.label}
-                        searchQuery={query}
-                        className="flex-1 text-left"
-                      />
-                      {isActive && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+            <div className="max-h-64 overflow-y-auto py-1" role="listbox" id={listId}>
+              {mode === 'files' ? (
+                <>
+                  {filteredFiles.map((file, index) => (
+                    <div
+                      key={file.path}
+                      ref={index === activeIndex ? activeItemRef : undefined}
+                      className={cn(
+                        rowClass,
+                        index === activeIndex
+                          ? 'bg-surface-active dark:bg-surface-dark-active'
+                          : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
                       )}
-                    </Button>
-                    {!isMobile && cmd.shortcut && (
-                      <kbd className="ml-auto shrink-0 font-mono text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-                        {formatShortcut(cmd.shortcut)}
-                      </kbd>
-                    )}
-                    {cmd.type === 'view' && !isMobile && !isActive && (
-                      <div className="flex items-center gap-0.5">
+                      onMouseEnter={() => setActiveIndex(index)}
+                    >
+                      <Button
+                        variant="unstyled"
+                        id={`file-item-${index}`}
+                        role="option"
+                        aria-selected={index === activeIndex}
+                        className="flex flex-1 items-center gap-3 overflow-hidden"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSelectFile(file)}
+                      >
+                        <File className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+                        <span className="truncate">
+                          <HighlightMatch
+                            text={file.name}
+                            searchQuery={query}
+                            className="font-medium"
+                          />
+                          <span className="ml-2 text-text-quaternary dark:text-text-dark-quaternary">
+                            {file.path}
+                          </span>
+                        </span>
+                      </Button>
+                    </div>
+                  ))}
+                  {filteredFiles.length === 0 && (
+                    <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
+                      No matching files
+                    </p>
+                  )}
+                </>
+              ) : mode === 'branches' ? (
+                <>
+                  {filteredBranches.map((branch, index) => {
+                    const isCurrent = branch === branchesData?.current_branch;
+                    return (
+                      <div
+                        key={branch}
+                        ref={index === activeIndex ? activeItemRef : undefined}
+                        className={cn(
+                          rowClass,
+                          index === activeIndex
+                            ? 'bg-surface-active dark:bg-surface-dark-active'
+                            : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                        )}
+                        onMouseEnter={() => setActiveIndex(index)}
+                      >
                         <Button
                           variant="unstyled"
+                          id={`branch-item-${index}`}
+                          role="option"
+                          aria-selected={index === activeIndex}
+                          className="flex flex-1 items-center gap-3 overflow-hidden"
                           onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleSplit(cmd.id, 'row')}
-                          className={splitButtonClass}
-                          title="Split right"
+                          onClick={() => handleSelectBranch(branch)}
+                          disabled={checkoutBranch.isPending}
                         >
-                          <PanelRight className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="unstyled"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleSplit(cmd.id, 'column')}
-                          className={splitButtonClass}
-                          title="Split down"
-                        >
-                          <PanelBottom className="h-3 w-3" />
+                          <GitBranch className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+                          <HighlightMatch
+                            text={branch}
+                            searchQuery={query}
+                            className="flex-1 truncate text-left font-mono"
+                          />
+                          {isCurrent && (
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+                          )}
                         </Button>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                  {filteredBranches.length === 0 && (
+                    <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
+                      {!sandboxId
+                        ? 'No sandbox connected'
+                        : !branchesData
+                          ? 'Loading branches…'
+                          : !branchesData.is_git_repo
+                            ? 'Not a git repository'
+                            : branchesData.branches.length === 0
+                              ? 'No branches in this repository'
+                              : 'No matching branches'}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {filteredCommands.map((cmd, index) => {
+                    const Icon = cmd.icon;
+                    const isActive =
+                      (cmd.type === 'view' && activeLeafSet.has(cmd.id)) ||
+                      cmd.id === `theme-${theme}`;
 
-              {filteredCommands.length === 0 && (
-                <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
-                  No matching commands
-                </p>
+                    return (
+                      <div
+                        key={cmd.id}
+                        ref={index === activeIndex ? activeItemRef : undefined}
+                        className={cn(
+                          rowClass,
+                          index === activeIndex
+                            ? 'bg-surface-active dark:bg-surface-dark-active'
+                            : 'hover:bg-surface-hover dark:hover:bg-surface-dark-hover',
+                        )}
+                        onMouseEnter={() => setActiveIndex(index)}
+                      >
+                        <Button
+                          variant="unstyled"
+                          id={`command-item-${cmd.id}`}
+                          role="option"
+                          aria-selected={index === activeIndex}
+                          className="flex flex-1 items-center gap-3"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            const nextMode = COMMAND_TO_MODE[cmd.id];
+                            if (nextMode) switchMode(nextMode);
+                            else handleSelectItem(cmd);
+                          }}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-text-tertiary dark:text-text-dark-tertiary" />
+                          <HighlightMatch
+                            text={cmd.label}
+                            searchQuery={query}
+                            className="flex-1 text-left"
+                          />
+                          {isActive && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-text-primary dark:bg-text-dark-primary" />
+                          )}
+                        </Button>
+                        {!isMobile && cmd.shortcut && (
+                          <kbd className="ml-auto shrink-0 font-mono text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+                            {formatShortcut(cmd.shortcut)}
+                          </kbd>
+                        )}
+                        {cmd.type === 'view' && !isMobile && !isActive && (
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              variant="unstyled"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSplit(cmd.id, 'row')}
+                              className={splitButtonClass}
+                              title="Split right"
+                            >
+                              <PanelRight className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="unstyled"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSplit(cmd.id, 'column')}
+                              className={splitButtonClass}
+                              title="Split down"
+                            >
+                              <PanelBottom className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {filteredCommands.length === 0 && (
+                    <p className="px-3 py-4 text-center text-xs text-text-quaternary dark:text-text-dark-quaternary">
+                      No matching commands
+                    </p>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        {!isMobile && (
-          <div className="flex items-center justify-between border-t border-border/50 px-3 py-2 dark:border-border-dark/50">
-            <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
-              {mode === 'files'
-                ? '↵ Open file · Esc to go back'
-                : mode === 'branches'
-                  ? '↵ Switch branch · Esc to go back'
-                  : '↵ Select · Split via icons · Shortcuts work globally · Esc to close'}
-            </span>
-          </div>
+            {!isMobile && (
+              <div className="flex items-center justify-between border-t border-border/50 px-3 py-2 dark:border-border-dark/50">
+                <span className="text-2xs text-text-quaternary dark:text-text-dark-quaternary">
+                  {mode === 'files'
+                    ? '↵ Open file · Esc to go back'
+                    : mode === 'branches'
+                      ? '↵ Switch branch · Esc to go back'
+                      : '↵ Select · Split via icons · Shortcuts work globally · Esc to close'}
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>,

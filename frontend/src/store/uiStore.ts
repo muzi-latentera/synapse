@@ -27,7 +27,11 @@ type UIStoreState = ThemeState &
     createCommitDialogOpen: boolean;
     setCreateCommitDialogOpen: (open: boolean) => void;
     pendingFilePath: string | null;
-    openFileInEditor: (path: string) => void;
+    // Nonce lets the consumer re-jump even when path+line repeat, so that clicking
+    // the same search result after scrolling away still reveals it.
+    pendingFileJump: { path: string; line: number; nonce: number } | null;
+    openFileInEditor: (path: string, line?: number) => void;
+    consumeFileJump: () => void;
     pendingChatMessage: string | null;
     setPendingChatMessage: (message: string | null) => void;
   };
@@ -66,11 +70,18 @@ export const useUIStore = create<UIStoreState>()(
       setPendingChatMessage: (message) => set({ pendingChatMessage: message }),
 
       pendingFilePath: null,
+      pendingFileJump: null,
+      consumeFileJump: () => set({ pendingFileJump: null }),
       // Sets the pending file path and ensures the editor pane is visible.
       // On mobile, switches to the editor view. On desktop, adds an editor
       // tile to the mosaic layout if one isn't already present.
-      openFileInEditor: (path) => {
-        set({ pendingFilePath: path });
+      // When `line` is provided, also queues a jump the editor view consumes.
+      openFileInEditor: (path, line) => {
+        set({
+          pendingFilePath: path,
+          pendingFileJump:
+            line != null ? { path, line, nonce: (get().pendingFileJump?.nonce ?? 0) + 1 } : null,
+        });
         const isMobile = typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
         if (isMobile) {
           set({ currentView: 'editor', mosaicLayout: 'editor' });

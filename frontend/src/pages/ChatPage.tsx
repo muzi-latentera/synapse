@@ -126,6 +126,7 @@ export function ChatPage() {
     useUIStore.getState().setCurrentView('agent');
     useUIStore.setState({
       pendingFilePath: null,
+      pendingFileJump: null,
       subThreadDialogOpen: false,
       createCommitDialogOpen: false,
       createPRDialogOpen: false,
