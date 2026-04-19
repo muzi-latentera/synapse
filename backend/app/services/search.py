@@ -1,7 +1,6 @@
 import json
 import logging
 import shlex
-from pathlib import PurePosixPath
 
 from app.models.schemas.sandbox import (
     SearchFileResult,
@@ -10,7 +9,7 @@ from app.models.schemas.sandbox import (
 )
 from app.services.exceptions import SandboxException
 from app.services.sandbox import SandboxService
-from app.utils.sandbox import git_cd_prefix
+from app.utils.sandbox import normalize_relative_path
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,8 @@ class SearchService:
         # filtering so users don't get matches from node_modules, dist, etc.
         # Result paths are normalized to workspace-root-relative form so they
         # line up with the frontend file tree.
-        cd_prefix = git_cd_prefix(cwd)
+        rel_cwd = normalize_relative_path(cwd)
+        cd_prefix = f"cd '{rel_cwd}' && " if rel_cwd else ""
 
         flags = ["--json", "-n", f"--max-count={max_file_matches}", "--max-columns=500"]
         if not regex:
@@ -82,31 +82,10 @@ class SearchService:
                 err_text = err_text[:MAX_ERROR_LENGTH] + "…"
             raise SandboxException(f"Search failed: {err_text}")
 
-        path_prefix = self._compute_path_prefix(cwd)
+        path_prefix = f"{rel_cwd}/" if rel_cwd else ""
         return self._parse_rg_json(
             result.stdout, max_total_matches, max_file_matches, path_prefix
         )
-
-    def _compute_path_prefix(self, cwd: str | None) -> str:
-        # Translate cwd into a path relative to the file-tree root so rg's
-        # cwd-relative result paths match the workspace-root-relative paths
-        # used by the frontend file tree. Without this, worktree chats see
-        # rg return "src/App.tsx" while the tree holds ".worktrees/abc/src/App.tsx"
-        # and result clicks no-op.
-        if not cwd:
-            return ""
-        workspace = self.sandbox_service.provider.workspace_root
-        try:
-            rel = PurePosixPath(cwd).relative_to(workspace)
-        except ValueError:
-            # cwd lives outside the workspace root — we can't map its paths
-            # back to the file tree, so return them as-is. Result clicks
-            # will miss, but that's no worse than no prefix at all.
-            return ""
-        rel_str = str(rel)
-        if rel_str == ".":
-            return ""
-        return rel_str + "/"
 
     @staticmethod
     def _parse_rg_json(

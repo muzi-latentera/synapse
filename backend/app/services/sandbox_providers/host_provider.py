@@ -15,7 +15,6 @@ from typing import Any
 from app.constants import (
     SANDBOX_BINARY_EXTENSIONS,
     SANDBOX_DEFAULT_COMMAND_TIMEOUT,
-    SANDBOX_HOME_DIR,
     TERMINAL_TYPE,
 )
 from app.services.exceptions import SandboxException
@@ -28,6 +27,7 @@ from app.services.sandbox_providers.types import (
     PtySession,
     PtySize,
 )
+from app.utils.sandbox import normalize_relative_path
 
 logger = logging.getLogger(__name__)
 
@@ -172,14 +172,12 @@ class LocalHostProvider(SandboxProvider):
     async def list_files(
         self,
         sandbox_id: str,
-        path: str = SANDBOX_HOME_DIR,
+        path: str = "",
     ) -> list[FileMetadata]:
         # Use git ls-files for repos — handles .gitignore, global excludes,
         # and .git/info/exclude natively. Falls back to os.walk for non-git dirs.
-        if path == SANDBOX_HOME_DIR:
-            target_dir = self._workspace
-        else:
-            target_dir = self._resolve_path(path)
+        rel = normalize_relative_path(path)
+        target_dir = self._workspace if not rel else self._resolve_path(rel)
 
         result = await self.execute_command(
             sandbox_id,

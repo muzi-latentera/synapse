@@ -131,6 +131,15 @@ class ChatStreamRuntime:
                     last_seq=start_seq,
                     active_stream_id=self.stream_id,
                 )
+            # Emit worktree_cwd up front so the frontend can patch the chat
+            # cache mid-turn; without this, branch/diff/editor actions during
+            # the turn would target the workspace root until end-of-stream
+            # invalidation refetches the chat.
+            if self.chat.worktree_cwd:
+                await self.emit_event(
+                    "system",
+                    {"data": {"worktree_cwd": self.chat.worktree_cwd}},
+                )
             await self._consume_stream(ai_service, stream_result, stream)
             await self._emit_prompt_suggestions()
 
@@ -442,27 +451,22 @@ class ChatStreamRuntime:
         if not new_session_id:
             return
         prev_session_id = self.session_container.get("session_id")
-        new_worktree_cwd = payload.get("worktree_cwd", self.chat.worktree_cwd)
-        if (
-            new_session_id == prev_session_id
-            and new_worktree_cwd == self.chat.worktree_cwd
-        ):
+        if new_session_id == prev_session_id:
             return
         self.session_container["session_id"] = new_session_id
         agent_kind = MODELS[self.model_id].agent_kind
         self.chat.session_id = new_session_id
         self.chat.session_agent_kind = agent_kind.value
-        self.chat.worktree_cwd = new_worktree_cwd
         try:
             async with self.session_factory() as db:
                 chat_uuid = UUID(self.chat_id)
-                values: dict[str, Any] = {
-                    "session_id": new_session_id,
-                    "session_agent_kind": agent_kind.value,
-                    "worktree_cwd": new_worktree_cwd,
-                }
                 await db.execute(
-                    update(Chat).where(Chat.id == chat_uuid).values(**values)
+                    update(Chat)
+                    .where(Chat.id == chat_uuid)
+                    .values(
+                        session_id=new_session_id,
+                        session_agent_kind=agent_kind.value,
+                    )
                 )
                 await db.commit()
         except (SQLAlchemyError, ValueError) as exc:

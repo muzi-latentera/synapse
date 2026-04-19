@@ -153,10 +153,6 @@ class AcpClientHandler:
                 data = event.get("data")
                 if isinstance(data, dict):
                     data.setdefault("session_id", session_id)
-                    update_meta = getattr(update, "field_meta", None) or {}
-                    cwd = update_meta.get("cwd") or kwargs.get("cwd")
-                    if cwd:
-                        data["worktree_cwd"] = cwd
             self.event_queue.put_nowait(event)
 
     async def request_permission(
@@ -426,9 +422,8 @@ class AcpClientHandler:
         return StreamEvent(type="usage", data=self.usage)
 
     def _map_session_info(self, info: SessionInfoUpdate) -> StreamEvent | None:
-        # session_id and cwd are not on SessionInfoUpdate — they come from
-        # the outer SessionNotification and are injected by session_update().
-        # Always emit so the caller can attach the session_id.
+        # session_id comes from the outer SessionNotification and is injected
+        # by session_update(). Always emit so the caller can attach the session_id.
         return StreamEvent(type="system", data={})
 
     @staticmethod

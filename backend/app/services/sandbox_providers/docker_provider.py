@@ -1,12 +1,11 @@
 import asyncio
 import io
 import logging
-import posixpath
 import shlex
 import tarfile
 import uuid
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 import aiodocker
@@ -15,8 +14,6 @@ from app.constants import (
     DOCKER_STATUS_RUNNING,
     SANDBOX_BINARY_EXTENSIONS,
     SANDBOX_DEFAULT_COMMAND_TIMEOUT,
-    SANDBOX_HOME_DIR,
-    SANDBOX_WORKSPACE_DIR,
     TERMINAL_TYPE,
 )
 from app.services.exceptions import SandboxException
@@ -57,23 +54,6 @@ class LocalDockerProvider(SandboxProvider):
     @property
     def workspace_root(self) -> str:
         return f"{self.config.user_home}/workspace"
-
-    @staticmethod
-    def _normalize_path(file_path: str, base: str = SANDBOX_WORKSPACE_DIR) -> str:
-        # Convert a relative or absolute path into an absolute container path —
-        # Docker's tar APIs (get_archive/put_archive) require absolute paths.
-        # Base defaults to the workspace dir because that's where list_files
-        # roots, so relative paths from the file tree (e.g. ".worktrees/.../foo")
-        # must resolve under /home/user/workspace, not /home/user.
-        path = PurePosixPath(file_path)
-        if path.is_absolute():
-            path_str = str(path)
-            # Preserve any absolute path already under /home/user/ (covers both
-            # workspace paths and sibling home-dir paths like /home/user/.bashrc).
-            if path_str.startswith(SANDBOX_HOME_DIR):
-                return posixpath.normpath(path_str)
-            return posixpath.normpath(f"{base}{path}")
-        return posixpath.normpath(f"{base}/{path}")
 
     async def _get_docker(self) -> aiodocker.Docker:
         # Lazily create the aiodocker client on first use.
@@ -229,13 +209,9 @@ class LocalDockerProvider(SandboxProvider):
     async def list_files(
         self,
         sandbox_id: str,
-        path: str = SANDBOX_HOME_DIR,
+        path: str = "",
     ) -> list[FileMetadata]:
-        # Default to the workspace directory so the file tree shows project
-        # files, not shell dotfiles in ~/.
-        target_path = (
-            f"{self.config.user_home}/workspace" if path == SANDBOX_HOME_DIR else path
-        )
+        target_path = self.resolve_workspace_path(path)
 
         # Try git ls-files — handles .gitignore natively.
         git_result = await self.execute_command(
@@ -312,10 +288,13 @@ class LocalDockerProvider(SandboxProvider):
         container = await self._get_container(sandbox_id)
         env_list = [f"{k}={v}" for k, v in (envs or {}).items()]
 
+        # Exec from the workspace root so relative cwd prefixes (e.g.
+        # `cd '.worktrees/abc' && ...`) resolve against the project files,
+        # not the user's home dir.
         exec_obj = await container.exec(
             cmd=["bash", "-c", command],
             environment=env_list,
-            workdir=self.config.user_home,
+            workdir=self.workspace_root,
         )
 
         try:
@@ -337,7 +316,7 @@ class LocalDockerProvider(SandboxProvider):
         # Docker's put_archive API requires a tar stream — we create a single-file
         # tar in memory with uid/gid 1000 (the sandbox "user" account).
         container = await self._get_container(sandbox_id)
-        normalized_path = self._normalize_path(path)
+        normalized_path = self.resolve_workspace_path(path)
 
         content_bytes = content.encode("utf-8") if isinstance(content, str) else content
 
@@ -369,7 +348,7 @@ class LocalDockerProvider(SandboxProvider):
     ) -> FileContent:
         # Docker's get_archive returns a tar — extract the first member's content.
         container = await self._get_container(sandbox_id)
-        normalized_path = self._normalize_path(path)
+        normalized_path = self.resolve_workspace_path(path)
 
         tar_obj = await container.get_archive(normalized_path)
 
