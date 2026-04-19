@@ -121,6 +121,7 @@ WS_CLOSE_SANDBOX_NOT_FOUND: Final[int] = 4004
 TERMINAL_TYPE: Final[str] = "xterm-256color"
 DEFAULT_PTY_ROWS: Final[int] = 24
 DEFAULT_PTY_COLS: Final[int] = 80
+DEFAULT_TERMINAL_ID: Final[str] = "terminal-1"
 DOCKER_STATUS_RUNNING: Final[str] = "running"
 
 SANDBOX_BASHRC_PATH: Final[str] = "/home/user/.bashrc"

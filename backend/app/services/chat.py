@@ -10,8 +10,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import exists, func, select, update
 from sqlalchemy.orm import aliased, selectinload
 
-from app.constants import REDIS_KEY_CHAT_STREAM_LIVE
-from app.core.config import get_settings
+from app.constants import MODELS, REDIS_KEY_CHAT_STREAM_LIVE
 from app.models.db_models.chat import Chat, Message
 from app.models.db_models.enums import MessageRole, MessageStreamStatus, StreamEventKind
 from app.models.db_models.user import User
@@ -26,38 +25,21 @@ from app.models.schemas.pagination import (
 )
 from app.models.types import ChatCompletionResult, MessageAttachmentDict, PermissionMode
 from app.prompts.system_prompt import DEFAULT_PERSONA_NAME, build_system_prompt_for_chat
-from app.services.session_registry import session_registry
 from app.services.db import BaseDbService, SessionFactoryType
 from app.services.exceptions import ChatException, ErrorCode
 from app.services.message import MessageService
-from app.constants import MODELS
 from app.services.sandbox import SandboxService
 from app.services.sandbox_providers.base import SandboxProvider
+from app.services.session_registry import session_registry
 from app.services.storage import StorageService
 from app.services.streaming.runtime import ChatStreamRuntime
 from app.services.streaming.types import ChatStreamRequest, StreamEnvelope
 from app.services.user import UserService
 from app.utils.cache import CachePubSub, cache_connection, cache_pubsub
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 
-TERMINAL_STREAM_EVENT_TYPES = {"cancelled", "complete", "error"}
-
-
-def _extract_queue_processing_message_id(raw_data: Any) -> UUID | None:
-    if not isinstance(raw_data, str):
-        return None
-    if StreamEventKind.QUEUE_PROCESSING.value not in raw_data:
-        return None
-    try:
-        env = json.loads(raw_data)
-        if env.get("kind") != StreamEventKind.QUEUE_PROCESSING.value:
-            return None
-        new_mid = (env.get("payload") or {}).get("assistant_message_id")
-        return UUID(new_mid) if new_mid else None
-    except (json.JSONDecodeError, ValueError):
-        return None
+TERMINAL_STREAM_EVENT_TYPES = frozenset({"cancelled", "complete", "error"})
 
 
 class ChatService(BaseDbService[Chat]):
@@ -78,6 +60,21 @@ class ChatService(BaseDbService[Chat]):
             workspace.sandbox_provider, workspace_path=workspace.workspace_path
         )
         return SandboxService(provider)
+
+    @staticmethod
+    def _extract_queue_processing_message_id(raw_data: Any) -> UUID | None:
+        if not isinstance(raw_data, str):
+            return None
+        if StreamEventKind.QUEUE_PROCESSING.value not in raw_data:
+            return None
+        try:
+            env = json.loads(raw_data)
+            if env.get("kind") != StreamEventKind.QUEUE_PROCESSING.value:
+                return None
+            new_mid = (env.get("payload") or {}).get("assistant_message_id")
+            return UUID(new_mid) if new_mid else None
+        except (json.JSONDecodeError, ValueError):
+            return None
 
     async def get_user_chats(
         self,
@@ -108,7 +105,7 @@ class ChatService(BaseDbService[Chat]):
 
             count_query = select(func.count(Chat.id)).filter(*base_filters)
             count_result = await db.execute(count_query)
-            total = count_result.scalar()
+            total = count_result.scalar() or 0
 
             offset = (pagination.page - 1) * pagination.per_page
 
@@ -147,7 +144,7 @@ class ChatService(BaseDbService[Chat]):
                 page=pagination.page,
                 per_page=pagination.per_page,
                 total=total,
-                pages=math.ceil(total / pagination.per_page) if total > 0 else 0,
+                pages=math.ceil(total / pagination.per_page),
             )
 
     async def create_chat(self, user: User, chat_data: ChatCreate) -> Chat:
@@ -325,9 +322,7 @@ class ChatService(BaseDbService[Chat]):
 
             return chat
 
-    async def get_model_context_window(
-        self, chat_id: UUID, user_id: UUID
-    ) -> int | None:
+    async def get_model_context_window(self, chat_id: UUID) -> int | None:
         last_msg = await self.message_service.get_latest_assistant_message(chat_id)
         if not last_msg or not last_msg.model_id:
             return None
@@ -545,9 +540,6 @@ class ChatService(BaseDbService[Chat]):
 
     @staticmethod
     def _build_stream_sse_event(
-        # Canonical builder for the SSE envelope shape sent to the frontend.
-        # The live-Redis path in _stream_live_redis_events constructs the same
-        # {id, event, data} shape directly from pre-serialized envelope JSON.
         *,
         chat_id: UUID,
         message_id: UUID,
@@ -556,6 +548,9 @@ class ChatService(BaseDbService[Chat]):
         kind: str,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
+        # Canonical builder for the SSE envelope shape sent to the frontend.
+        # The live-Redis path in _stream_live_redis_events constructs the same
+        # {id, event, data} shape directly from pre-serialized envelope JSON.
         return {
             "id": str(seq),
             "event": StreamEventKind.STREAM.value,
@@ -589,7 +584,7 @@ class ChatService(BaseDbService[Chat]):
                 chat_id=chat_id,
                 message_id=uuid4(),
                 stream_id=stream_id or uuid4(),
-                seq=max(int(fallback_seq), 0) + 1,
+                seq=fallback_seq + 1,
                 kind="error",
                 payload=payload,
             )
@@ -606,12 +601,14 @@ class ChatService(BaseDbService[Chat]):
                 audit_payload={"payload": payload},
             )
         except Exception as exc:
+            # Broad catch so the client always receives an error event, even if
+            # DB persistence fails; fall back to a synthesized seq.
             logger.warning(
                 "Failed to persist stream error event for chat %s: %s",
                 chat_id,
                 exc,
             )
-            error_seq = max(int(fallback_seq), 0) + 1
+            error_seq = fallback_seq + 1
 
         return self._build_stream_sse_event(
             chat_id=chat_id,
@@ -714,7 +711,9 @@ class ChatService(BaseDbService[Chat]):
                     async for item in self._replay_stream_backlog(chat_id, after_seq):
                         yield item
                         last_seq = int(item["id"])
-                        new_mid = _extract_queue_processing_message_id(item.get("data"))
+                        new_mid = self._extract_queue_processing_message_id(
+                            item.get("data")
+                        )
                         if new_mid:
                             active_message_id = new_mid
                             active_stream_id = None
@@ -729,7 +728,7 @@ class ChatService(BaseDbService[Chat]):
                         if event_seq > last_seq:
                             last_seq = event_seq
 
-                        new_mid = _extract_queue_processing_message_id(
+                        new_mid = self._extract_queue_processing_message_id(
                             event.get("data")
                         )
                         if new_mid:
@@ -737,6 +736,8 @@ class ChatService(BaseDbService[Chat]):
                             active_stream_id = None
 
         except Exception as exc:
+            # Final SSE safety net — any failure must surface as an error
+            # event rather than a silently hung connection.
             logger.error(
                 "Error in event stream for chat %s: %s", chat_id, exc, exc_info=True
             )
@@ -791,12 +792,9 @@ class ChatService(BaseDbService[Chat]):
                 )
             )
 
-        session_id = chat.session_id
-        user_prompt = MessageService.extract_user_text_content(request.prompt)
-
         await self.message_service.create_message(
             chat_id,
-            user_prompt,
+            request.prompt,
             MessageRole.USER,
             attachments=attachments,
         )
@@ -813,26 +811,21 @@ class ChatService(BaseDbService[Chat]):
             user_settings,
             selected_persona_name=request.selected_persona_name,
         )
-        custom_instructions = (
-            user_settings.custom_instructions if user_settings else None
-        )
-
-        context_window = MODELS[request.model_id].context_window
         try:
             await self._enqueue_chat_task(
-                prompt=user_prompt,
+                prompt=request.prompt,
                 system_prompt=system_prompt,
-                custom_instructions=custom_instructions,
+                custom_instructions=user_settings.custom_instructions,
                 chat=chat,
                 permission_mode=request.permission_mode,
                 model_id=request.model_id,
-                session_id=session_id,
+                session_id=chat.session_id,
                 assistant_message_id=str(assistant_message.id),
                 thinking_mode=request.thinking_mode,
                 worktree=request.worktree,
                 plan_mode=request.plan_mode,
                 attachments=attachments,
-                context_window=context_window,
+                context_window=MODELS[request.model_id].context_window,
                 selected_persona_name=request.selected_persona_name,
             )
         except Exception as e:
@@ -847,9 +840,6 @@ class ChatService(BaseDbService[Chat]):
         }
 
     async def _enqueue_chat_task(
-        # Package the chat state into a ChatStreamRequest and kick off the
-        # background streaming task. Separate method so tests can override it
-        # to run synchronously without the background task machinery.
         self,
         *,
         prompt: str,
@@ -861,12 +851,15 @@ class ChatService(BaseDbService[Chat]):
         session_id: str | None,
         assistant_message_id: str,
         thinking_mode: str | None,
+        attachments: list[MessageAttachmentDict] | None,
         worktree: bool = False,
         plan_mode: bool = False,
-        attachments: list[MessageAttachmentDict] | None,
         context_window: int | None = None,
         selected_persona_name: str = DEFAULT_PERSONA_NAME,
     ) -> None:
+        # Package the chat state into a ChatStreamRequest and kick off the
+        # background streaming task. Separate method so tests can override it
+        # to run synchronously without the background task machinery.
         stream_attachments = (
             [dict(item) for item in attachments] if attachments else None
         )
