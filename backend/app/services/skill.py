@@ -25,36 +25,50 @@ class SkillService:
         )
 
     @staticmethod
+    def _namespace_paths(
+        workspace_path: Path | None, base: Path, namespaces: list[str]
+    ) -> list[Path]:
+        # Workspace paths come first (per-namespace) so they take priority over globals.
+        paths: list[Path] = []
+        if workspace_path:
+            paths.extend(workspace_path / f".{ns}" / "skills" for ns in namespaces)
+        paths.extend(base / f".{ns}" / "skills" for ns in namespaces)
+        return paths
+
+    @staticmethod
     def _build_paths_by_source(
         workspace_path: Path | None,
     ) -> tuple[dict[str, list[Path]], set[Path]]:
-        # Desktop mode reads from the user's home dir, server mode from STORAGE_PATH
+        # Desktop mode reads from the user's home dir, server mode from STORAGE_PATH.
         base = Path.home() if settings.DESKTOP_MODE else Path(settings.STORAGE_PATH)
-        # Agents that support the shared .agents/skills directory (Vercel skills ecosystem)
-        agents_dir_kinds = {AgentKind.CODEX, AgentKind.COPILOT, AgentKind.CURSOR}
-        result: dict[str, list[Path]] = {}
+        ns = SkillService._namespace_paths
+
+        # .{name}/skills namespaces each agent searches. Codex/Copilot/Cursor share
+        # the Vercel .agents/skills ecosystem; OpenCode additionally cross-reads
+        # Claude-compatible skills.
+        result: dict[str, list[Path]] = {
+            AgentKind.CODEX.value: ns(workspace_path, base, ["codex", "agents"]),
+            AgentKind.COPILOT.value: ns(workspace_path, base, ["copilot", "agents"]),
+            AgentKind.CURSOR.value: ns(workspace_path, base, ["cursor", "agents"]),
+            AgentKind.CLAUDE.value: ns(workspace_path, base, ["claude"]),
+            AgentKind.OPENCODE.value: ns(
+                workspace_path, base, ["opencode", "agents", "claude"]
+            ),
+        }
         readonly_paths: set[Path] = set()
-        for kind in AgentKind:
-            paths: list[Path] = []
-            # Workspace-local paths first so they take priority over globals
-            if workspace_path:
-                paths.append(workspace_path / f".{kind.value}" / "skills")
-                if kind in agents_dir_kinds:
-                    paths.append(workspace_path / ".agents" / "skills")
-            paths.append(base / f".{kind.value}" / "skills")
-            if kind in agents_dir_kinds:
-                paths.append(base / ".agents" / "skills")
-            result[kind.value] = paths
+
         # Cursor CLI ships built-in skills at ~/.cursor/skills-cursor/ and manages
         # that directory automatically (updates overwrite user edits), so we
         # surface those skills but flag them read-only.
         cursor_builtin = base / ".cursor" / "skills-cursor"
         result[AgentKind.CURSOR.value].append(cursor_builtin)
         readonly_paths.add(cursor_builtin)
-        # Claude plugins can also bundle skills
+
+        # Claude plugins can also bundle skills.
         result[AgentKind.CLAUDE.value].extend(
             SkillService._get_claude_plugin_skill_paths()
         )
+
         return result, readonly_paths
 
     @staticmethod

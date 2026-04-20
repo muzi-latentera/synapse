@@ -33,7 +33,7 @@ export const SkillsSettingsTab: React.FC<SkillsSettingsTabProps> = ({
           Skills
         </h2>
         <p className="mt-1 text-xs text-text-tertiary dark:text-text-dark-tertiary">
-          Skills installed via the Claude, Codex, Copilot, or Cursor CLI are shown here.
+          Skills installed via the Claude, Codex, Copilot, Cursor, or OpenCode CLI are shown here.
         </p>
       </div>
 
