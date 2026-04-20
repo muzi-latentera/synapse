@@ -155,6 +155,7 @@ export const ModelSelector = memo(function ModelSelector({
                   ? 'text-text-primary dark:text-text-dark-primary'
                   : 'text-text-secondary dark:text-text-dark-secondary',
               )}
+              title={model.name}
             >
               {model.name}
             </span>
