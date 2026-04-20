@@ -235,6 +235,36 @@ MODELS: dict[str, ModelInfo] = {
     "opencode:opencode/nemotron-3-super-free": ModelInfo(
         "Nemotron 3 Super Free (OpenCode)", AgentKind.OPENCODE, 204_800
     ),
+    "opencode:opencode-go/glm-5": ModelInfo(
+        "GLM-5 (Opencode Go)", AgentKind.OPENCODE, 204_800
+    ),
+    "opencode:opencode-go/glm-5.1": ModelInfo(
+        "GLM-5.1 (Opencode Go)", AgentKind.OPENCODE, 204_800
+    ),
+    "opencode:opencode-go/kimi-k2.5": ModelInfo(
+        "Kimi K2.5 (Opencode Go)", AgentKind.OPENCODE, 262_144
+    ),
+    "opencode:opencode-go/kimi-k2.6": ModelInfo(
+        "Kimi K2.6 (Opencode Go)", AgentKind.OPENCODE, 262_144
+    ),
+    "opencode:opencode-go/mimo-v2-omni": ModelInfo(
+        "MiMo V2 Omni (Opencode Go)", AgentKind.OPENCODE, 262_144
+    ),
+    "opencode:opencode-go/mimo-v2-pro": ModelInfo(
+        "MiMo V2 Pro (Opencode Go)", AgentKind.OPENCODE, 1_048_576
+    ),
+    "opencode:opencode-go/minimax-m2.5": ModelInfo(
+        "MiniMax M2.5 (Opencode Go)", AgentKind.OPENCODE, 204_800
+    ),
+    "opencode:opencode-go/minimax-m2.7": ModelInfo(
+        "MiniMax M2.7 (Opencode Go)", AgentKind.OPENCODE, 204_800
+    ),
+    "opencode:opencode-go/qwen3.5-plus": ModelInfo(
+        "Qwen3.5 Plus (Opencode Go)", AgentKind.OPENCODE, 262_144
+    ),
+    "opencode:opencode-go/qwen3.6-plus": ModelInfo(
+        "Qwen3.6 Plus (Opencode Go)", AgentKind.OPENCODE, 262_144
+    ),
     "opencode:amazon-bedrock/amazon.nova-2-lite-v1:0": ModelInfo(
         "Nova 2 Lite (Amazon Bedrock)", AgentKind.OPENCODE, 128_000
     ),
