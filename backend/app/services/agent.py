@@ -198,6 +198,10 @@ class AgentService:
                     item = get_event.result()
                     get_event = None
                     if AcpClientHandler.is_sentinel(item):
+                        # The prompt task may have failed just before finish()
+                        # queued the sentinel; surface that real ACP error
+                        # instead of letting the runtime report an empty stream.
+                        prompt_task.result()
                         break
                     yield cast(StreamEvent, item)
                 else:
@@ -406,6 +410,7 @@ class AgentService:
         session_config = adapter.build_session_config(
             system_prompt=system_prompt,
             system_prompt_is_full_replace=system_prompt_is_full_replace,
+            model_id=model_id,
             thinking_mode=thinking_mode,
             permission_mode=permission_mode,
         )

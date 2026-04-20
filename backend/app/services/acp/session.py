@@ -60,6 +60,10 @@ NON_IMAGE_MIME: dict[str, str] = {
 
 EMPTY_FROZENSET: frozenset[str] = frozenset()
 
+# Claude's thinking budget is advertised as the "effort" session config
+# option; value IDs are the supported Claude UI tiers.
+CLAUDE_EFFORT_CONFIG_ID = "effort"
+
 
 @dataclass
 class AcpSessionConfig:
@@ -347,6 +351,23 @@ class AcpSession:
                 except Exception:
                     logger.warning(
                         "Failed to set initial mode: %s", config.permission_mode
+                    )
+
+            # Claude receives thinking budget via the "effort" session config
+            # option (not launch CLI args), so it must be applied after
+            # new_session/load_session. Codex bakes reasoning_effort into CLI
+            # args at launch, so it doesn't need this post-handshake step.
+            if config.agent_kind == AgentKind.CLAUDE and config.reasoning_effort:
+                try:
+                    await conn.set_config_option(
+                        config_id=CLAUDE_EFFORT_CONFIG_ID,
+                        session_id=acp_session_id,
+                        value=config.reasoning_effort,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to set initial effort: %s",
+                        config.reasoning_effort,
                     )
 
         except Exception as exc:

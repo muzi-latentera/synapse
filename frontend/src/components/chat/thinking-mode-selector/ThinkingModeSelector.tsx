@@ -20,6 +20,13 @@ const CLAUDE_THINKING_MODES: ThinkingModeOption[] = [
   { value: 'high', label: 'High' },
   { value: 'max', label: 'Max' },
 ];
+const CLAUDE_OPUS_THINKING_MODES: ThinkingModeOption[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'xhigh', label: 'XHigh' },
+  { value: 'max', label: 'Max' },
+];
 
 const CODEX_THINKING_MODES: ThinkingModeOption[] = [
   { value: 'low', label: 'Low' },
@@ -49,8 +56,24 @@ const DEFAULT_BY_AGENT: Record<AgentKind, string> = {
   opencode: 'medium',
 };
 
-export function coerceThinkingModeForAgent(thinkingMode: string, agentKind: AgentKind): string {
-  const modes = THINKING_MODES_BY_AGENT[agentKind];
+export function getThinkingModesForAgent(
+  agentKind: AgentKind,
+  modelId?: string,
+): ThinkingModeOption[] {
+  // Claude exposes `xhigh` only for the Opus alias we map to Opus 4.7.
+  if (agentKind === 'claude' && modelId === 'opus[1m]') {
+    return CLAUDE_OPUS_THINKING_MODES;
+  }
+
+  return THINKING_MODES_BY_AGENT[agentKind];
+}
+
+export function coerceThinkingModeForAgent(
+  thinkingMode: string,
+  agentKind: AgentKind,
+  modelId?: string,
+): string {
+  const modes = getThinkingModesForAgent(agentKind, modelId);
   const defaultMode = DEFAULT_BY_AGENT[agentKind];
   return modes.find((mode) => mode.value === thinkingMode)?.value ?? defaultMode;
 }
@@ -58,10 +81,11 @@ export function coerceThinkingModeForAgent(thinkingMode: string, agentKind: Agen
 function getThinkingModeOption(
   thinkingMode: string,
   agentKind: AgentKind,
+  modelId?: string,
 ): ThinkingModeOption | null {
-  const modes = THINKING_MODES_BY_AGENT[agentKind];
+  const modes = getThinkingModesForAgent(agentKind, modelId);
   if (modes.length === 0) return null;
-  const effectiveMode = coerceThinkingModeForAgent(thinkingMode, agentKind);
+  const effectiveMode = coerceThinkingModeForAgent(thinkingMode, agentKind, modelId);
   const selectedMode = modes.find((mode) => mode.value === effectiveMode);
 
   if (!selectedMode) {
@@ -74,6 +98,7 @@ function getThinkingModeOption(
 export interface ThinkingModeSelectorProps {
   chatId?: string;
   agentKind?: AgentKind;
+  modelId?: string;
   dropdownPosition?: 'top' | 'bottom';
   disabled?: boolean;
   variant?: 'default' | 'text';
@@ -83,6 +108,7 @@ export interface ThinkingModeSelectorProps {
 export const ThinkingModeSelector = memo(function ThinkingModeSelector({
   chatId,
   agentKind,
+  modelId,
   dropdownPosition = 'bottom',
   dropdownAlign,
   disabled = false,
@@ -95,8 +121,8 @@ export const ThinkingModeSelector = memo(function ThinkingModeSelector({
   );
   const isSplitMode = useIsSplitMode();
 
-  const modes = THINKING_MODES_BY_AGENT[resolvedAgentKind];
-  const selectedMode = getThinkingModeOption(thinkingMode, resolvedAgentKind);
+  const modes = getThinkingModesForAgent(resolvedAgentKind, modelId);
+  const selectedMode = getThinkingModeOption(thinkingMode, resolvedAgentKind, modelId);
 
   // Some agents (e.g. Cursor) don't expose a thinking-mode control because
   // reasoning effort is chosen at the model level. Hide the selector entirely.

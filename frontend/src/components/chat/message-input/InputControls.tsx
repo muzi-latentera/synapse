@@ -50,6 +50,7 @@ export function InputControls() {
           <ThinkingModeSelector
             chatId={state.chatId}
             agentKind={agentKind}
+            modelId={state.selectedModelId}
             dropdownPosition={state.dropdownPosition}
             dropdownAlign="right"
             disabled={state.isLoading}

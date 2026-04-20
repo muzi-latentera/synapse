@@ -108,6 +108,7 @@ export function useMessageActions({
         const effectiveThinkingMode = coerceThinkingModeForAgent(
           thinkingMode ?? 'medium',
           agentKind,
+          selectedModelId,
         );
 
         const request: ChatRequest = {
