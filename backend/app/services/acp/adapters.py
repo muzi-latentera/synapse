@@ -30,15 +30,6 @@ NATIVE_FILE_TYPES: dict[AgentKind, frozenset[str]] = {
 }
 
 
-# Claude uses MAX_THINKING_TOKENS env var (not a CLI arg) to cap the
-# extended-thinking budget. These map the UI's named tiers to token counts.
-THINKING_MODE_TOKENS: dict[str, int] = {
-    "low": 4000,
-    "medium": 10000,
-    "high": 15000,
-    "max": 32000,
-}
-
 # Maps UI permission modes to codex-acp launch-time approval_policy values.
 # "untrusted" = deny all writes, "on-request" = prompt for risky actions,
 # "never" = never prompt (auto-approve everything).
@@ -61,6 +52,7 @@ COPILOT_SESSION_MODE_IDS: dict[str, str] = {
 }
 
 CLAUDE_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "max"})
+CLAUDE_OPUS_VALID_THINKING_MODES = CLAUDE_VALID_THINKING_MODES | {"xhigh"}
 CODEX_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "xhigh"})
 COPILOT_VALID_THINKING_MODES = frozenset({"low", "medium", "high", "xhigh"})
 
@@ -149,6 +141,7 @@ class AgentAdapter(ABC):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
+        model_id: str,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
@@ -188,24 +181,27 @@ class ClaudeAgentAdapter(AgentAdapter):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
+        model_id: str,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
         meta = build_system_prompt_meta(system_prompt, system_prompt_is_full_replace)
 
-        # Claude uses MAX_THINKING_TOKENS env var for thinking budget.
-        env_overrides: dict[str, str] = {}
-        max_thinking = THINKING_MODE_TOKENS.get(
-            coerce_thinking_mode(thinking_mode, CLAUDE_VALID_THINKING_MODES)
+        # Claude exposes thinking budget as the "effort" session config option,
+        # applied post-handshake via set_config_option; the UI's named tiers
+        # are passed through directly as effort level IDs. `xhigh` is currently
+        # only valid for the Opus alias we expose, so other Claude models keep
+        # the narrower tier set and coerce unsupported persisted values.
+        valid_modes = (
+            CLAUDE_OPUS_VALID_THINKING_MODES
+            if model_id == "opus[1m]"
+            else CLAUDE_VALID_THINKING_MODES
         )
-        if max_thinking:
-            env_overrides["MAX_THINKING_TOKENS"] = str(max_thinking)
+        reasoning_effort = coerce_thinking_mode(thinking_mode, valid_modes)
 
-        # Claude doesn't remap reasoning effort or permission modes —
-        # thinking is controlled via env var, permissions are session-level.
         return SessionConfig(
             meta=meta,
-            env_overrides=env_overrides,
+            reasoning_effort=reasoning_effort,
             permission=PermissionConfig(session_mode=permission_mode),
         )
 
@@ -257,6 +253,7 @@ class CodexAgentAdapter(AgentAdapter):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
+        model_id: str,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
@@ -315,13 +312,13 @@ class CopilotCliAdapter(AgentAdapter):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
+        model_id: str,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
         meta = build_system_prompt_meta(system_prompt, system_prompt_is_full_replace)
 
-        # Copilot ACP exposes reasoning effort directly rather than Claude's
-        # MAX_THINKING_TOKENS environment variable budget.
+        # Copilot ACP exposes reasoning effort as a CLI/ACP value directly.
         reasoning_effort = coerce_thinking_mode(
             thinking_mode, COPILOT_VALID_THINKING_MODES
         )
@@ -374,6 +371,7 @@ class CursorAgentAdapter(AgentAdapter):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
+        model_id: str,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:
@@ -426,6 +424,7 @@ class OpencodeAgentAdapter(AgentAdapter):
         *,
         system_prompt: str | None,
         system_prompt_is_full_replace: bool,
+        model_id: str,
         thinking_mode: str | None,
         permission_mode: str,
     ) -> SessionConfig:

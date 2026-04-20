@@ -915,7 +915,7 @@ class ChatStreamRuntime:
         try:
             message_service = MessageService(session_factory=session_factory)
             message = await message_service.get_message(UUID(assistant_message_id))
-            if not message or message.stream_status != MessageStreamStatus.IN_PROGRESS:
+            if not message:
                 return
             stream_id = uuid4()
             payload = {"error": error_message}

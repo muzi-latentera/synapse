@@ -220,6 +220,7 @@ export function InputProvider({
       const thinkingMode = coerceThinkingModeForAgent(
         settings.thinkingModeByChat[chatId] ?? DEFAULT_THINKING_MODE,
         agentKind,
+        selectedModelId,
       );
       const worktree = settings.worktreeByChat[chatId] ?? DEFAULT_WORKTREE;
       const planMode =
