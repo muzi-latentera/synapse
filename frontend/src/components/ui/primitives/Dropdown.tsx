@@ -187,7 +187,10 @@ function DropdownInner<T>({
                 )}
               />
             )}
-            <span className={cn(labelClasses, 'text-inherit dark:text-inherit')}>
+            <span
+              className={cn(labelClasses, 'text-inherit dark:text-inherit')}
+              title={triggerLabel}
+            >
               {triggerLabel}
             </span>
           </>
@@ -201,7 +204,9 @@ function DropdownInner<T>({
                 )}
               />
             )}
-            <span className={labelClasses}>{triggerLabel}</span>
+            <span className={labelClasses} title={triggerLabel}>
+              {triggerLabel}
+            </span>
             {!disabled && (
               <ChevronDown className={`${chevronClasses} ${isOpen ? 'rotate-180' : ''}`} />
             )}

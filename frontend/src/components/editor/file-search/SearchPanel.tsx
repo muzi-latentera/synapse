@@ -3,6 +3,7 @@ import { CaseSensitive, Loader2, Regex, Search, WholeWord, X } from 'lucide-reac
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/Button';
 import { Input } from '@/components/ui/primitives/Input';
+import { useMountEffect } from '@/hooks/useMountEffect';
 import { useSearchInFilesQuery } from '@/hooks/queries/useSandboxQueries';
 import type { SearchParams } from '@/types/sandbox.types';
 import { cn } from '@/utils/cn';
@@ -39,6 +40,10 @@ export const SearchPanel = memo(function SearchPanel({
   const [activeLine, setActiveLine] = useState<{ path: string; line: number } | null>(null);
   const localInputRef = useRef<HTMLInputElement>(null);
   const activeInputRef = inputRef ?? localInputRef;
+
+  useMountEffect(() => {
+    inputRef?.current?.focus();
+  });
 
   const handleOpen = useCallback(
     (path: string, lineNumber: number) => {
