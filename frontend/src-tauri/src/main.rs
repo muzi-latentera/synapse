@@ -23,23 +23,34 @@ fn get_backend_port(state: tauri::State<'_, Arc<OnceLock<Result<u16, String>>>>)
 fn data_dir() -> std::path::PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("com.agentrove.app")
+        .join("com.synapse.app")
 }
 
 fn ensure_secret_key(data_dir: &std::path::Path) -> String {
     fs::create_dir_all(data_dir).ok();
     let key_path = data_dir.join(".secret_key");
-    if let Ok(key) = fs::read_to_string(&key_path) {
-        let key = key.trim().to_string();
+    if let Ok(raw) = fs::read_to_string(&key_path) {
+        let key = raw.trim().to_string();
+        eprintln!(
+            "[synapse] secret_key read from {}: len={}",
+            key_path.display(),
+            key.len()
+        );
         if key.len() >= 32 {
             return key;
         }
+    } else {
+        eprintln!("[synapse] secret_key file not readable at {}", key_path.display());
     }
     let mut rng = rand::rng();
     let key: String = (0..32)
         .map(|_| format!("{:02x}", rng.random_range(0u8..=255)))
         .collect();
-    fs::write(&key_path, &key).ok();
+    if let Err(e) = fs::write(&key_path, &key) {
+        eprintln!("[synapse] failed to write secret_key: {}", e);
+    } else {
+        eprintln!("[synapse] generated fresh secret_key ({} chars) at {}", key.len(), key_path.display());
+    }
     key
 }
 
@@ -52,12 +63,12 @@ fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> std::path::PathBuf {
     let binary = resource_dir
         .join("_up_")
         .join("backend-sidecar")
-        .join("agentrove-backend");
+        .join("synapse-backend");
     if binary.exists() {
         return binary;
     }
 
-    let direct = resource_dir.join("backend-sidecar").join("agentrove-backend");
+    let direct = resource_dir.join("backend-sidecar").join("synapse-backend");
     if direct.exists() {
         return direct;
     }
@@ -66,7 +77,7 @@ fn resolve_backend_binary(app_handle: &tauri::AppHandle) -> std::path::PathBuf {
         .parent()
         .unwrap()
         .join("backend-sidecar")
-        .join("agentrove-backend");
+        .join("synapse-backend");
     if dev_binary.exists() {
         return dev_binary;
     }
@@ -143,7 +154,18 @@ fn spawn_backend(
     }
     backend_path.push_str(":/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin");
 
-    let db_path = data_dir.join("agentrove.db").to_string_lossy().to_string();
+    let db_path = data_dir.join("synapse.db").to_string_lossy().to_string();
+    assert!(
+        !secret_key.is_empty() && secret_key.len() >= 32,
+        "[synapse] refusing to spawn backend with empty/short SECRET_KEY (len={})",
+        secret_key.len()
+    );
+    eprintln!(
+        "[synapse] spawning backend with SECRET_KEY (len={}), port={}, db={}",
+        secret_key.len(),
+        port,
+        db_path
+    );
     let mut command = Command::new(&backend_bin);
     command
         .env("DESKTOP_MODE", "true")
@@ -188,7 +210,6 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())

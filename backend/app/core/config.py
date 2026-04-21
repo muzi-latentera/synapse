@@ -1,4 +1,5 @@
 import logging
+import os
 import platform
 import sys
 from datetime import datetime, timezone
@@ -14,10 +15,28 @@ from pythonjsonlogger import jsonlogger
 def _desktop_data_dir() -> Path:
     system = platform.system()
     if system == "Darwin":
-        return Path.home() / "Library" / "Application Support" / "com.agentrove.app"
+        return Path.home() / "Library" / "Application Support" / "com.synapse.app"
     if system == "Windows":
-        return Path.home() / "AppData" / "Roaming" / "com.agentrove.app"
-    return Path.home() / ".local" / "share" / "com.agentrove.app"
+        return Path.home() / "AppData" / "Roaming" / "com.synapse.app"
+    return Path.home() / ".local" / "share" / "com.synapse.app"
+
+
+def _hydrate_secret_key_from_file() -> None:
+    # Desktop builds have the Rust launcher pass SECRET_KEY via env, but
+    # some Tauri spawn paths drop that inheritance on macOS. As a
+    # belt-and-suspenders, if DESKTOP_MODE is on and SECRET_KEY is missing
+    # or empty, load it from the .secret_key file the launcher wrote.
+    if not os.environ.get("DESKTOP_MODE", "").lower() in ("true", "1", "yes"):
+        return
+    if os.environ.get("SECRET_KEY"):
+        return
+    key_file = _desktop_data_dir() / ".secret_key"
+    try:
+        key = key_file.read_text().strip()
+    except OSError:
+        return
+    if len(key) >= 32:
+        os.environ["SECRET_KEY"] = key
 
 
 class Settings(BaseSettings):
@@ -99,7 +118,7 @@ class Settings(BaseSettings):
             return self
         data_dir = _desktop_data_dir()
         data_dir.mkdir(parents=True, exist_ok=True)
-        default_db = f"sqlite+aiosqlite:///{(data_dir / 'agentrove.db').as_posix()}"
+        default_db = f"sqlite+aiosqlite:///{(data_dir / 'synapse.db').as_posix()}"
         if (
             self.DATABASE_URL
             == "postgresql+asyncpg://postgres:postgres@localhost:5432/agentrove"
@@ -275,6 +294,7 @@ def _setup_logging(log_level: str, use_json: bool = True) -> None:
 
 @lru_cache()
 def get_settings() -> Settings:
+    _hydrate_secret_key_from_file()
     settings = Settings()
     _setup_logging(settings.LOG_LEVEL)
     return settings

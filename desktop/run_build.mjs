@@ -251,7 +251,7 @@ function copySource() {
 }
 
 function writeLauncher() {
-  const launcher = join(sidecarDir, 'agentrove-backend');
+  const launcher = join(sidecarDir, 'synapse-backend');
   // Prepend the bundled bin dir to PATH so the user's shell (spawned via
   // `bash -lc` by the host sandbox provider) can find our bundled `rg`
   // without any extra install step. Login shells still run the user's rc

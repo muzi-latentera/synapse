@@ -12,7 +12,6 @@
     "core:window:allow-is-maximized",
     "core:window:allow-start-dragging",
     "store:default",
-    "updater:default",
     "notification:default",
     "dialog:default",
     "opener:default"
