@@ -1,3 +1,4 @@
+import secrets
 from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -71,6 +72,54 @@ async def login(
     strategy = get_jwt_strategy()
     access_token = await strategy.write_token(user)
 
+    user_agent = request.headers.get("user-agent")
+    client_ip = request.client.host if request.client else None
+    refresh_token = await refresh_token_service.create_refresh_token(
+        user_id=user.id,
+        db=db,
+        user_agent=user_agent,
+        ip_address=client_ip,
+    )
+
+    return Token(
+        access_token=access_token, refresh_token=refresh_token, token_type="bearer"
+    )
+
+
+# Synapse desktop runs locally on the user's machine — a login screen is
+# useless friction. This endpoint auto-provisions a single local account on
+# first call and hands back a normal JWT, so the frontend can skip the auth
+# pages entirely when running as a Tauri build.
+LOCAL_USER_EMAIL = "local@synapse.app"
+LOCAL_USERNAME = "local"
+
+
+@router.post("/jwt/desktop-login", response_model=Token)
+async def desktop_login(
+    request: Request,
+    user_db: UserDatabase = Depends(get_user_db),
+    user_manager: UserManager = Depends(get_user_manager),
+    db: AsyncSession = Depends(get_db),
+    refresh_token_service: RefreshTokenService = Depends(get_refresh_token_service),
+) -> Token:
+    if not settings.DESKTOP_MODE:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    user = await user_db.get_by_email(LOCAL_USER_EMAIL)
+    if user is None:
+        user = await user_manager.create(
+            UserCreate(
+                email=LOCAL_USER_EMAIL,
+                username=LOCAL_USERNAME,
+                # Random; no-one ever signs in with it — JWT is the only auth path.
+                password=secrets.token_urlsafe(32),
+                is_active=True,
+                is_verified=True,
+            )
+        )
+
+    strategy = get_jwt_strategy()
+    access_token = await strategy.write_token(user)
     user_agent = request.headers.get("user-agent")
     client_ip = request.client.host if request.client else None
     refresh_token = await refresh_token_service.create_refresh_token(

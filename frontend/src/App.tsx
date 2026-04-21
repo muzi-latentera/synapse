@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { useMountEffect } from '@/hooks/useMountEffect';
 import { Layout } from '@/components/layout/Layout';
 import { Toaster } from 'react-hot-toast';
-import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/authStore';
 import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { useCurrentUserQuery } from '@/hooks/queries/useAuthQueries';
@@ -17,8 +16,6 @@ import { AuthRoute } from '@/components/routes/AuthRoute';
 import { setApiPort } from '@/lib/api';
 import { isTauri, invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { check } from '@tauri-apps/plugin-updater';
-import { ask } from '@tauri-apps/plugin-dialog';
 import { authStorage } from '@/utils/storage';
 import { DesktopDragRegion } from '@/components/layout/TitleBar';
 
@@ -41,34 +38,39 @@ const ResetPasswordPage = lazy(() =>
 );
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 
-async function checkDesktopUpdate(): Promise<void> {
-  const update = await check();
-  if (!update?.available) {
-    return;
-  }
-
-  const shouldInstall = await ask(`Agentrove ${update.version} is available. Install now?`, {
-    title: 'Update Available',
-    kind: 'info',
-  });
-  if (!shouldInstall) {
-    return;
-  }
-
-  toast.loading('Downloading desktop update...', { id: 'desktop-update' });
-  await update.downloadAndInstall();
-  toast.success(`Agentrove ${update.version} installed. Restart app to finish update.`, {
-    id: 'desktop-update',
-  });
-}
-
 function AppContent() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const hasToken = !!authService.getToken();
   const isSessionAuthenticated = isAuthenticated && hasToken;
+  const [authBootstrapping, setAuthBootstrapping] = useState<boolean>(
+    () => isTauri() && !authService.getToken(),
+  );
   const { data: user, isLoading } = useCurrentUserQuery({
     enabled: hasToken,
     retry: false,
+  });
+
+  // Desktop auto-login: on first launch in Tauri with no token, call the
+  // DESKTOP_MODE-gated endpoint that provisions the local user and hands
+  // back a JWT. Skips the login/signup screens entirely for the desktop
+  // build (they're local-only and authless makes no sense). Failure falls
+  // through to the normal login routes so the user isn't locked out.
+  useMountEffect(() => {
+    if (!isTauri() || authService.getToken()) {
+      setAuthBootstrapping(false);
+      return;
+    }
+    authService
+      .desktopAutoLogin()
+      .then(() => {
+        useAuthStore.getState().setAuthenticated(true);
+      })
+      .catch((error) => {
+        console.error('Desktop auto-login failed:', error);
+      })
+      .finally(() => {
+        setAuthBootstrapping(false);
+      });
   });
 
   // NOTE: This effect intentionally syncs auth state via useEffect rather than deriving during
@@ -100,7 +102,11 @@ function AppContent() {
     enabled: isSessionAuthenticated,
   });
 
-  const showLoading = hasToken && isLoading;
+  const showLoading = (hasToken && isLoading) || authBootstrapping;
+
+  if (authBootstrapping) {
+    return <LoadingScreen />;
+  }
 
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -235,7 +241,7 @@ export default function App() {
       .catch((error) => {
         if (cancelled) return;
         console.error('Failed to resolve desktop backend port:', error);
-        setDesktopError('Desktop backend failed to start. Restart Agentrove and try again.');
+        setDesktopError('Desktop backend failed to start. Restart Synapse and try again.');
         getCurrentWindow()
           .show()
           .catch((error) => {
@@ -246,14 +252,6 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  });
-
-  useMountEffect(() => {
-    if (import.meta.env.DEV || !isTauri()) return;
-
-    checkDesktopUpdate().catch((error) => {
-      console.error('Desktop updater check failed:', error);
-    });
   });
 
   // Open external links in the system browser — Tauri doesn't handle target="_blank" natively

@@ -97,6 +97,19 @@ async function login(data: LoginRequest): Promise<AuthResponse> {
   });
 }
 
+// Desktop builds hit this on first launch to provision the single local user
+// and get a JWT without making the user fight a login form for a local app.
+// Backend endpoint is gated to DESKTOP_MODE so it 404s in web builds.
+async function desktopAutoLogin(): Promise<AuthResponse> {
+  return serviceCall(async () => {
+    const response = await apiClient.post<AuthResponse>('/auth/jwt/desktop-login', {});
+    const payload = ensureResponse(response, 'Invalid response from server');
+    authStorage.setToken(payload.access_token);
+    authStorage.setRefreshToken(payload.refresh_token);
+    return payload;
+  });
+}
+
 async function getCurrentUser(): Promise<User> {
   return withAuth(async () => {
     const response = await apiClient.get<User>('/auth/me');
@@ -155,6 +168,7 @@ async function resetPassword(data: ResetPasswordRequest): Promise<void> {
 export const authService = {
   signup,
   login,
+  desktopAutoLogin,
   getCurrentUser,
   logout,
   getToken,
